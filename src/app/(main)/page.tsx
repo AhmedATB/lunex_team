@@ -22,7 +22,8 @@ import { NewsSection } from "@/components/home/news-section";
 import { TopReaders } from "@/components/home/top-readers";
 import { LatestComments } from "@/components/home/latest-comments";
 import { ContinueReading } from "@/components/home/continue-reading";
-import { SeriesRow, SeriesCard, genreLabelsFor, GENRE_CHIP_STYLES } from "@/components/shared/series-card";
+import { SeriesRow, SeriesCard } from "@/components/shared/series-card";
+import { genreLabelsFor, GENRE_CHIP_STYLES } from "@/lib/genre-helpers";
 import { cn } from "@/lib/utils";
 import { FadeIn } from "@/components/motion/fade-in";
 import { Sparkles } from "lucide-react";
@@ -70,7 +71,7 @@ export default async function HomePage() {
   const seriesMap = new Map(db.series.map((s) => [s.id, s]));
 
   return (
-    <div className="container space-y-14 py-6">
+    <div className="container relative space-y-14 py-6">
       <FadeIn>
         <HeroSlider series={featured.length ? featured : trending.slice(0, 5)} />
       </FadeIn>
@@ -85,7 +86,7 @@ export default async function HomePage() {
 
       <FadeIn>
         <section className="space-y-4">
-          <h2 className="font-display text-xl font-bold text-white sm:text-2xl">آخر تحديثات الفصول</h2>
+          <h2 className="section-title font-display text-xl font-bold text-white sm:text-2xl">آخر تحديثات الفصول</h2>
           <div className="grid grid-cols-2 gap-5 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6">
             {latestChapters.map((c) => {
               const genreLabels = genreLabelsFor(c.series.genreIds);
@@ -139,7 +140,7 @@ export default async function HomePage() {
       <FadeIn>
         <section className="space-y-4">
           <div className="flex items-center justify-between">
-            <h2 className="font-display text-xl font-bold text-white sm:text-2xl">الرائجة</h2>
+            <h2 className="section-title font-display text-xl font-bold text-white sm:text-2xl">الرائجة</h2>
             <Link href="/search?sort=views" className="text-sm font-medium text-primary-300 hover:text-primary-200">
               عرض الكل ←
             </Link>
@@ -210,15 +211,19 @@ export default async function HomePage() {
         <SeriesRow title="ننصح لك بها" href="/search" series={recommended} />
       </FadeIn>
 
+      <div className="magic-divider" />
+
       <FadeIn>
         <section className="space-y-4">
-          <h2 className="font-display text-xl font-bold text-white sm:text-2xl">تصفح حسب التصنيف</h2>
+          <h2 className="section-title font-display text-xl font-bold text-white sm:text-2xl">تصفح حسب التصنيف</h2>
           <GenreGrid genres={genres} />
         </section>
       </FadeIn>
 
+      <div className="magic-divider" />
+
       <FadeIn>
-        <div className="relative overflow-hidden border border-primary-500/30 bg-lunex-radial p-6 sm:p-8">
+        <div className="magic-border relative overflow-hidden rounded-2xl bg-lunex-radial p-6 sm:p-8">
           <Sparkles className="absolute -top-4 end-6 h-24 w-24 text-primary-500/10" />
           <div className="flex flex-col items-start gap-4 sm:flex-row sm:items-center sm:justify-between">
             <div>

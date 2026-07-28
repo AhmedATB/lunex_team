@@ -1,10 +1,13 @@
+"use client";
+
+import { useRef } from "react";
 import Image from "next/image";
 import Link from "next/link";
 import { Star, BookOpen, Bookmark, Sparkle } from "lucide-react";
 import type { Series } from "@/lib/types";
 import { Badge } from "@/components/ui/badge";
 import { cn, formatNumber } from "@/lib/utils";
-import { getMockDatabase } from "@/lib/mock/generate";
+import { genreLabelsFor, GENRE_CHIP_STYLES } from "@/lib/genre-helpers";
 
 const STATUS_LABEL: Record<Series["status"], string> = {
   ongoing: "مستمر",
@@ -20,30 +23,41 @@ const STATUS_VARIANT: Record<Series["status"], "success" | "secondary" | "warnin
   dropped: "destructive",
 };
 
-export const genreNameById = new Map(getMockDatabase().genres.map((g) => [g.id, g.nameAr]));
-
-export const GENRE_CHIP_STYLES = [
-  "bg-primary-600/90 text-white",
-  "bg-amber-400 text-amber-950",
-  "bg-[#c084fc] text-[#2c0a4d]",
-];
-
-export function genreLabelsFor(genreIds: string[], limit = 3): string[] {
-  return genreIds
-    .slice(0, limit)
-    .map((id) => genreNameById.get(id))
-    .filter(Boolean) as string[];
-}
-
 export function SeriesCard({ series, priority = false }: { series: Series; priority?: boolean }) {
   const genreLabels = genreLabelsFor(series.genreIds);
+  const ref = useRef<HTMLAnchorElement>(null);
+
+  function onMouseMove(e: React.MouseEvent<HTMLAnchorElement>) {
+    const el = ref.current;
+    if (!el) return;
+    const rect = el.getBoundingClientRect();
+    const x = e.clientX - rect.left;
+    const y = e.clientY - rect.top;
+    const px = x / rect.width;
+    const py = y / rect.height;
+    el.style.setProperty("--mx", `${x}px`);
+    el.style.setProperty("--my", `${y}px`);
+    el.style.setProperty("--rx", `${(py - 0.5) * -10}deg`);
+    el.style.setProperty("--ry", `${(px - 0.5) * 10}deg`);
+  }
+
+  function onMouseLeave() {
+    const el = ref.current;
+    if (!el) return;
+    el.style.setProperty("--rx", "0deg");
+    el.style.setProperty("--ry", "0deg");
+  }
 
   return (
     <Link
+      ref={ref}
       href={`/series/${series.slug}`}
-      className="art-glow ease-bounce group flex flex-col overflow-hidden rounded-2xl border border-white/10 bg-[#120a1f] transition-all duration-300 hover:-translate-y-2 hover:rotate-[-0.75deg] hover:border-primary-400/50 hover:shadow-2xl hover:shadow-primary-900/40"
+      onMouseMove={onMouseMove}
+      onMouseLeave={onMouseLeave}
+      className="tilt-card art-glow group flex flex-col overflow-hidden rounded-2xl border border-white/10 bg-[#120a1f] shadow-lg shadow-black/40 transition-shadow duration-300 hover:border-primary-400/50 hover:shadow-2xl hover:shadow-primary-900/40"
+      style={{ transform: "perspective(800px) rotateX(var(--rx, 0deg)) rotateY(var(--ry, 0deg))" }}
     >
-      <div className="shine relative aspect-[3/4] w-full overflow-hidden">
+      <div className="spotlight shine relative aspect-[3/4] w-full overflow-hidden">
         <Image
           src={series.cover}
           alt={series.titleAr}
@@ -131,7 +145,7 @@ export function SeriesRow({
   return (
     <section className={cn("space-y-4", className)}>
       <div className="flex items-center justify-between">
-        <h2 className="font-display text-xl font-bold text-white sm:text-2xl">{title}</h2>
+        <h2 className="section-title font-display text-xl font-bold text-white sm:text-2xl">{title}</h2>
         {href && (
           <Link href={href} className="text-sm font-medium text-primary-300 hover:text-primary-200">
             عرض الكل ←

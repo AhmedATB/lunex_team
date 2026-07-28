@@ -3,7 +3,7 @@
 import Link from "next/link";
 import Image from "next/image";
 import { useRouter } from "next/navigation";
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { Search, Bell, Menu, LogOut, Settings, User as UserIcon, ShieldCheck } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
@@ -19,13 +19,23 @@ import {
 import { useSession } from "@/store/session";
 import { getMockDatabase } from "@/lib/mock/generate";
 import { GLOBAL_ROLE_LABELS, can } from "@/lib/rbac";
-import { avatarUrl } from "@/lib/utils";
+import { avatarUrl, cn } from "@/lib/utils";
 
 export function Header() {
   const router = useRouter();
   const { currentUserId, setCurrentUserId, logout } = useSession();
   const [query, setQuery] = useState("");
   const [mobileSearchOpen, setMobileSearchOpen] = useState(false);
+  const [scrolled, setScrolled] = useState(false);
+
+  useEffect(() => {
+    function onScroll() {
+      setScrolled(window.scrollY > 12);
+    }
+    onScroll();
+    window.addEventListener("scroll", onScroll, { passive: true });
+    return () => window.removeEventListener("scroll", onScroll);
+  }, []);
 
   const db = useMemo(() => getMockDatabase(), []);
   const currentUser = useMemo(
@@ -50,7 +60,14 @@ export function Header() {
   }
 
   return (
-    <header className="sticky top-0 z-40 border-b border-white/10 bg-[#09090B]/95 backdrop-blur-md">
+    <header
+      className={cn(
+        "sticky top-0 z-40 transition-all duration-500",
+        scrolled
+          ? "border-b border-white/10 bg-[#09090B]/85 shadow-lg shadow-black/40 backdrop-blur-xl"
+          : "border-b border-transparent bg-transparent"
+      )}
+    >
       <div className="container flex h-16 items-center gap-3">
         <Link href="/" className="flex shrink-0 items-center gap-2">
           <Image

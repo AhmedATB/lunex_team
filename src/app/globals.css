@@ -147,6 +147,88 @@
   .float-slow {
     animation: bob 6s ease-in-out infinite;
   }
+
+  /* 3D tilt card — perspective + rotateX/Y driven by --rx/--ry, set via JS on mousemove. */
+  .tilt-card {
+    transition: transform 0.15s ease-out, box-shadow 0.3s var(--ease-premium), border-color 0.3s var(--ease-premium);
+    transform-style: preserve-3d;
+    will-change: transform;
+  }
+
+  /* Cursor-follow spotlight — a soft light that tracks --mx/--my inside the element. */
+  .spotlight::before {
+    content: "";
+    position: absolute;
+    inset: 0;
+    z-index: 5;
+    opacity: 0;
+    background: radial-gradient(220px circle at var(--mx, 50%) var(--my, 50%), rgba(255, 255, 255, 0.22), transparent 60%);
+    transition: opacity 0.3s var(--ease-premium);
+    pointer-events: none;
+  }
+  .spotlight:hover::before {
+    opacity: 1;
+  }
+
+  /* Glowing gradient section title with an animated underline flourish. */
+  .section-title {
+    position: relative;
+    display: inline-flex;
+    align-items: center;
+    gap: 0.5rem;
+  }
+  .section-title::after {
+    content: "";
+    position: absolute;
+    bottom: -6px;
+    left: 0;
+    height: 3px;
+    width: 48px;
+    border-radius: 999px;
+    background: linear-gradient(90deg, #6d28d9, #f0abfc, transparent);
+    animation: underline-grow 2.4s ease-in-out infinite;
+  }
+
+  /* Rotating conic-gradient ring — a "magic circle" border for hero-tier surfaces. */
+  .magic-border {
+    position: relative;
+    isolation: isolate;
+  }
+  .magic-border::before {
+    content: "";
+    position: absolute;
+    inset: -2px;
+    z-index: -1;
+    border-radius: inherit;
+    background: conic-gradient(from 0deg, #6d28d9, #f0abfc, #fcd34d, #a855f7, #6d28d9);
+    animation: spin-slow 6s linear infinite;
+    opacity: 0.7;
+  }
+
+  /* Button ripple — expands from the pointer on click. */
+  .ripple-surface {
+    position: relative;
+    overflow: hidden;
+  }
+
+  /* Glowing divider between sections — a line with a crystal spark at its center. */
+  .magic-divider {
+    position: relative;
+    height: 1px;
+    background: linear-gradient(90deg, transparent, rgba(168, 85, 247, 0.5), transparent);
+  }
+  .magic-divider::before {
+    content: "";
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    width: 8px;
+    height: 8px;
+    transform: translate(-50%, -50%) rotate(45deg);
+    background: linear-gradient(135deg, #c084fc, #f0abfc);
+    box-shadow: 0 0 16px 2px rgba(192, 132, 252, 0.7);
+    animation: pulse-glow 2.6s ease-in-out infinite;
+  }
 }
 
 @layer utilities {
@@ -196,11 +278,34 @@
   100% { opacity: 0; transform: translate(-50%, -50%) scale(0.2) translateY(-16px); }
 }
 
+@keyframes underline-grow {
+  0%, 100% { width: 48px; opacity: 0.7; }
+  50% { width: 72px; opacity: 1; }
+}
+
+@keyframes spin-slow {
+  from { transform: rotate(0deg); }
+  to { transform: rotate(360deg); }
+}
+
+@keyframes ripple-out {
+  from { transform: scale(0); opacity: 0.55; }
+  to { transform: scale(3.2); opacity: 0; }
+}
+
+@keyframes moon-orbit {
+  from { transform: rotate(0deg) translateX(28px) rotate(0deg); }
+  to { transform: rotate(360deg) translateX(28px) rotate(-360deg); }
+}
+
 @media (prefers-reduced-motion: reduce) {
   .marquee-track,
   .ambient-blob,
   .sparkle,
-  .sparkle-star {
+  .sparkle-star,
+  .magic-border::before,
+  .section-title::after,
+  .magic-divider::before {
     animation: none;
   }
 }
