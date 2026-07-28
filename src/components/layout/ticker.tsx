@@ -24,10 +24,10 @@ export function Ticker() {
         <Link
           key={chapter.id}
           href={`/series/${series!.slug}/${chapter.number}`}
-          className="flood group flex shrink-0 items-center gap-2 border-l-2 border-black/20 px-5 py-2 font-black text-[#1a0b2e]"
+          className="group flex shrink-0 items-center gap-2 border-l border-black/10 px-5 py-2 font-bold text-[#1a0b2e] transition-colors hover:bg-black/10"
         >
           <Zap className="h-4 w-4 shrink-0 fill-current" />
-          <span className="flood-text whitespace-nowrap text-sm">
+          <span className="whitespace-nowrap text-sm">
             جديد: {series!.titleAr} — الفصل {chapter.number}
           </span>
         </Link>

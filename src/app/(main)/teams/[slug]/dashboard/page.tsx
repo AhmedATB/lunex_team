@@ -141,7 +141,7 @@ export default function TeamDashboardPage() {
     <div className="container space-y-6 py-6">
       <div className="flex flex-wrap items-center gap-3">
         <div
-          className="flex h-14 w-14 items-center justify-center border-2 border-white/70 font-display text-xl font-black text-white"
+          className="flex h-14 w-14 items-center justify-center rounded-2xl font-display text-xl font-black text-white"
           style={{ background: `linear-gradient(135deg, ${team.color}, #C084FC)` }}
         >
           {team.name[0]}

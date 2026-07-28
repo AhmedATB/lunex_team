@@ -17,7 +17,7 @@
     --ring: 271 81% 56%;
     --destructive: 0 72% 51%;
     --destructive-foreground: 0 0% 100%;
-    --radius: 0px;
+    --radius: 0.9rem;
     --ease-premium: cubic-bezier(0.16, 1, 0.3, 1);
   }
 
@@ -47,70 +47,30 @@
   }
   ::-webkit-scrollbar-thumb {
     background: #a855f7;
+    border-radius: 999px;
     border: 2px solid #09090b;
   }
 }
 
 @layer components {
-  /* Solid brutalist panel: opaque block + thick ink border + hard offset shadow. Replaces soft glass. */
+  /* Clean solid surface: subtle border + soft shadow, rounded. Replaces both the old
+     translucent glass and the hard-edged brutalist panel. */
   .panel {
-    border: 2px solid rgba(168, 85, 247, 0.4);
-    background: #140a24;
-    box-shadow: 4px 4px 0 0 rgba(0, 0, 0, 0.5);
+    @apply rounded-2xl border border-white/10 bg-[#120a1f];
+    box-shadow: 0 8px 24px -8px rgba(0, 0, 0, 0.5);
   }
 
   .panel-hover {
-    transition: transform 0.15s var(--ease-premium), box-shadow 0.15s var(--ease-premium);
+    transition: transform 0.2s var(--ease-premium), box-shadow 0.2s var(--ease-premium), border-color 0.2s var(--ease-premium);
   }
   .panel-hover:hover {
-    transform: translate(-2px, -2px);
-    box-shadow: 6px 6px 0 0 rgba(109, 40, 217, 0.6);
+    transform: translateY(-3px);
+    border-color: rgba(168, 85, 247, 0.4);
+    box-shadow: 0 16px 32px -12px rgba(109, 40, 217, 0.45);
   }
 
   .text-gradient {
     @apply bg-lunex-gradient bg-clip-text text-transparent;
-  }
-
-  .comic-btn {
-    border: 2px solid rgba(255, 255, 255, 0.85);
-    box-shadow: 4px 4px 0 0 rgba(0, 0, 0, 0.55);
-    transition: transform 0.15s var(--ease-premium), box-shadow 0.15s var(--ease-premium);
-  }
-  .comic-btn:hover {
-    transform: translate(-1px, -1px);
-    box-shadow: 5px 5px 0 0 rgba(0, 0, 0, 0.55);
-  }
-  .comic-btn:active {
-    transform: translate(3px, 3px);
-    box-shadow: 1px 1px 0 0 rgba(0, 0, 0, 0.55);
-  }
-
-  /* Flood-invert: solid color slams in behind the content on hover, signature Kinetic-Brutalism move. */
-  .flood {
-    position: relative;
-    isolation: isolate;
-    overflow: hidden;
-  }
-  .flood::before {
-    content: "";
-    position: absolute;
-    inset: 0;
-    background: #c084fc;
-    transform: scaleY(0);
-    transform-origin: bottom;
-    transition: transform 0.25s var(--ease-premium);
-    z-index: -1;
-  }
-  .flood:hover::before,
-  .flood:focus-visible::before {
-    transform: scaleY(1);
-  }
-  .flood-text {
-    transition: color 0.2s var(--ease-premium);
-  }
-  .flood:hover .flood-text,
-  .flood:focus-visible .flood-text {
-    color: #1a0b2e;
   }
 }
 

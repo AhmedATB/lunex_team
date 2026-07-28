@@ -50,7 +50,7 @@ export function Header() {
   }
 
   return (
-    <header className="sticky top-0 z-40 border-b-2 border-white/20 bg-[#09090B]">
+    <header className="sticky top-0 z-40 border-b border-white/10 bg-[#09090B]/95 backdrop-blur-md">
       <div className="container flex h-16 items-center gap-3">
         <Link href="/" className="flex shrink-0 items-center gap-2">
           <Image
@@ -58,7 +58,7 @@ export function Header() {
             alt="LUNEX TEAM"
             width={34}
             height={34}
-            className="rounded-full border-2 border-white/70"
+            className="rounded-full"
           />
           <span className="hidden font-display text-lg font-bold text-white sm:inline">
             LUNEX <span className="text-primary-400">TEAM</span>
@@ -95,7 +95,7 @@ export function Header() {
 
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
-              <button className="flex items-center gap-2 border-2 border-white/25 p-0.5 pe-2 transition-colors hover:border-primary-400 hover:bg-white/5">
+              <button className="flex items-center gap-2 rounded-full border border-white/10 p-0.5 pe-2 transition-colors hover:border-primary-400/50 hover:bg-white/5">
                 <Avatar className="h-8 w-8">
                   <AvatarImage src={currentUser ? avatarUrl(currentUser.avatarSeed) : undefined} />
                   <AvatarFallback>{currentUser?.displayName?.[0] ?? "ض"}</AvatarFallback>

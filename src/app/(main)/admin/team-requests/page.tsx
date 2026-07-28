@@ -99,7 +99,7 @@ export default function AdminTeamRequestsPage() {
                       alt={request.teamName}
                       width={48}
                       height={48}
-                      className="border-2 border-white/25"
+                      className="rounded-xl border border-white/10"
                     />
                     <div>
                       <h3 className="font-display text-lg font-black text-white">{request.teamName}</h3>

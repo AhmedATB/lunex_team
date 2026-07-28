@@ -22,7 +22,7 @@ export function HeroSlider({ series }: { series: Series[] }) {
   const current = series[index];
 
   return (
-    <div className="relative h-[440px] w-full overflow-hidden sm:h-[500px] lg:h-[580px]">
+    <div className="relative h-[420px] w-full overflow-hidden rounded-2xl border border-white/10 sm:h-[480px] lg:h-[540px]">
       <AnimatePresence mode="wait">
         <motion.div
           key={current.id}
@@ -62,28 +62,25 @@ export function HeroSlider({ series }: { series: Series[] }) {
           className="max-w-2xl space-y-3"
         >
           <div className="flex flex-wrap items-center gap-2">
-            <span className="-rotate-2 border-2 border-white bg-accent px-3 py-1 text-xs font-black text-accent-foreground shadow-[3px_3px_0_0_rgba(0,0,0,0.5)]">
+            <span className="rounded-full bg-lunex-gradient px-3 py-1 text-xs font-bold text-white">
               حصري LUNEX
             </span>
-            <span className="flex items-center gap-1 border-2 border-white/20 bg-black/40 px-2 py-1 text-sm font-bold text-amber-300">
+            <span className="flex items-center gap-1 rounded-full bg-black/50 px-2.5 py-1 text-sm font-bold text-amber-300 backdrop-blur-sm">
               <Star className="h-4 w-4 fill-amber-300" /> {current.rating}
             </span>
             <span className="text-sm text-lunex-gray">{formatNumber(current.views)} مشاهدة</span>
           </div>
-          <h1
-            className="font-display text-4xl font-black leading-[1.05] text-white sm:text-6xl"
-            style={{ textShadow: "3px 3px 0 rgba(0,0,0,0.85)" }}
-          >
+          <h1 className="font-display text-4xl font-black leading-[1.05] text-white drop-shadow-lg sm:text-6xl">
             {current.titleAr}
           </h1>
           <p className="line-clamp-2 max-w-xl text-sm text-lunex-gray sm:text-base">{current.synopsis}</p>
           <div className="flex gap-3 pt-2">
-            <Button size="lg" className="comic-btn" asChild>
+            <Button size="lg" asChild>
               <Link href={`/series/${current.slug}`}>
                 <Play className="h-4 w-4" /> ابدأ القراءة
               </Link>
             </Button>
-            <Button size="lg" variant="secondary" className="comic-btn" asChild>
+            <Button size="lg" variant="secondary" asChild>
               <Link href={`/series/${current.slug}`}>
                 <BookOpen className="h-4 w-4" /> التفاصيل
               </Link>

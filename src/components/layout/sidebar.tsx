@@ -10,7 +10,7 @@ export function Sidebar() {
   const pathname = usePathname();
 
   return (
-    <aside className="sticky top-16 hidden h-[calc(100vh-4rem)] w-60 shrink-0 flex-col gap-1 overflow-y-auto border-e-2 border-white/20 bg-[#0c0715] p-4 lg:flex">
+    <aside className="sticky top-16 hidden h-[calc(100vh-4rem)] w-60 shrink-0 flex-col gap-1 overflow-y-auto border-e border-white/10 bg-[#0c0715] p-4 lg:flex">
       <nav className="flex flex-col gap-1">
         {SIDEBAR_NAV.map((item) => {
           const active = pathname === item.href.split("?")[0];
@@ -20,10 +20,10 @@ export function Sidebar() {
               key={item.href}
               href={item.href}
               className={cn(
-                "flex items-center gap-3 border-2 px-3 py-2.5 text-sm font-bold transition-colors",
+                "flex items-center gap-3 rounded-xl px-3 py-2.5 text-sm font-bold transition-colors",
                 active
-                  ? "border-white/80 bg-lunex-gradient text-white shadow-[3px_3px_0_0_rgba(0,0,0,0.5)]"
-                  : "border-transparent text-lunex-gray hover:border-white/25 hover:text-white"
+                  ? "bg-lunex-gradient text-white shadow-md shadow-primary-900/40"
+                  : "text-lunex-gray hover:bg-white/5 hover:text-white"
               )}
             >
               <Icon className="h-4 w-4" />

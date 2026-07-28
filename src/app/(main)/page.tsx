@@ -93,12 +93,9 @@ export default async function HomePage() {
                 <Link
                   key={c.id}
                   href={`/series/${c.series.slug}/${c.number}`}
-                  className="group ease-premium flex flex-col border-2 border-white/15 bg-[#150c26] shadow-[5px_5px_0_0_rgba(0,0,0,0.45)] transition-all duration-300 hover:-translate-y-1.5 hover:border-primary-400/60 hover:shadow-[7px_7px_0_0_rgba(109,40,217,0.55)] active:translate-y-0 active:shadow-[2px_2px_0_0_rgba(0,0,0,0.45)]"
+                  className="group flex flex-col overflow-hidden rounded-2xl border border-white/10 bg-[#120a1f] transition-all duration-300 hover:-translate-y-1 hover:border-primary-400/40 hover:shadow-xl hover:shadow-primary-900/30"
                 >
-                  <div
-                    className="relative aspect-[3/4] w-full overflow-hidden"
-                    style={{ clipPath: "polygon(0 0, 100% 0, 100% 100%, 18% 100%, 0 84%)" }}
-                  >
+                  <div className="relative aspect-[3/4] w-full overflow-hidden">
                     <Image
                       src={c.series.cover}
                       alt={c.series.titleAr}
@@ -106,17 +103,17 @@ export default async function HomePage() {
                       sizes="(max-width: 768px) 45vw, 16vw"
                       className="object-cover transition-transform duration-500 group-hover:scale-110"
                     />
-                    <div className="absolute inset-0 bg-gradient-to-t from-black/50 via-transparent to-transparent" />
+                    <div className="absolute inset-0 bg-gradient-to-t from-black/40 via-transparent to-transparent" />
                     <Badge className="absolute start-2 top-2 text-[10px]">جديد</Badge>
                   </div>
-                  <div className="flex flex-1 flex-col gap-1.5 border-t-2 border-white/15 p-2.5">
+                  <div className="flex flex-1 flex-col gap-1.5 border-t border-white/5 bg-[#150c26] p-2.5">
                     {genreLabels.length > 0 && (
                       <div className="flex flex-wrap gap-1">
                         {genreLabels.map((label, i) => (
                           <span
                             key={label}
                             className={cn(
-                              "px-1.5 py-0.5 text-[9px] font-black leading-none",
+                              "rounded-full px-1.5 py-0.5 text-[9px] font-bold leading-none",
                               GENRE_CHIP_STYLES[i % GENRE_CHIP_STYLES.length]
                             )}
                           >
@@ -125,8 +122,8 @@ export default async function HomePage() {
                         ))}
                       </div>
                     )}
-                    <p className="line-clamp-1 font-display text-sm font-black text-white">{c.series.titleAr}</p>
-                    <p className="mt-auto text-[11px] font-bold text-primary-300">الفصل {c.number}</p>
+                    <p className="line-clamp-1 font-display text-sm font-bold text-white">{c.series.titleAr}</p>
+                    <p className="mt-auto text-[11px] font-medium text-primary-300">الفصل {c.number}</p>
                   </div>
                 </Link>
               );
@@ -154,13 +151,10 @@ export default async function HomePage() {
                 <Link
                   key={s.id}
                   href={`/series/${s.slug}`}
-                  className="group ease-premium relative flex w-40 shrink-0 flex-col border-2 border-white/15 bg-[#150c26] shadow-[5px_5px_0_0_rgba(0,0,0,0.45)] transition-all duration-300 hover:-translate-y-1.5 hover:border-primary-400/60 hover:shadow-[7px_7px_0_0_rgba(109,40,217,0.55)] active:translate-y-0 active:shadow-[2px_2px_0_0_rgba(0,0,0,0.45)] sm:w-48"
+                  className="group relative flex w-40 shrink-0 flex-col overflow-hidden rounded-2xl border border-white/10 bg-[#120a1f] transition-all duration-300 hover:-translate-y-1 hover:border-primary-400/40 hover:shadow-xl hover:shadow-primary-900/30 sm:w-48"
                 >
-                  <div
-                    className="relative aspect-[3/4] w-full overflow-hidden"
-                    style={{ clipPath: "polygon(0 0, 100% 0, 100% 100%, 18% 100%, 0 84%)" }}
-                  >
-                    <span className="absolute start-0 top-0 z-10 flex h-9 w-9 items-center justify-center bg-lunex-gradient font-display text-lg font-black text-white [clip-path:polygon(0_0,100%_0,0_100%)]">
+                  <div className="relative aspect-[3/4] w-full overflow-hidden">
+                    <span className="absolute start-2 top-2 z-10 flex h-7 w-7 items-center justify-center rounded-full bg-lunex-gradient font-display text-sm font-black text-white">
                       {i + 1}
                     </span>
                     <Image
@@ -170,16 +164,16 @@ export default async function HomePage() {
                       sizes="160px"
                       className="object-cover transition-transform duration-500 group-hover:scale-110"
                     />
-                    <div className="absolute inset-0 bg-gradient-to-t from-black/50 via-transparent to-transparent" />
+                    <div className="absolute inset-0 bg-gradient-to-t from-black/40 via-transparent to-transparent" />
                   </div>
-                  <div className="flex flex-1 flex-col gap-1.5 border-t-2 border-white/15 p-2.5">
+                  <div className="flex flex-1 flex-col gap-1.5 border-t border-white/5 bg-[#150c26] p-2.5">
                     {genreLabels.length > 0 && (
                       <div className="flex flex-wrap gap-1">
                         {genreLabels.map((label, gi) => (
                           <span
                             key={label}
                             className={cn(
-                              "px-1.5 py-0.5 text-[9px] font-black leading-none",
+                              "rounded-full px-1.5 py-0.5 text-[9px] font-bold leading-none",
                               GENRE_CHIP_STYLES[gi % GENRE_CHIP_STYLES.length]
                             )}
                           >
@@ -188,7 +182,7 @@ export default async function HomePage() {
                         ))}
                       </div>
                     )}
-                    <p className="line-clamp-2 font-display text-xs font-black text-white">{s.titleAr}</p>
+                    <p className="line-clamp-2 font-display text-xs font-bold text-white">{s.titleAr}</p>
                   </div>
                 </Link>
               );

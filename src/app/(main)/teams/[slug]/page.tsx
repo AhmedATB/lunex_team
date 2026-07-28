@@ -44,12 +44,12 @@ export default function TeamDetailPage() {
   return (
     <div className="container space-y-8 py-6">
       <div
-        className="relative overflow-hidden border-2 border-white/20 p-8"
+        className="relative overflow-hidden rounded-2xl border border-white/10 p-8"
         style={{ background: `linear-gradient(135deg, ${team.color}33, transparent)` }}
       >
         <div className="flex flex-col items-center gap-4 text-center sm:flex-row sm:text-start">
           <div
-            className="flex h-20 w-20 shrink-0 items-center justify-center border-2 border-white/70 font-display text-3xl font-black text-white"
+            className="flex h-20 w-20 shrink-0 items-center justify-center rounded-2xl font-display text-3xl font-black text-white"
             style={{ background: `linear-gradient(135deg, ${team.color}, #C084FC)` }}
           >
             {team.name[0]}
