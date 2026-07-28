@@ -99,7 +99,7 @@ export function ReaderToolbar({
       <div className="ms-auto flex items-center gap-1">
         <DropdownMenu>
           <DropdownMenuTrigger asChild>
-            <Button variant="ghost" size="icon"><ModeIcon className="h-4 w-4" /></Button>
+            <Button id="reader-mode-menu-trigger" variant="ghost" size="icon"><ModeIcon className="h-4 w-4" /></Button>
           </DropdownMenuTrigger>
           <DropdownMenuContent align="end" className="w-44">
             <DropdownMenuLabel>وضع القراءة</DropdownMenuLabel>
@@ -134,7 +134,7 @@ export function ReaderToolbar({
 
         <DropdownMenu>
           <DropdownMenuTrigger asChild>
-            <Button variant="ghost" size="icon"><Settings2 className="h-4 w-4" /></Button>
+            <Button id="reader-settings-menu-trigger" variant="ghost" size="icon"><Settings2 className="h-4 w-4" /></Button>
           </DropdownMenuTrigger>
           <DropdownMenuContent align="end" className="w-64 space-y-3 p-4">
             <SliderRow label="التكبير" value={settings.zoom} onChange={settings.setZoom} min={50} max={200} />
