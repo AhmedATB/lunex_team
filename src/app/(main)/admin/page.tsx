@@ -132,7 +132,7 @@ export default async function AdminDashboardPage() {
             .filter((u) => u.role !== "reader")
             .slice(0, 8)
             .map((u) => (
-              <div key={u.id} className="flex items-center gap-2 rounded-xl border border-white/10 bg-white/[0.02] px-3 py-2">
+              <div key={u.id} className="glass flex items-center gap-2 rounded-xl px-3 py-2">
                 <div className="relative h-7 w-7 overflow-hidden rounded-full ring-2 ring-white/10">
                   <Image src={avatarUrl(u.avatarSeed)} alt={u.displayName} fill className="object-cover" />
                 </div>

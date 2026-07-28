@@ -18,6 +18,6 @@ export const useSession = create<SessionState>()(
       setCurrentUserId: (id) => set({ currentUserId: id, isGuest: id === null }),
       logout: () => set({ currentUserId: null, isGuest: true }),
     }),
-    { name: "lunex-session" }
+    { name: "lunex-session", skipHydration: true }
   )
 );

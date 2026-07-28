@@ -10,7 +10,7 @@ export function TopReaders({ users }: { users: User[] }) {
   return (
     <section className="space-y-4">
       <h2 className="font-display text-xl font-bold text-white sm:text-2xl">أفضل القرّاء</h2>
-      <div className="rounded-2xl border border-white/10 bg-white/[0.03] backdrop-blur-xl">
+      <div className="glass rounded-2xl">
         {users.slice(0, 8).map((u, i) => (
           <Link
             key={u.id}

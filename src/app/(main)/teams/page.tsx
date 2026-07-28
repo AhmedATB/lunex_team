@@ -28,7 +28,7 @@ export default async function TeamsPage() {
           <FadeIn key={team.id} delay={i * 0.04}>
             <Link
               href={`/teams/${team.slug}`}
-              className="group flex flex-col gap-3 rounded-2xl border border-white/10 bg-white/[0.03] p-5 backdrop-blur-xl transition-all hover:-translate-y-1 hover:border-primary-400/40 hover:shadow-glow"
+              className="group glass ease-premium flex flex-col gap-3 rounded-2xl p-5 transition-all hover:-translate-y-1 hover:border-primary-400/40 hover:shadow-glow active:scale-[0.98]"
             >
               <div className="flex items-center justify-between">
                 <div

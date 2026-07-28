@@ -12,7 +12,7 @@ export function GenreGrid({ genres }: { genres: Genre[] }) {
         <motion.div key={genre.id} variants={staggerItem}>
           <Link
             href={`/search?genre=${genre.slug}`}
-            className="group flex items-center justify-center rounded-xl border border-white/10 bg-white/[0.03] px-4 py-3 text-center text-sm font-semibold text-lunex-gray backdrop-blur-md transition-all hover:-translate-y-0.5 hover:border-primary-400/40 hover:text-white hover:shadow-glow"
+            className="group glass ease-premium flex items-center justify-center rounded-xl px-4 py-3 text-center text-sm font-semibold text-lunex-gray transition-all hover:-translate-y-0.5 hover:border-primary-400/40 hover:text-white hover:shadow-glow active:scale-[0.97]"
           >
             {genre.nameAr}
           </Link>

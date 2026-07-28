@@ -211,7 +211,7 @@ export function SeriesExplorer({ genres, title }: { genres: Genre[]; title: stri
       </div>
 
       {!loading && paged.length === 0 && (
-        <div className="rounded-2xl border border-white/10 bg-white/[0.03] p-10 text-center text-lunex-gray">
+        <div className="glass rounded-2xl p-10 text-center text-lunex-gray">
           لا توجد نتائج مطابقة لبحثك، جرّب تعديل الفلاتر.
         </div>
       )}

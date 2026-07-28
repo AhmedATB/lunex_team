@@ -23,7 +23,7 @@ export function SeriesCard({ series, priority = false }: { series: Series; prior
   return (
     <Link
       href={`/series/${series.slug}`}
-      className="group relative flex flex-col overflow-hidden rounded-2xl border border-white/10 bg-white/[0.03] backdrop-blur-xl transition-all duration-300 hover:-translate-y-1 hover:border-primary-400/40 hover:shadow-glow"
+      className="group glass ease-premium relative flex flex-col overflow-hidden rounded-2xl transition-all duration-300 hover:-translate-y-1 hover:border-primary-400/40 hover:shadow-glow active:scale-[0.97]"
     >
       <div className="relative aspect-[3/4.2] w-full overflow-hidden">
         <Image

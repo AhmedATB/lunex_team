@@ -167,7 +167,7 @@ export default function ProfilePage() {
 
 function Stat({ icon: Icon, label, value }: { icon: typeof BookOpen; label: string; value: number }) {
   return (
-    <div className="flex flex-col items-center gap-1 rounded-xl border border-white/10 bg-white/[0.02] px-4 py-3">
+    <div className="glass flex flex-col items-center gap-1 rounded-xl px-4 py-3">
       <Icon className="h-4 w-4 text-primary-300" />
       <span className="font-display text-sm font-bold text-white">{formatNumber(value)}</span>
       <span className="text-[10px] text-lunex-gray">{label}</span>
@@ -177,7 +177,7 @@ function Stat({ icon: Icon, label, value }: { icon: typeof BookOpen; label: stri
 
 function EmptyState({ text }: { text: string }) {
   return (
-    <div className="rounded-2xl border border-white/10 bg-white/[0.03] p-12 text-center text-lunex-gray">
+    <div className="glass rounded-2xl p-12 text-center text-lunex-gray">
       {text}
     </div>
   );

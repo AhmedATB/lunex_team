@@ -135,7 +135,7 @@ export default async function SeriesDetailPage({ params }: { params: Promise<{ s
               {team && (
                 <Link
                   href={`/teams/${team.slug}`}
-                  className="mt-2 inline-flex items-center gap-2 rounded-xl border border-white/10 bg-white/[0.03] px-3 py-1.5 text-xs text-lunex-gray transition-colors hover:border-primary-400/40"
+                  className="glass mt-2 inline-flex items-center gap-2 rounded-xl px-3 py-1.5 text-xs text-lunex-gray transition-colors hover:border-primary-400/40"
                 >
                   ترجمة فريق <span className="font-semibold text-primary-300">{team.name}</span>
                 </Link>
@@ -162,7 +162,7 @@ export default async function SeriesDetailPage({ params }: { params: Promise<{ s
           </FadeIn>
 
           <FadeIn className="space-y-4">
-            <div className="rounded-2xl border border-white/10 bg-white/[0.03] p-4">
+            <div className="glass rounded-2xl p-4">
               <h3 className="mb-3 font-display text-sm font-bold text-white">معلومات إضافية</h3>
               <dl className="space-y-2 text-sm">
                 <Row label="الرسّام" value={series.artist} />

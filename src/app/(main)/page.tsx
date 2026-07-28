@@ -90,7 +90,7 @@ export default async function HomePage() {
               <Link
                 key={c.id}
                 href={`/series/${c.series.slug}/${c.number}`}
-                className="group overflow-hidden rounded-2xl border border-white/10 bg-white/[0.03] backdrop-blur-xl transition-all hover:-translate-y-1 hover:border-primary-400/40 hover:shadow-glow"
+                className="group glass ease-premium overflow-hidden rounded-2xl transition-all hover:-translate-y-1 hover:border-primary-400/40 hover:shadow-glow active:scale-[0.98]"
               >
                 <div className="relative aspect-[3/4.2] w-full overflow-hidden">
                   <Image
@@ -130,7 +130,7 @@ export default async function HomePage() {
               <Link
                 key={s.id}
                 href={`/series/${s.slug}`}
-                className="group relative flex w-40 shrink-0 flex-col overflow-hidden rounded-2xl border border-white/10 bg-white/[0.03] sm:w-48"
+                className="group glass ease-premium relative flex w-40 shrink-0 flex-col overflow-hidden rounded-2xl transition-transform active:scale-[0.98] sm:w-48"
               >
                 <span className="absolute start-0 top-0 z-10 flex h-9 w-9 items-center justify-center bg-lunex-gradient font-display text-lg font-black text-white [clip-path:polygon(0_0,100%_0,0_100%)]">
                   {i + 1}

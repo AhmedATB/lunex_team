@@ -1,0 +1,22 @@
+"use client";
+
+import { useEffect } from "react";
+import { useSession } from "@/store/session";
+import { useReaderSettings, useReadingProgress, useBookmarks } from "@/store/reader-settings";
+
+/**
+ * All persisted stores use `skipHydration: true` so the first client render
+ * matches the server exactly (no localStorage on the server). Rehydrating
+ * here, after mount, applies the persisted values as a normal post-mount
+ * state update instead of a hydration mismatch.
+ */
+export function StoreHydration() {
+  useEffect(() => {
+    useSession.persist.rehydrate();
+    useReaderSettings.persist.rehydrate();
+    useReadingProgress.persist.rehydrate();
+    useBookmarks.persist.rehydrate();
+  }, []);
+
+  return null;
+}

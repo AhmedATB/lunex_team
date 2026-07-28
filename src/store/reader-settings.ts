@@ -37,7 +37,7 @@ export const useReaderSettings = create<ReaderSettingsState>()(
       setContrast: (contrast) => set({ contrast }),
       setRtl: (rtl) => set({ rtl }),
     }),
-    { name: "lunex-reader-settings" }
+    { name: "lunex-reader-settings", skipHydration: true }
   )
 );
 
@@ -55,7 +55,7 @@ export const useReadingProgress = create<ReadingProgressState>()(
         set((s) => ({ progress: { ...s.progress, [seriesId]: chapterNumber } })),
       getProgress: (seriesId) => get().progress[seriesId],
     }),
-    { name: "lunex-reading-progress" }
+    { name: "lunex-reading-progress", skipHydration: true }
   )
 );
 
@@ -77,6 +77,6 @@ export const useBookmarks = create<BookmarksState>()(
         })),
       isBookmarked: (seriesId) => get().bookmarks.includes(seriesId),
     }),
-    { name: "lunex-bookmarks" }
+    { name: "lunex-bookmarks", skipHydration: true }
   )
 );

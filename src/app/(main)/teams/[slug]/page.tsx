@@ -71,7 +71,7 @@ export default async function TeamDetailPage({ params }: { params: Promise<{ slu
         <h2 className="font-display text-xl font-bold text-white">الأعضاء</h2>
         <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
           {members.map((m) => (
-            <div key={m!.id} className="flex items-center gap-3 rounded-2xl border border-white/10 bg-white/[0.03] p-3">
+            <div key={m!.id} className="glass flex items-center gap-3 rounded-2xl p-3">
               <div className="relative h-10 w-10 shrink-0 overflow-hidden rounded-full ring-2 ring-white/10">
                 <Image src={avatarUrl(m!.avatarSeed)} alt={m!.displayName} fill className="object-cover" />
               </div>
@@ -92,7 +92,7 @@ export default async function TeamDetailPage({ params }: { params: Promise<{ slu
 
 function MiniStat({ label, value, prefix = "" }: { label: string; value: number; prefix?: string }) {
   return (
-    <div className="flex flex-col items-center gap-1 rounded-2xl border border-white/10 bg-white/[0.03] py-4 text-center">
+    <div className="glass flex flex-col items-center gap-1 rounded-2xl py-4 text-center">
       <span className="flex items-center gap-1 font-display text-xl font-bold text-white">
         <Users className="h-4 w-4 text-primary-300" /> {prefix}{value}
       </span>

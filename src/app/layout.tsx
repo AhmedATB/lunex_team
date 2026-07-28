@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import { Cairo, Tajawal } from "next/font/google";
 import "./globals.css";
 import { TooltipProvider } from "@/components/ui/tooltip";
+import { StoreHydration } from "@/components/store-hydration";
 
 const cairo = Cairo({
   subsets: ["arabic", "latin"],
@@ -42,6 +43,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
   return (
     <html lang="ar" dir="rtl" className={`${cairo.variable} ${tajawal.variable}`} suppressHydrationWarning>
       <body className="font-sans">
+        <StoreHydration />
         <TooltipProvider delayDuration={200}>{children}</TooltipProvider>
       </body>
     </html>
