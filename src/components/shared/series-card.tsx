@@ -41,22 +41,22 @@ export function SeriesCard({ series, priority = false }: { series: Series; prior
   return (
     <Link
       href={`/series/${series.slug}`}
-      className="group flex flex-col overflow-hidden rounded-2xl border border-white/10 bg-[#120a1f] transition-all duration-300 hover:-translate-y-1 hover:border-primary-400/40 hover:shadow-xl hover:shadow-primary-900/30"
+      className="art-glow group flex flex-col overflow-hidden rounded-2xl border border-white/10 bg-[#120a1f] transition-all duration-300 hover:-translate-y-1.5 hover:border-primary-400/50 hover:shadow-2xl hover:shadow-primary-900/40"
     >
-      <div className="relative aspect-[3/4] w-full overflow-hidden">
+      <div className="shine relative aspect-[3/4] w-full overflow-hidden">
         <Image
           src={series.cover}
           alt={series.titleAr}
           fill
           sizes="(max-width: 768px) 45vw, (max-width: 1200px) 22vw, 16vw"
           priority={priority}
-          className="object-cover transition-transform duration-500 group-hover:scale-110"
+          className="object-cover transition-all duration-500 group-hover:scale-110 group-hover:saturate-[1.15] group-hover:brightness-105"
         />
         <div className="absolute inset-0 bg-gradient-to-t from-black/40 via-transparent to-transparent" />
         <Badge variant={STATUS_VARIANT[series.status]} className="absolute start-2 top-2 text-[10px]">
           {STATUS_LABEL[series.status]}
         </Badge>
-        <div className="absolute end-2 top-2 flex items-center gap-1 rounded-full bg-black/60 px-2 py-0.5 text-xs font-bold text-amber-300 backdrop-blur-sm">
+        <div className="absolute end-2 top-2 flex items-center gap-1 rounded-full bg-black/60 px-2 py-0.5 text-xs font-bold text-amber-300 shadow-[0_0_12px_rgba(252,211,77,0.3)] backdrop-blur-sm">
           <Star className="h-3 w-3 fill-amber-300" />
           {series.rating}
         </div>
