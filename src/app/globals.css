@@ -73,6 +73,20 @@
     box-shadow: 0 0 0 1px rgba(168, 85, 247, 0.25), 0 0 30px -8px rgba(168, 85, 247, 0.45);
   }
 
+  .comic-btn {
+    border: 2px solid rgba(255, 255, 255, 0.85);
+    box-shadow: 4px 4px 0 0 rgba(0, 0, 0, 0.55);
+    transition: transform 0.15s var(--ease-premium), box-shadow 0.15s var(--ease-premium);
+  }
+  .comic-btn:hover {
+    transform: translate(-1px, -1px);
+    box-shadow: 5px 5px 0 0 rgba(0, 0, 0, 0.55);
+  }
+  .comic-btn:active {
+    transform: translate(3px, 3px);
+    box-shadow: 1px 1px 0 0 rgba(0, 0, 0, 0.55);
+  }
+
   .ambient-blob {
     position: absolute;
     border-radius: 9999px;
