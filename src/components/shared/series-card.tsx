@@ -1,6 +1,6 @@
 import Image from "next/image";
 import Link from "next/link";
-import { Star, BookOpen, Bookmark } from "lucide-react";
+import { Star, BookOpen, Bookmark, Sparkle } from "lucide-react";
 import type { Series } from "@/lib/types";
 import { Badge } from "@/components/ui/badge";
 import { cn, formatNumber } from "@/lib/utils";
@@ -60,6 +60,20 @@ export function SeriesCard({ series, priority = false }: { series: Series; prior
           <Star className="h-3 w-3 fill-amber-300" />
           {series.rating}
         </div>
+
+        {/* Sparkle burst — hidden until hover, three staggered points that pop in like fairy dust. */}
+        <Sparkle
+          className="ease-bounce pointer-events-none absolute bottom-3 start-3 h-4 w-4 scale-0 fill-primary-300 text-primary-300 opacity-0 transition-all duration-300 group-hover:scale-100 group-hover:opacity-100"
+          style={{ transitionDelay: "0ms" }}
+        />
+        <Sparkle
+          className="ease-bounce pointer-events-none absolute bottom-8 start-8 h-3 w-3 scale-0 fill-amber-300 text-amber-300 opacity-0 transition-all duration-300 group-hover:scale-100 group-hover:opacity-100"
+          style={{ transitionDelay: "80ms" }}
+        />
+        <Sparkle
+          className="ease-bounce pointer-events-none absolute bottom-4 start-12 h-2.5 w-2.5 scale-0 fill-pink-300 text-pink-300 opacity-0 transition-all duration-300 group-hover:scale-100 group-hover:opacity-100"
+          style={{ transitionDelay: "150ms" }}
+        />
       </div>
 
       <div className="flex flex-1 flex-col gap-1.5 border-t border-white/5 bg-[#150c26] p-2.5">
