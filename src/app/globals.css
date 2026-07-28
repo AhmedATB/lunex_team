@@ -19,6 +19,7 @@
     --destructive-foreground: 0 0% 100%;
     --radius: 0.9rem;
     --ease-premium: cubic-bezier(0.16, 1, 0.3, 1);
+    --ease-bounce: cubic-bezier(0.34, 1.56, 0.64, 1);
   }
 
   * {
@@ -61,10 +62,10 @@
   }
 
   .panel-hover {
-    transition: transform 0.2s var(--ease-premium), box-shadow 0.2s var(--ease-premium), border-color 0.2s var(--ease-premium);
+    transition: transform 0.3s var(--ease-bounce), box-shadow 0.3s var(--ease-premium), border-color 0.2s var(--ease-premium);
   }
   .panel-hover:hover {
-    transform: translateY(-3px);
+    transform: translateY(-4px) scale(1.015);
     border-color: rgba(168, 85, 247, 0.4);
     box-shadow: 0 16px 32px -12px rgba(109, 40, 217, 0.45);
   }
@@ -124,6 +125,19 @@
     border-radius: 9999px;
     pointer-events: none;
     animation: twinkle 3.2s ease-in-out infinite;
+  }
+
+  /* A playful bouncy pop — for icons, badges, small interactive accents. */
+  .hover-pop {
+    transition: transform 0.35s var(--ease-bounce);
+  }
+  .hover-pop:hover {
+    transform: scale(1.12) rotate(-3deg);
+  }
+
+  /* Gentle floating bob — brings small decorative elements (moons, stars) to life. */
+  .float-slow {
+    animation: bob 6s ease-in-out infinite;
   }
 }
 

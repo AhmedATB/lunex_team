@@ -1,5 +1,5 @@
 import type { Metadata } from "next";
-import { Cairo, Tajawal } from "next/font/google";
+import { Cairo, Tajawal, Baloo_Bhaijaan_2 } from "next/font/google";
 import "./globals.css";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { StoreHydration } from "@/components/store-hydration";
@@ -14,6 +14,12 @@ const tajawal = Tajawal({
   subsets: ["arabic", "latin"],
   variable: "--font-tajawal",
   weight: ["400", "500", "700"],
+});
+
+const baloo = Baloo_Bhaijaan_2({
+  subsets: ["arabic", "latin"],
+  variable: "--font-baloo",
+  weight: ["500", "600", "700", "800"],
 });
 
 export const metadata: Metadata = {
@@ -41,7 +47,7 @@ export const metadata: Metadata = {
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
-    <html lang="ar" dir="rtl" className={`${cairo.variable} ${tajawal.variable}`} suppressHydrationWarning>
+    <html lang="ar" dir="rtl" className={`${cairo.variable} ${tajawal.variable} ${baloo.variable}`} suppressHydrationWarning>
       <body className="font-sans">
         <StoreHydration />
         <TooltipProvider delayDuration={200}>{children}</TooltipProvider>

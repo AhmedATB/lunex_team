@@ -33,6 +33,14 @@ export function HeroSlider({ series }: { series: Series[] }) {
         <span className="sparkle h-1.5 w-1.5" style={{ top: "30%", left: "78%", animationDelay: "1.1s" }} />
         <span className="sparkle h-2.5 w-2.5" style={{ top: "62%", left: "88%", animationDelay: "2s" }} />
         <span className="sparkle h-1.5 w-1.5" style={{ top: "72%", left: "8%", animationDelay: "0.6s" }} />
+        <Image
+          src="/brand/logo-white.png"
+          alt=""
+          width={140}
+          height={186}
+          className="float-slow absolute -end-4 top-4 opacity-[0.15] sm:top-8"
+          aria-hidden="true"
+        />
       </div>
       <AnimatePresence mode="wait">
         <motion.div

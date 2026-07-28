@@ -41,7 +41,7 @@ export function SeriesCard({ series, priority = false }: { series: Series; prior
   return (
     <Link
       href={`/series/${series.slug}`}
-      className="art-glow group flex flex-col overflow-hidden rounded-2xl border border-white/10 bg-[#120a1f] transition-all duration-300 hover:-translate-y-1.5 hover:border-primary-400/50 hover:shadow-2xl hover:shadow-primary-900/40"
+      className="art-glow ease-bounce group flex flex-col overflow-hidden rounded-2xl border border-white/10 bg-[#120a1f] transition-all duration-300 hover:-translate-y-2 hover:rotate-[-0.75deg] hover:border-primary-400/50 hover:shadow-2xl hover:shadow-primary-900/40"
     >
       <div className="shine relative aspect-[3/4] w-full overflow-hidden">
         <Image
@@ -56,7 +56,7 @@ export function SeriesCard({ series, priority = false }: { series: Series; prior
         <Badge variant={STATUS_VARIANT[series.status]} className="absolute start-2 top-2 text-[10px]">
           {STATUS_LABEL[series.status]}
         </Badge>
-        <div className="absolute end-2 top-2 flex items-center gap-1 rounded-full bg-black/60 px-2 py-0.5 text-xs font-bold text-amber-300 shadow-[0_0_12px_rgba(252,211,77,0.3)] backdrop-blur-sm">
+        <div className="ease-bounce absolute end-2 top-2 flex rotate-3 items-center gap-1 rounded-full bg-black/60 px-2 py-0.5 text-xs font-bold text-amber-300 shadow-[0_0_12px_rgba(252,211,77,0.3)] backdrop-blur-sm transition-transform duration-300 group-hover:rotate-[-6deg] group-hover:scale-110">
           <Star className="h-3 w-3 fill-amber-300" />
           {series.rating}
         </div>

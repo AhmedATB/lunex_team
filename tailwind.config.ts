@@ -14,7 +14,7 @@ const config: Config = {
     extend: {
       fontFamily: {
         sans: ["var(--font-tajawal)", "system-ui", "sans-serif"],
-        display: ["var(--font-cairo)", "system-ui", "sans-serif"],
+        display: ["var(--font-baloo)", "var(--font-cairo)", "system-ui", "sans-serif"],
       },
       colors: {
         border: "hsl(var(--border))",
@@ -89,6 +89,9 @@ const config: Config = {
         float: { "0%, 100%": { transform: "translateY(0)" }, "50%": { transform: "translateY(-12px)" } },
         glow: { "0%, 100%": { opacity: "0.6" }, "50%": { opacity: "1" } },
         shimmer: { "0%": { backgroundPosition: "-1000px 0" }, "100%": { backgroundPosition: "1000px 0" } },
+        wiggle: { "0%, 100%": { transform: "rotate(-4deg)" }, "50%": { transform: "rotate(4deg)" } },
+        "bob": { "0%, 100%": { transform: "translateY(0) rotate(-2deg)" }, "50%": { transform: "translateY(-8px) rotate(2deg)" } },
+        "pop-in": { "0%": { transform: "scale(0.7)", opacity: "0" }, "70%": { transform: "scale(1.05)" }, "100%": { transform: "scale(1)", opacity: "1" } },
       },
       animation: {
         "accordion-down": "accordion-down 0.2s ease-out",
@@ -96,6 +99,12 @@ const config: Config = {
         float: "float 6s ease-in-out infinite",
         glow: "glow 3s ease-in-out infinite",
         shimmer: "shimmer 2s infinite linear",
+        wiggle: "wiggle 0.5s ease-in-out",
+        bob: "bob 5s ease-in-out infinite",
+        "pop-in": "pop-in 0.4s cubic-bezier(0.34, 1.56, 0.64, 1)",
+      },
+      transitionTimingFunction: {
+        bounce: "cubic-bezier(0.34, 1.56, 0.64, 1)",
       },
     },
   },
