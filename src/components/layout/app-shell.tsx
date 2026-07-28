@@ -4,14 +4,19 @@ import { Sidebar } from "./sidebar";
 import { BottomNav } from "./bottom-nav";
 import { Footer } from "./footer";
 import { Ticker } from "./ticker";
+import { SparkleField } from "@/components/effects/sparkle-field";
+import { MagicCursor } from "@/components/effects/magic-cursor";
 
 export function AppShell({ children }: { children: ReactNode }) {
   return (
     <div className="relative flex min-h-screen flex-col bg-background">
+      <MagicCursor />
       <div className="pointer-events-none fixed inset-0 -z-10 overflow-hidden">
-        <div className="ambient-blob start-[-8%] top-[-8%] h-[26rem] w-[26rem] bg-primary-600/25" />
-        <div className="ambient-blob end-[-10%] top-[25%] h-[24rem] w-[24rem] bg-secondary/20" style={{ animationDelay: "-8s" }} />
-        <div className="ambient-blob start-[15%] bottom-[-12%] h-[22rem] w-[22rem] bg-accent/15" style={{ animationDelay: "-15s" }} />
+        <div className="ambient-blob start-[-8%] top-[-8%] h-[28rem] w-[28rem] bg-primary-600/35" />
+        <div className="ambient-blob end-[-10%] top-[25%] h-[26rem] w-[26rem] bg-secondary/30" style={{ animationDelay: "-6s" }} />
+        <div className="ambient-blob start-[15%] bottom-[-12%] h-[24rem] w-[24rem] bg-accent/25" style={{ animationDelay: "-11s" }} />
+        <div className="ambient-blob end-[20%] bottom-[10%] h-[16rem] w-[16rem] bg-pink-500/20" style={{ animationDelay: "-3s" }} />
+        <SparkleField />
         <div
           className="absolute inset-0 opacity-40"
           style={{
