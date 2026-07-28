@@ -1,6 +1,29 @@
 export type SeriesStatus = "ongoing" | "completed" | "hiatus" | "dropped";
 export type SeriesType = "manhwa" | "manga" | "manhua" | "novel";
 
+export type TeamPermission =
+  | "edit_team_info"
+  | "change_logo"
+  | "change_banner"
+  | "manage_members"
+  | "manage_roles"
+  | "manage_permissions"
+  | "add_series"
+  | "edit_series"
+  | "assign_workers"
+  | "archive_series"
+  | "upload_chapter"
+  | "edit_chapter"
+  | "delete_chapter"
+  | "publish_chapter"
+  | "schedule_release"
+  | "invite_members"
+  | "remove_members"
+  | "promote_members"
+  | "demote_members"
+  | "view_team_statistics"
+  | "view_member_performance";
+
 export interface Genre {
   id: string;
   slug: string;
@@ -22,6 +45,151 @@ export interface Team {
   rank: number;
   recruiting: boolean;
   createdAt: string;
+  category: TeamCategory;
+  goals: string;
+  status: "active" | "suspended" | "archived";
+  lastActivityAt: string;
+}
+
+export type TeamCategory = "manhwa" | "manhua" | "manga" | "novel" | "mixed";
+
+export interface TeamCreationRequest {
+  id: string;
+  requesterId: string;
+  teamName: string;
+  logoSeed: string;
+  bannerSeed: string;
+  description: string;
+  goals: string;
+  discordUrl: string;
+  requiredPositions: TeamRole[];
+  category: TeamCategory;
+  expectedMembers: number;
+  previousExperience: string;
+  portfolioUrl?: string;
+  status: "pending" | "approved" | "rejected" | "needs_modification" | "suspended" | "archived";
+  reviewerNote?: string;
+  reviewedBy?: string;
+  reviewedAt?: string;
+  createdAt: string;
+  createdTeamId?: string;
+}
+
+export interface CustomRole {
+  id: string;
+  teamId: string;
+  name: string;
+  nameAr: string;
+  color: string;
+  permissions: TeamPermission[];
+  isDefault: boolean;
+  createdAt: string;
+}
+
+export type DepartmentKind =
+  | "translation"
+  | "proofreading"
+  | "cleaning"
+  | "redrawing"
+  | "typesetting"
+  | "quality_control"
+  | "publishing"
+  | "media"
+  | "recruitment";
+
+export interface Department {
+  id: string;
+  teamId: string;
+  kind: DepartmentKind;
+  name: string;
+  nameAr: string;
+  leaderId?: string;
+  memberIds: string[];
+}
+
+export type SeriesProductionRole = "translator" | "proofreader" | "cleaner" | "redrawer" | "typesetter" | "qc" | "publisher";
+
+export interface SeriesAssignment {
+  id: string;
+  seriesId: string;
+  userId: string;
+  role: SeriesProductionRole;
+  assignedAt: string;
+  assignedBy: string;
+}
+
+export interface TeamActivityLogEntry {
+  id: string;
+  teamId: string;
+  userId: string;
+  action: string;
+  target?: string;
+  previousValue?: string;
+  newValue?: string;
+  at: string;
+}
+
+export interface RecruitmentPosition {
+  id: string;
+  teamId: string;
+  role: TeamRole;
+  isOpen: boolean;
+  description: string;
+  createdAt: string;
+}
+
+export interface RecruitmentApplication {
+  id: string;
+  teamId: string;
+  positionId: string;
+  userId: string;
+  preferredRole: TeamRole;
+  experience: string;
+  portfolioUrl?: string;
+  languages: string[];
+  availability: string;
+  status: "pending" | "accepted" | "rejected" | "interview" | "waitlist";
+  note?: string;
+  appliedAt: string;
+}
+
+export type CollaborationType =
+  | "need_translator"
+  | "need_cleaner"
+  | "need_typesetter"
+  | "need_qc"
+  | "need_publisher"
+  | "need_complete_team_support"
+  | "emergency_assistance";
+
+export interface CollaborationRequest {
+  id: string;
+  fromTeamId: string;
+  toTeamId: string;
+  seriesId: string;
+  type: CollaborationType;
+  message: string;
+  status: "pending" | "accepted" | "rejected" | "negotiating";
+  createdAt: string;
+}
+
+export interface TeamTransferRequest {
+  id: string;
+  userId: string;
+  fromTeamId: string;
+  toTeamId: string;
+  reason: string;
+  status: "pending" | "current_team_approved" | "new_team_approved" | "approved" | "rejected";
+  createdAt: string;
+}
+
+export interface LeadershipTransferEntry {
+  id: string;
+  teamId: string;
+  fromUserId: string;
+  toUserId: string;
+  reason: string;
+  at: string;
 }
 
 export type GlobalRole =
@@ -63,6 +231,7 @@ export interface User {
   role: GlobalRole;
   teamId?: string;
   teamRole?: TeamRole;
+  customRoleId?: string;
   level: number;
   xp: number;
   xpToNext: number;

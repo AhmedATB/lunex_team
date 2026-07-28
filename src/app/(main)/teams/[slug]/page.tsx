@@ -1,40 +1,55 @@
+"use client";
+
+import { useEffect, useMemo, useState } from "react";
+import { useParams } from "next/navigation";
 import { notFound } from "next/navigation";
 import Image from "next/image";
-import type { Metadata } from "next";
 import { Users, ExternalLink, Crown } from "lucide-react";
-import { getTeamBySlug, getSeriesForTeam } from "@/lib/mock/repo";
 import { getMockDatabase } from "@/lib/mock/generate";
+import { useTeamManagement } from "@/store/team-management";
 import { TEAM_ROLE_LABELS } from "@/lib/rbac";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { SeriesRow } from "@/components/shared/series-card";
+import { TeamDashboardLink } from "@/components/series/team-dashboard-link";
 import { avatarUrl, safeDecodeURIComponent } from "@/lib/utils";
 
-export async function generateMetadata({ params }: { params: Promise<{ slug: string }> }): Promise<Metadata> {
-  const { slug } = await params;
-  const team = await getTeamBySlug(safeDecodeURIComponent(slug));
-  return { title: team ? team.name : "غير موجود" };
-}
+export default function TeamDetailPage() {
+  const params = useParams<{ slug: string }>();
+  const slug = safeDecodeURIComponent(params.slug);
 
-export default async function TeamDetailPage({ params }: { params: Promise<{ slug: string }> }) {
-  const { slug } = await params;
-  const team = await getTeamBySlug(safeDecodeURIComponent(slug));
-  if (!team) notFound();
+  const db = useMemo(() => getMockDatabase(), []);
+  const createdTeams = useTeamManagement((s) => s.createdTeams);
+  const team = [...db.teams, ...createdTeams].find((t) => t.slug === slug);
 
-  const db = getMockDatabase();
+  // Persisted stores use skipHydration + rehydrate-on-mount (see StoreHydration), so
+  // `createdTeams` is still empty on the very first client render after a hard reload.
+  // Wait one tick before trusting a "not found" result, or a freshly created team 404s.
+  const [ready, setReady] = useState(false);
+  useEffect(() => setReady(true), []);
+
+  useEffect(() => {
+    document.title = team ? `${team.name} | LUNEX TEAM` : "غير موجود | LUNEX TEAM";
+  }, [team]);
+
+  if (!ready) return null;
+  if (!team) {
+    notFound();
+  }
+
   const members = team.memberIds.map((id) => db.users.find((u) => u.id === id)).filter(Boolean);
   const leader = db.users.find((u) => u.id === team.leaderId);
-  const projects = await getSeriesForTeam(team.id);
+  const projects = db.series.filter((s) => s.teamId === team.id);
 
   return (
     <div className="container space-y-8 py-6">
       <div
-        className="relative overflow-hidden rounded-3xl border border-white/10 p-8"
+        className="relative overflow-hidden border-2 border-white/20 p-8"
         style={{ background: `linear-gradient(135deg, ${team.color}33, transparent)` }}
       >
         <div className="flex flex-col items-center gap-4 text-center sm:flex-row sm:text-start">
           <div
-            className="flex h-20 w-20 shrink-0 items-center justify-center rounded-3xl font-display text-3xl font-black text-white shadow-glow-lg"
+            className="flex h-20 w-20 shrink-0 items-center justify-center border-2 border-white/70 font-display text-3xl font-black text-white"
             style={{ background: `linear-gradient(135deg, ${team.color}, #C084FC)` }}
           >
             {team.name[0]}
@@ -49,6 +64,7 @@ export default async function TeamDetailPage({ params }: { params: Promise<{ slu
             <p className="mt-2 max-w-xl text-sm text-lunex-gray">{team.description}</p>
           </div>
           <div className="flex gap-2">
+            <TeamDashboardLink teamId={team.id} teamSlug={team.slug} />
             {team.recruiting && <Button>قدّم للانضمام</Button>}
             {team.discordUrl && (
               <Button variant="secondary" asChild>

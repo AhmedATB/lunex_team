@@ -22,6 +22,20 @@ import type {
   GlobalRole,
   TeamRole,
   KanbanTask,
+  TeamCategory,
+  TeamCreationRequest,
+  CustomRole,
+  Department,
+  DepartmentKind,
+  SeriesAssignment,
+  SeriesProductionRole,
+  TeamActivityLogEntry,
+  RecruitmentPosition,
+  RecruitmentApplication,
+  CollaborationRequest,
+  CollaborationType,
+  TeamTransferRequest,
+  LeadershipTransferEntry,
 } from "../types";
 
 const SEED = 1337;
@@ -63,6 +77,16 @@ interface MockDatabase {
   comments: Comment[];
   news: NewsItem[];
   kanbanTasks: KanbanTask[];
+  teamCreationRequests: TeamCreationRequest[];
+  customRoles: CustomRole[];
+  departments: Department[];
+  seriesAssignments: SeriesAssignment[];
+  teamActivityLog: TeamActivityLogEntry[];
+  recruitmentPositions: RecruitmentPosition[];
+  recruitmentApplications: RecruitmentApplication[];
+  collaborationRequests: CollaborationRequest[];
+  teamTransferRequests: TeamTransferRequest[];
+  leadershipTransferHistory: LeadershipTransferEntry[];
 }
 
 function build(): MockDatabase {
@@ -115,6 +139,7 @@ function build(): MockDatabase {
     };
   });
 
+  const teamCategories: TeamCategory[] = ["manhwa", "manhwa", "manhwa", "manhua", "manga", "mixed"];
   const teams: Team[] = TEAM_NAMES.slice(0, TEAM_COUNT).map((name, i) => {
     const memberIds = rng.pickMany(users.map((u) => u.id), rng.int(6, 14));
     const leaderId = memberIds[0] ?? users[i].id;
@@ -132,6 +157,10 @@ function build(): MockDatabase {
       rank: i + 1,
       recruiting: rng.bool(0.5),
       createdAt: daysAgo(rng.int(200, 1000)),
+      category: rng.pick(teamCategories),
+      goals: `نسعى ليصبح فريق ${name} من أفضل فرق الترجمة عربياً من ناحية الجودة والانتظام بالنشر.`,
+      status: rng.bool(0.92) ? "active" : rng.pick(["suspended", "archived"] as const),
+      lastActivityAt: daysAgo(rng.int(0, 20)),
     };
   });
 
@@ -265,7 +294,267 @@ function build(): MockDatabase {
     };
   });
 
-  return { genres, teams, users, series, chapters, comments, news, kanbanTasks };
+  // --- Custom roles: 1-2 per team, layered on top of the fixed TeamRole defaults ---
+  const CUSTOM_ROLE_TEMPLATES: { name: string; nameAr: string; permissions: import("../types").TeamPermission[] }[] = [
+    { name: "Senior Translator", nameAr: "مترجم أول", permissions: ["upload_chapter", "edit_chapter", "assign_workers"] },
+    { name: "Chapter Publisher", nameAr: "ناشر الفصول", permissions: ["publish_chapter", "schedule_release"] },
+    { name: "Event Manager", nameAr: "منظم الفعاليات", permissions: ["invite_members", "view_team_statistics"] },
+    { name: "Temporary QC", nameAr: "مراقب جودة مؤقت", permissions: ["edit_chapter"] },
+  ];
+  const customRoles: CustomRole[] = teams.flatMap((team) =>
+    rng.pickMany(CUSTOM_ROLE_TEMPLATES, rng.int(1, 2)).map((tpl, i) => ({
+      id: `custom-role-${team.id}-${i + 1}`,
+      teamId: team.id,
+      name: tpl.name,
+      nameAr: tpl.nameAr,
+      color: TEAM_COLORS[rng.int(0, TEAM_COLORS.length - 1)],
+      permissions: tpl.permissions,
+      isDefault: false,
+      createdAt: daysAgo(rng.int(30, 400)),
+    }))
+  );
+  // Sprinkle a custom role onto a couple of non-leader members per team.
+  for (const team of teams) {
+    const roles = customRoles.filter((r) => r.teamId === team.id);
+    const candidates = team.memberIds.slice(2);
+    for (const uid of rng.pickMany(candidates, Math.min(candidates.length, rng.int(1, 2)))) {
+      const user = users.find((u) => u.id === uid);
+      if (user && roles.length > 0) user.customRoleId = rng.pick(roles).id;
+    }
+  }
+
+  // --- Departments ---
+  const DEPARTMENT_KINDS: { kind: DepartmentKind; name: string; nameAr: string }[] = [
+    { kind: "translation", name: "Translation", nameAr: "الترجمة" },
+    { kind: "proofreading", name: "Proofreading", nameAr: "التدقيق اللغوي" },
+    { kind: "cleaning", name: "Cleaning", nameAr: "التنظيف" },
+    { kind: "redrawing", name: "Redrawing", nameAr: "الرسم" },
+    { kind: "typesetting", name: "Typesetting", nameAr: "التنسيق" },
+    { kind: "quality_control", name: "Quality Control", nameAr: "مراقبة الجودة" },
+    { kind: "publishing", name: "Publishing", nameAr: "النشر" },
+    { kind: "media", name: "Media", nameAr: "الإعلام" },
+    { kind: "recruitment", name: "Recruitment", nameAr: "التوظيف" },
+  ];
+  const ROLE_TO_DEPARTMENT: Partial<Record<TeamRole, DepartmentKind>> = {
+    translator: "translation",
+    proofreader: "proofreading",
+    cleaner: "cleaning",
+    redrawer: "redrawing",
+    typesetter: "typesetting",
+    qc: "quality_control",
+    publisher: "publishing",
+    recruiter: "recruitment",
+  };
+  const departments: Department[] = teams.flatMap((team) => {
+    const picked = rng.pickMany(DEPARTMENT_KINDS, rng.int(4, 7));
+    return picked.map((d, i) => {
+      const memberIds = team.memberIds.filter((uid) => {
+        const u = users.find((x) => x.id === uid);
+        return u?.teamRole && ROLE_TO_DEPARTMENT[u.teamRole] === d.kind;
+      });
+      return {
+        id: `dept-${team.id}-${i + 1}`,
+        teamId: team.id,
+        kind: d.kind,
+        name: d.name,
+        nameAr: d.nameAr,
+        leaderId: memberIds[0] ?? (rng.bool(0.5) ? team.leaderId : undefined),
+        memberIds,
+      };
+    });
+  });
+
+  // --- Per-series production assignments (who works on this specific title) ---
+  const PRODUCTION_ROLES: SeriesProductionRole[] = [
+    "translator", "proofreader", "cleaner", "redrawer", "typesetter", "qc", "publisher",
+  ];
+  const seriesAssignments: SeriesAssignment[] = [];
+  let assignmentCounter = 1;
+  for (const s of series) {
+    const team = teams.find((t) => t.id === s.teamId);
+    if (!team) continue;
+    for (const prodRole of PRODUCTION_ROLES) {
+      const teamRoleForSlot: TeamRole = prodRole;
+      const candidates = team.memberIds.filter((uid) => users.find((u) => u.id === uid)?.teamRole === teamRoleForSlot);
+      if (candidates.length === 0 || !rng.bool(0.75)) continue;
+      seriesAssignments.push({
+        id: `assign-${assignmentCounter++}`,
+        seriesId: s.id,
+        userId: rng.pick(candidates),
+        role: prodRole,
+        assignedAt: daysAgo(rng.int(5, 300)),
+        assignedBy: team.leaderId,
+      });
+    }
+  }
+
+  // --- Team activity log ---
+  const ACTIVITY_ACTIONS = [
+    "أضاف عضواً جديداً للفريق",
+    "أزال عضواً من الفريق",
+    "غيّر دور عضو",
+    "عدّل صلاحيات دور",
+    "نشر فصلاً جديداً",
+    "أنشأ مشروعاً جديداً",
+    "قبل طلب تعاون من فريق آخر",
+    "نقل قيادة الفريق",
+  ];
+  const teamActivityLog: TeamActivityLogEntry[] = teams.flatMap((team) =>
+    Array.from({ length: rng.int(12, 20) }).map((_, i) => ({
+      id: `activity-${team.id}-${i + 1}`,
+      teamId: team.id,
+      userId: rng.pick(team.memberIds),
+      action: rng.pick(ACTIVITY_ACTIONS),
+      target: rng.bool(0.5) ? rng.pick(users).displayName : undefined,
+      previousValue: rng.bool(0.3) ? "عضو" : undefined,
+      newValue: rng.bool(0.3) ? "مترجم أول" : undefined,
+      at: daysAgo(rng.int(0, 180)),
+    }))
+  );
+
+  // --- Recruitment ---
+  const RECRUIT_ROLES: TeamRole[] = ["translator", "cleaner", "typesetter", "qc", "publisher", "redrawer"];
+  const recruitmentPositions: RecruitmentPosition[] = teams
+    .filter((t) => t.recruiting)
+    .flatMap((team) =>
+      rng.pickMany(RECRUIT_ROLES, rng.int(2, 3)).map((role, i) => ({
+        id: `position-${team.id}-${i + 1}`,
+        teamId: team.id,
+        role,
+        isOpen: true,
+        description: `نبحث عن ${role} ملتزم وموهوب للانضمام إلى فريق ${team.name}.`,
+        createdAt: daysAgo(rng.int(1, 60)),
+      }))
+    );
+  const APPLICATION_LANGUAGES = ["العربية", "الإنجليزية", "الكورية", "اليابانية"];
+  const nonMemberUsers = users.filter((u) => !u.teamId);
+  const recruitmentApplications: RecruitmentApplication[] = recruitmentPositions.flatMap((pos, idx) => {
+    const applicantCount = rng.int(0, 4);
+    return rng.pickMany(nonMemberUsers, applicantCount).map((applicant, i) => ({
+      id: `application-${pos.id}-${i + 1}`,
+      teamId: pos.teamId,
+      positionId: pos.id,
+      userId: applicant.id,
+      preferredRole: pos.role,
+      experience: rng.pick([
+        "بدون خبرة سابقة لكن شغوف بالتعلم",
+        "سنة خبرة في فرق ترجمة أخرى",
+        "أكثر من سنتين خبرة في الترجمة والتنسيق",
+      ]),
+      portfolioUrl: rng.bool(0.4) ? "https://example.com/portfolio" : undefined,
+      languages: rng.pickMany(APPLICATION_LANGUAGES, rng.int(1, 3)),
+      availability: rng.pick(["جزئي (أقل من 10 ساعات أسبوعياً)", "متوسط (10-20 ساعة أسبوعياً)", "كامل (أكثر من 20 ساعة أسبوعياً)"]),
+      status: rng.pick(["pending", "pending", "accepted", "rejected", "interview", "waitlist"] as const),
+      appliedAt: daysAgo(rng.int(0, 45) + idx * 0),
+    }));
+  });
+
+  // --- Cross-team collaboration requests ---
+  const COLLAB_TYPES: CollaborationType[] = [
+    "need_translator", "need_cleaner", "need_typesetter", "need_qc", "need_publisher",
+    "need_complete_team_support", "emergency_assistance",
+  ];
+  const collaborationRequests: CollaborationRequest[] = Array.from({ length: 16 }).map((_, i) => {
+    const fromTeam = rng.pick(teams);
+    let toTeam = rng.pick(teams);
+    while (toTeam.id === fromTeam.id) toTeam = rng.pick(teams);
+    const ownedSeries = series.filter((s) => s.teamId === fromTeam.id);
+    const s = ownedSeries.length > 0 ? rng.pick(ownedSeries) : rng.pick(series);
+    return {
+      id: `collab-${i + 1}`,
+      fromTeamId: fromTeam.id,
+      toTeamId: toTeam.id,
+      seriesId: s.id,
+      type: rng.pick(COLLAB_TYPES),
+      message: `نحتاج دعم فريقكم على مشروع ${s.titleAr}، هل يمكنكم المساعدة؟`,
+      status: rng.pick(["pending", "pending", "accepted", "rejected", "negotiating"] as const),
+      createdAt: daysAgo(rng.int(0, 40)),
+    };
+  });
+
+  // --- Team creation requests (admin approval queue) ---
+  const PENDING_TEAM_NAMES = ["Nova Scans", "Ashfall", "Crescent Ink", "Ember Team", "Void Studio"];
+  const requesters = rng.pickMany(nonMemberUsers, PENDING_TEAM_NAMES.length);
+  const teamCreationStatuses: TeamCreationRequest["status"][] = [
+    "pending", "pending", "pending", "approved", "rejected", "needs_modification",
+  ];
+  const teamCreationRequests: TeamCreationRequest[] = PENDING_TEAM_NAMES.map((name, i) => {
+    const status = teamCreationStatuses[i % teamCreationStatuses.length];
+    const requester = requesters[i] ?? rng.pick(users);
+    return {
+      id: `team-request-${i + 1}`,
+      requesterId: requester.id,
+      teamName: name,
+      logoSeed: `lunex-team-request-logo-${i + 1}`,
+      bannerSeed: `lunex-team-request-banner-${i + 1}`,
+      description: `فريق ${name} فريق ناشئ يطمح لتقديم ترجمات عالية الجودة للقرّاء العرب.`,
+      goals: "نشر فصل واحد أسبوعياً على الأقل مع الحفاظ على جودة الترجمة والتنسيق.",
+      discordUrl: "https://discord.gg/example",
+      requiredPositions: rng.pickMany(RECRUIT_ROLES, rng.int(2, 4)),
+      category: rng.pick(teamCategories),
+      expectedMembers: rng.int(5, 20),
+      previousExperience: rng.pick([
+        "أعضاء الفريق عملوا سابقاً في فرق ترجمة معروفة",
+        "فريق جديد بالكامل بدون خبرة مسبقة",
+        "بعض الأعضاء لديهم خبرة فردية في الترجمة الحرة",
+      ]),
+      portfolioUrl: rng.bool(0.5) ? "https://example.com/portfolio" : undefined,
+      status,
+      reviewerNote: status === "needs_modification" ? "يرجى توضيح خطة النشر الأسبوعية بشكل أدق." : undefined,
+      reviewedBy: status !== "pending" ? teams[0]?.leaderId : undefined,
+      reviewedAt: status !== "pending" ? daysAgo(rng.int(1, 20)) : undefined,
+      createdAt: daysAgo(rng.int(2, 60)),
+    };
+  });
+
+  // --- Team transfer + leadership transfer history ---
+  const teamTransferRequests: TeamTransferRequest[] = Array.from({ length: 6 }).map((_, i) => {
+    const user = rng.pick(users.filter((u) => u.teamId));
+    const fromTeam = teams.find((t) => t.id === user.teamId) ?? rng.pick(teams);
+    let toTeam = rng.pick(teams);
+    while (toTeam.id === fromTeam.id) toTeam = rng.pick(teams);
+    return {
+      id: `transfer-${i + 1}`,
+      userId: user.id,
+      fromTeamId: fromTeam.id,
+      toTeamId: toTeam.id,
+      reason: "يبحث عن فرصة أفضل تناسب وقته وتخصصه.",
+      status: rng.pick(["pending", "current_team_approved", "new_team_approved", "approved", "rejected"] as const),
+      createdAt: daysAgo(rng.int(0, 60)),
+    };
+  });
+
+  const leadershipTransferHistory: LeadershipTransferEntry[] = teams
+    .filter(() => rng.bool(0.4))
+    .map((team, i) => ({
+      id: `leadership-transfer-${i + 1}`,
+      teamId: team.id,
+      fromUserId: team.leaderId,
+      toUserId: rng.pick(team.memberIds),
+      reason: "تفرغ القائد السابق عن الفريق لظروف شخصية.",
+      at: daysAgo(rng.int(60, 500)),
+    }));
+
+  return {
+    genres,
+    teams,
+    users,
+    series,
+    chapters,
+    comments,
+    news,
+    kanbanTasks,
+    teamCreationRequests,
+    customRoles,
+    departments,
+    seriesAssignments,
+    teamActivityLog,
+    recruitmentPositions,
+    recruitmentApplications,
+    collaborationRequests,
+    teamTransferRequests,
+    leadershipTransferHistory,
+  };
 }
 
 let cached: MockDatabase | null = null;
