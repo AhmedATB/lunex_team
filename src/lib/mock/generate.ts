@@ -30,10 +30,15 @@ const SERIES_COUNT = 100;
 const CHAPTER_TARGET = 500;
 const TEAM_COUNT = 8;
 
-function daysAgo(n: number) {
-  const d = new Date();
-  d.setDate(d.getDate() - n);
-  return d.toISOString();
+// Anchored to a single timestamp per build() run (not `new Date()` per call) so that
+// items sharing the same day-offset get byte-identical timestamps. Otherwise sort-order
+// ties would resolve differently between the server render and the client hydration
+// pass (each capturing "now" at a slightly different instant), causing a hydration
+// mismatch anywhere the data is sorted by these timestamps (e.g. the ticker).
+function makeDaysAgo(referenceNow: number) {
+  return function daysAgo(n: number) {
+    return new Date(referenceNow - n * 86_400_000).toISOString();
+  };
 }
 
 const NON_SLUG_CHARS = /[^\w\s؀-ۿ-]/g;
@@ -62,6 +67,7 @@ interface MockDatabase {
 
 function build(): MockDatabase {
   const rng = new Rand(SEED);
+  const daysAgo = makeDaysAgo(Date.now());
 
   const genres: Genre[] = GENRES.map((g, i) => ({ id: `genre-${i + 1}`, ...g }));
 

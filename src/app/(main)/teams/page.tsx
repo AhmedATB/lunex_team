@@ -28,11 +28,11 @@ export default async function TeamsPage() {
           <FadeIn key={team.id} delay={i * 0.04}>
             <Link
               href={`/teams/${team.slug}`}
-              className="group glass ease-premium flex flex-col gap-3 rounded-2xl p-5 transition-all hover:-translate-y-1 hover:border-primary-400/40 hover:shadow-glow active:scale-[0.98]"
+              className="group panel panel-hover flex flex-col gap-3 p-5 transition-all hover:-translate-y-1 hover:border-primary-400/40 active:scale-[0.98]"
             >
               <div className="flex items-center justify-between">
                 <div
-                  className="flex h-12 w-12 items-center justify-center rounded-2xl font-display text-lg font-black text-white"
+                  className="flex h-12 w-12 items-center justify-center font-display text-lg font-black text-white"
                   style={{ background: `linear-gradient(135deg, ${team.color}, #C084FC)` }}
                 >
                   {team.name[0]}

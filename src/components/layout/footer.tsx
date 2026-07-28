@@ -3,7 +3,7 @@ import Image from "next/image";
 
 export function Footer() {
   return (
-    <footer className="mt-16 border-t border-white/10 bg-white/[0.02] pb-24 pt-10 lg:pb-10">
+    <footer className="mt-16 border-t-2 border-white/25 bg-[#0c0715] pb-24 pt-10 lg:pb-10">
       <div className="container grid gap-10 sm:grid-cols-2 lg:grid-cols-4">
         <div>
           <div className="flex items-center gap-2">
@@ -41,7 +41,7 @@ export function Footer() {
           ]}
         />
       </div>
-      <div className="container mt-8 border-t border-white/10 pt-6 text-center text-xs text-lunex-gray">
+      <div className="container mt-8 border-t-2 border-white/20 pt-6 text-center text-xs text-lunex-gray">
         © {new Date().getFullYear()} LUNEX TEAM. جميع الحقوق محفوظة. بيانات هذا الموقع تجريبية بالكامل.
       </div>
     </footer>

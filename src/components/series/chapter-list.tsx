@@ -38,7 +38,7 @@ export function ChapterList({ seriesSlug, chapters }: { seriesSlug: string; chap
         </Button>
       </div>
 
-      <div className="glass max-h-[560px] overflow-y-auto rounded-2xl">
+      <div className="panel max-h-[560px] overflow-y-auto">
         {list.map((c) => (
           <Link
             key={c.id}

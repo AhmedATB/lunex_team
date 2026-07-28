@@ -23,7 +23,7 @@ export function NewsSection({ news }: { news: NewsItem[] }) {
             <Link
               key={item.id}
               href="/news"
-              className="group glass ease-premium overflow-hidden rounded-2xl transition-all hover:-translate-y-1 hover:border-primary-400/40 hover:shadow-glow active:scale-[0.98]"
+              className="group panel panel-hover overflow-hidden transition-all hover:-translate-y-1 hover:border-primary-400/40 active:scale-[0.98]"
             >
               <div className="relative h-40 w-full overflow-hidden">
                 <Image

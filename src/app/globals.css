@@ -17,7 +17,7 @@
     --ring: 271 81% 56%;
     --destructive: 0 72% 51%;
     --destructive-foreground: 0 0% 100%;
-    --radius: 1rem;
+    --radius: 0px;
     --ease-premium: cubic-bezier(0.16, 1, 0.3, 1);
   }
 
@@ -35,7 +35,7 @@
   }
 
   ::selection {
-    @apply bg-primary-500/40 text-white;
+    @apply bg-primary-500/50 text-white;
   }
 
   ::-webkit-scrollbar {
@@ -46,31 +46,29 @@
     background: transparent;
   }
   ::-webkit-scrollbar-thumb {
-    background: linear-gradient(180deg, #6d28d9, #a855f7);
-    border-radius: 999px;
+    background: #a855f7;
     border: 2px solid #09090b;
   }
 }
 
 @layer components {
-  .glass {
-    border: 1px solid rgba(168, 85, 247, 0.16);
-    background: rgba(168, 85, 247, 0.05);
-    backdrop-filter: blur(20px);
+  /* Solid brutalist panel: opaque block + thick ink border + hard offset shadow. Replaces soft glass. */
+  .panel {
+    border: 2px solid rgba(168, 85, 247, 0.4);
+    background: #140a24;
+    box-shadow: 4px 4px 0 0 rgba(0, 0, 0, 0.5);
   }
 
-  .glass-strong {
-    border: 1px solid rgba(168, 85, 247, 0.22);
-    background: rgba(168, 85, 247, 0.08);
-    backdrop-filter: blur(28px);
+  .panel-hover {
+    transition: transform 0.15s var(--ease-premium), box-shadow 0.15s var(--ease-premium);
+  }
+  .panel-hover:hover {
+    transform: translate(-2px, -2px);
+    box-shadow: 6px 6px 0 0 rgba(109, 40, 217, 0.6);
   }
 
   .text-gradient {
     @apply bg-lunex-gradient bg-clip-text text-transparent;
-  }
-
-  .glow-ring {
-    box-shadow: 0 0 0 1px rgba(168, 85, 247, 0.25), 0 0 30px -8px rgba(168, 85, 247, 0.45);
   }
 
   .comic-btn {
@@ -87,13 +85,32 @@
     box-shadow: 1px 1px 0 0 rgba(0, 0, 0, 0.55);
   }
 
-  .ambient-blob {
+  /* Flood-invert: solid color slams in behind the content on hover, signature Kinetic-Brutalism move. */
+  .flood {
+    position: relative;
+    isolation: isolate;
+    overflow: hidden;
+  }
+  .flood::before {
+    content: "";
     position: absolute;
-    border-radius: 9999px;
-    filter: blur(70px);
-    opacity: 0.16;
-    pointer-events: none;
-    animation: drift 18s ease-in-out infinite;
+    inset: 0;
+    background: #c084fc;
+    transform: scaleY(0);
+    transform-origin: bottom;
+    transition: transform 0.25s var(--ease-premium);
+    z-index: -1;
+  }
+  .flood:hover::before,
+  .flood:focus-visible::before {
+    transform: scaleY(1);
+  }
+  .flood-text {
+    transition: color 0.2s var(--ease-premium);
+  }
+  .flood:hover .flood-text,
+  .flood:focus-visible .flood-text {
+    color: #1a0b2e;
   }
 }
 
@@ -113,13 +130,19 @@
   }
 }
 
-@keyframes drift {
-  0%, 100% { transform: translate(0, 0) scale(1); }
-  50% { transform: translate(3%, -4%) scale(1.08); }
+.marquee-track {
+  display: flex;
+  width: max-content;
+  animation: marquee 26s linear infinite;
+}
+
+@keyframes marquee {
+  from { transform: translateX(0); }
+  to { transform: translateX(-50%); }
 }
 
 @media (prefers-reduced-motion: reduce) {
-  .ambient-blob {
+  .marquee-track {
     animation: none;
   }
 }

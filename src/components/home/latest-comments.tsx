@@ -29,7 +29,7 @@ export function LatestComments({
             <Link
               key={c.id}
               href={`/series/${series.slug}`}
-              className="glass ease-premium flex gap-3 rounded-2xl p-4 transition-colors hover:border-primary-400/30"
+              className="panel panel-hover flex gap-3 p-4 transition-colors hover:border-primary-400/30"
             >
               <div className="relative h-9 w-9 shrink-0 overflow-hidden rounded-full ring-2 ring-white/10">
                 <Image src={avatarUrl(user.avatarSeed)} alt={user.displayName} fill className="object-cover" />

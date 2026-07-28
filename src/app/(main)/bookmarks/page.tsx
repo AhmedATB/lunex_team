@@ -24,7 +24,7 @@ export default function BookmarksPage() {
       </h1>
 
       {bookmarked.length === 0 ? (
-        <div className="glass rounded-2xl p-12 text-center">
+        <div className="panel p-12 text-center">
           <Bookmark className="mx-auto mb-3 h-10 w-10 text-lunex-gray" />
           <p className="text-lunex-gray">لم تضف أي سلسلة إلى المفضلة بعد.</p>
         </div>

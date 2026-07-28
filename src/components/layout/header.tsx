@@ -50,10 +50,16 @@ export function Header() {
   }
 
   return (
-    <header className="sticky top-0 z-40 border-b border-white/10 bg-[#09090B]/80 backdrop-blur-xl">
+    <header className="sticky top-0 z-40 border-b-2 border-white/20 bg-[#09090B]">
       <div className="container flex h-16 items-center gap-3">
         <Link href="/" className="flex shrink-0 items-center gap-2">
-          <Image src="/brand/icon-square.png" alt="LUNEX TEAM" width={34} height={34} className="rounded-full" />
+          <Image
+            src="/brand/icon-square.png"
+            alt="LUNEX TEAM"
+            width={34}
+            height={34}
+            className="rounded-full border-2 border-white/70"
+          />
           <span className="hidden font-display text-lg font-bold text-white sm:inline">
             LUNEX <span className="text-primary-400">TEAM</span>
           </span>
@@ -84,12 +90,12 @@ export function Header() {
 
           <Button variant="ghost" size="icon" aria-label="الإشعارات" className="relative">
             <Bell className="h-5 w-5" />
-            <span className="absolute end-1.5 top-1.5 h-2 w-2 rounded-full bg-primary-400 shadow-glow" />
+            <span className="absolute end-1.5 top-1.5 h-2 w-2 rounded-full border border-black bg-amber-400" />
           </Button>
 
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
-              <button className="flex items-center gap-2 rounded-full border border-white/10 p-0.5 pe-2 transition-colors hover:bg-white/5">
+              <button className="flex items-center gap-2 border-2 border-white/25 p-0.5 pe-2 transition-colors hover:border-primary-400 hover:bg-white/5">
                 <Avatar className="h-8 w-8">
                   <AvatarImage src={currentUser ? avatarUrl(currentUser.avatarSeed) : undefined} />
                   <AvatarFallback>{currentUser?.displayName?.[0] ?? "ض"}</AvatarFallback>

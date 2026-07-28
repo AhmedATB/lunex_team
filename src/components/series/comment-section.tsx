@@ -79,7 +79,7 @@ export function CommentSection({
           const likes = c.likes + (reaction === "like" ? 1 : 0);
           const dislikes = c.dislikes + (reaction === "dislike" ? 1 : 0);
           return (
-            <div key={c.id} className="glass flex gap-3 rounded-2xl p-4">
+            <div key={c.id} className="panel flex gap-3 p-4">
               <div className="relative h-9 w-9 shrink-0 overflow-hidden rounded-full ring-2 ring-white/10">
                 <Image src={avatarUrl(user.avatarSeed)} alt={user.displayName} fill className="object-cover" />
               </div>

@@ -85,7 +85,7 @@ export default async function SeriesDetailPage({ params }: { params: Promise<{ s
       <div className="container -mt-24 space-y-8 sm:-mt-28">
         <FadeIn>
           <div className="flex flex-col gap-6 sm:flex-row">
-            <div className="relative aspect-[3/4.2] w-40 shrink-0 overflow-hidden rounded-2xl border border-white/10 shadow-glow-lg sm:w-52">
+            <div className="relative aspect-[3/4.2] w-40 shrink-0 overflow-hidden border border-white/10 shadow-glow-lg sm:w-52">
               <Image src={series.cover} alt={series.titleAr} fill sizes="208px" className="object-cover" />
             </div>
 
@@ -116,14 +116,14 @@ export default async function SeriesDetailPage({ params }: { params: Promise<{ s
               <div className="flex flex-wrap items-center gap-2 pt-2">
                 <a
                   href={`/series/${series.slug}/${chapters[chapters.length - 1]?.number ?? 1}`}
-                  className="inline-flex h-10 items-center gap-2 rounded-xl bg-lunex-gradient px-5 text-sm font-semibold text-white shadow-glow transition-transform hover:scale-[1.02]"
+                  className="inline-flex h-10 items-center gap-2 bg-lunex-gradient px-5 text-sm font-semibold text-white shadow-glow transition-transform hover:scale-[1.02]"
                 >
                   <BookOpen className="h-4 w-4" /> ابدأ من الفصل الأول
                 </a>
                 {chapters[0] && (
                   <a
                     href={`/series/${series.slug}/${chapters[0].number}`}
-                    className="inline-flex h-10 items-center gap-2 rounded-xl border border-white/10 bg-white/5 px-5 text-sm font-semibold text-white backdrop-blur-md transition-colors hover:bg-white/10"
+                    className="inline-flex h-10 items-center gap-2 border border-white/10 bg-white/5 px-5 text-sm font-semibold text-white backdrop-blur-md transition-colors hover:bg-white/10"
                   >
                     أحدث فصل ({chapters[0].number})
                   </a>
@@ -135,7 +135,7 @@ export default async function SeriesDetailPage({ params }: { params: Promise<{ s
               {team && (
                 <Link
                   href={`/teams/${team.slug}`}
-                  className="glass mt-2 inline-flex items-center gap-2 rounded-xl px-3 py-1.5 text-xs text-lunex-gray transition-colors hover:border-primary-400/40"
+                  className="panel mt-2 inline-flex items-center gap-2 px-3 py-1.5 text-xs text-lunex-gray transition-colors hover:border-primary-400/40"
                 >
                   ترجمة فريق <span className="font-semibold text-primary-300">{team.name}</span>
                 </Link>
@@ -162,7 +162,7 @@ export default async function SeriesDetailPage({ params }: { params: Promise<{ s
           </FadeIn>
 
           <FadeIn className="space-y-4">
-            <div className="glass rounded-2xl p-4">
+            <div className="panel p-4">
               <h3 className="mb-3 font-display text-sm font-bold text-white">معلومات إضافية</h3>
               <dl className="space-y-2 text-sm">
                 <Row label="الرسّام" value={series.artist} />
