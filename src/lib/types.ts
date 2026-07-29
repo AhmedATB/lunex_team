@@ -37,6 +37,7 @@ export interface Team {
   name: string;
   logoHue: number;
   color: string;
+  logoUrl?: string;
   description: string;
   leaderId: string;
   memberIds: string[];
@@ -59,6 +60,8 @@ export interface TeamCreationRequest {
   teamName: string;
   logoSeed: string;
   bannerSeed: string;
+  logoUrl?: string;
+  color?: string;
   description: string;
   goals: string;
   discordUrl: string;
@@ -88,10 +91,8 @@ export interface CustomRole {
 
 export type DepartmentKind =
   | "translation"
+  | "editing"
   | "proofreading"
-  | "cleaning"
-  | "redrawing"
-  | "typesetting"
   | "quality_control"
   | "publishing"
   | "media"
@@ -107,7 +108,7 @@ export interface Department {
   memberIds: string[];
 }
 
-export type SeriesProductionRole = "translator" | "proofreader" | "cleaner" | "redrawer" | "typesetter" | "qc" | "publisher";
+export type SeriesProductionRole = "translator" | "editor" | "proofreader" | "qc" | "publisher";
 
 export interface SeriesAssignment {
   id: string;
@@ -155,8 +156,8 @@ export interface RecruitmentApplication {
 
 export type CollaborationType =
   | "need_translator"
-  | "need_cleaner"
-  | "need_typesetter"
+  | "need_editor"
+  | "need_proofreader"
   | "need_qc"
   | "need_publisher"
   | "need_complete_team_support"
@@ -209,10 +210,8 @@ export type TeamRole =
   | "trainee"
   | "member"
   | "translator"
+  | "editor"
   | "proofreader"
-  | "cleaner"
-  | "redrawer"
-  | "typesetter"
   | "qc"
   | "publisher"
   | "uploader"

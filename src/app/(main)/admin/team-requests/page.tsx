@@ -100,13 +100,25 @@ export default function AdminTeamRequestsPage() {
               <CardContent className="space-y-3 p-5">
                 <div className="flex flex-wrap items-start justify-between gap-2">
                   <div className="flex items-center gap-3">
-                    <Image
-                      src={`https://picsum.photos/seed/${request.logoSeed}/64/64`}
-                      alt={request.teamName}
-                      width={48}
-                      height={48}
-                      className="art-glow shine rounded-xl border border-white/10"
-                    />
+                    <div
+                      className="art-glow shine relative h-12 w-12 shrink-0 overflow-hidden rounded-xl border border-white/10"
+                      style={request.logoUrl ? undefined : { background: `linear-gradient(135deg, ${request.color ?? "#A855F7"}, #C084FC)` }}
+                    >
+                      {request.logoUrl ? (
+                        <Image src={request.logoUrl} alt={request.teamName} fill className="object-cover" unoptimized />
+                      ) : request.color ? (
+                        <span className="flex h-full w-full items-center justify-center font-display text-lg font-black text-white">
+                          {request.teamName[0]?.toUpperCase()}
+                        </span>
+                      ) : (
+                        <Image
+                          src={`https://picsum.photos/seed/${request.logoSeed}/64/64`}
+                          alt={request.teamName}
+                          fill
+                          className="object-cover"
+                        />
+                      )}
+                    </div>
                     <div>
                       <h3 className="font-display text-lg font-black text-white">{request.teamName}</h3>
                       {requester && (

@@ -12,10 +12,16 @@ import type {
   CollaborationType,
   TeamRole,
   SeriesProductionRole,
+  LeadershipTransferEntry,
 } from "@/lib/types";
 
 function slugify(s: string) {
   return s.trim().toLowerCase().replace(/[^\w\s-]/g, "").replace(/\s+/g, "-") || `team-${Date.now()}`;
+}
+
+/** Merges any admin/leader-edited fields on top of a base team (seeded or created), by team id. */
+export function applyTeamOverride(team: Team, overrides: Record<string, Partial<Team>>): Team {
+  return { ...team, ...(overrides[team.id] ?? {}) };
 }
 
 interface TeamManagementState {
@@ -30,6 +36,8 @@ interface TeamManagementState {
   removedMemberIds: Record<string, string[]>;
   seriesAssignmentOverrides: { id: string; seriesId: string; role: SeriesProductionRole; userId: string; assignedAt: string; assignedBy: string }[];
   addedCollaborationRequests: CollaborationRequest[];
+  teamInfoOverrides: Record<string, Partial<Team>>;
+  leadershipTransfers: LeadershipTransferEntry[];
 
   submitTeamRequest: (req: Omit<TeamCreationRequest, "id" | "status" | "createdAt">) => void;
   reviewRequest: (
@@ -52,6 +60,12 @@ interface TeamManagementState {
     message: string;
   }) => void;
   logActivity: (entry: Omit<TeamActivityLogEntry, "id" | "at">) => void;
+  updateTeamInfo: (
+    teamId: string,
+    patch: Partial<Pick<Team, "name" | "description" | "goals" | "discordUrl" | "category" | "recruiting" | "logoUrl" | "color">>,
+    actorId: string
+  ) => void;
+  transferLeadership: (teamId: string, fromUserId: string, toUserId: string, actorId: string, reason: string) => void;
 }
 
 export const useTeamManagement = create<TeamManagementState>()(
@@ -68,6 +82,8 @@ export const useTeamManagement = create<TeamManagementState>()(
       removedMemberIds: {},
       seriesAssignmentOverrides: [],
       addedCollaborationRequests: [],
+      teamInfoOverrides: {},
+      leadershipTransfers: [],
 
       submitTeamRequest: (req) => {
         const id = `submitted-request-${Date.now()}`;
@@ -89,7 +105,8 @@ export const useTeamManagement = create<TeamManagementState>()(
             slug: slugify(request.teamName),
             name: request.teamName,
             logoHue: 270,
-            color: "#A855F7",
+            color: request.color ?? "#A855F7",
+            logoUrl: request.logoUrl,
             description: request.description,
             leaderId: request.requesterId,
             memberIds: [request.requesterId],
@@ -211,6 +228,30 @@ export const useTeamManagement = create<TeamManagementState>()(
             ...s.addedActivity,
           ],
         }));
+      },
+
+      updateTeamInfo: (teamId, patch, actorId) => {
+        set((s) => ({
+          teamInfoOverrides: { ...s.teamInfoOverrides, [teamId]: { ...s.teamInfoOverrides[teamId], ...patch } },
+        }));
+        get().logActivity({ teamId, userId: actorId, action: "عدّل معلومات الفريق" });
+      },
+
+      transferLeadership: (teamId, fromUserId, toUserId, actorId, reason) => {
+        const at = new Date().toISOString();
+        set((s) => ({
+          teamInfoOverrides: { ...s.teamInfoOverrides, [teamId]: { ...s.teamInfoOverrides[teamId], leaderId: toUserId } },
+          memberRoleOverrides: {
+            ...s.memberRoleOverrides,
+            [toUserId]: { ...s.memberRoleOverrides[toUserId], teamRole: "team_leader" },
+            [fromUserId]: { ...s.memberRoleOverrides[fromUserId], teamRole: "assistant_leader" },
+          },
+          leadershipTransfers: [
+            { id: `leadership-transfer-${Date.now()}`, teamId, fromUserId, toUserId, reason, at },
+            ...s.leadershipTransfers,
+          ],
+        }));
+        get().logActivity({ teamId, userId: actorId, action: "نقل قيادة الفريق", target: toUserId });
       },
     }),
     { name: "lunex-team-management", skipHydration: true }

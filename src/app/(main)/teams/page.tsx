@@ -2,9 +2,10 @@
 
 import { useEffect, useMemo } from "react";
 import Link from "next/link";
+import Image from "next/image";
 import { Users, Crown, Trophy, Plus, Sparkle } from "lucide-react";
 import { getMockDatabase } from "@/lib/mock/generate";
-import { useTeamManagement } from "@/store/team-management";
+import { useTeamManagement, applyTeamOverride } from "@/store/team-management";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { FadeIn } from "@/components/motion/fade-in";
@@ -17,14 +18,15 @@ export default function TeamsPage() {
 
   const db = useMemo(() => getMockDatabase(), []);
   const createdTeams = useTeamManagement((s) => s.createdTeams);
+  const teamInfoOverrides = useTeamManagement((s) => s.teamInfoOverrides);
 
   const teamsWithCounts = useMemo(() => {
-    const all = [...db.teams, ...createdTeams];
+    const all = [...db.teams, ...createdTeams].map((t) => applyTeamOverride(t, teamInfoOverrides));
     return all.map((team) => ({
       team,
       seriesCount: db.series.filter((s) => s.teamId === team.id).length,
     }));
-  }, [db, createdTeams]);
+  }, [db, createdTeams, teamInfoOverrides]);
 
   return (
     <div className="container space-y-6 py-6">
@@ -51,12 +53,16 @@ export default function TeamsPage() {
               <div className="flex items-center justify-between">
                 <div
                   className={cn(
-                    "art-glow shine flex h-12 w-12 items-center justify-center rounded-2xl font-display text-lg font-black text-white transition-transform duration-300 group-hover:scale-110 group-active:scale-110",
+                    "art-glow shine relative flex h-12 w-12 items-center justify-center overflow-hidden rounded-2xl font-display text-lg font-black text-white transition-transform duration-300 group-hover:scale-110 group-active:scale-110",
                     team.rank <= 3 && "magic-border"
                   )}
-                  style={{ background: `linear-gradient(135deg, ${team.color}, #C084FC)` }}
+                  style={team.logoUrl ? undefined : { background: `linear-gradient(135deg, ${team.color}, #C084FC)` }}
                 >
-                  {team.name[0]}
+                  {team.logoUrl ? (
+                    <Image src={team.logoUrl} alt={team.name} fill className="object-cover" unoptimized />
+                  ) : (
+                    team.name[0]
+                  )}
                 </div>
                 <Badge variant={team.recruiting ? "success" : "secondary"}>
                   {team.recruiting ? "يستقبل طلبات" : "مكتمل العدد"}

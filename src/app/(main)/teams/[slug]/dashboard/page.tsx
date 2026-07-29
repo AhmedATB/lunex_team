@@ -6,11 +6,11 @@ import Link from "next/link";
 import Image from "next/image";
 import {
   Users, Layers, BookOpen, Star, ShieldAlert, ArrowUp, ArrowDown, Trash2,
-  Plus, Check, X, HandHeart, Clock, ClipboardList,
+  Plus, Check, X, HandHeart, Clock, ClipboardList, Crown, Settings,
 } from "lucide-react";
 import { getMockDatabase } from "@/lib/mock/generate";
 import { useSession } from "@/store/session";
-import { useTeamManagement } from "@/store/team-management";
+import { useTeamManagement, applyTeamOverride } from "@/store/team-management";
 import {
   TEAM_ROLE_LABELS,
   TEAM_PERMISSION_LABELS,
@@ -18,9 +18,11 @@ import {
   getTeamPermissions,
   canInTeam,
 } from "@/lib/rbac";
-import { avatarUrl, formatNumber, safeDecodeURIComponent, timeAgo } from "@/lib/utils";
+import { CATEGORY_LABELS } from "@/lib/team-labels";
+import { TEAM_COLOR_PALETTE } from "@/lib/team-colors";
+import { avatarUrl, cn, formatNumber, safeDecodeURIComponent, timeAgo } from "@/lib/utils";
 import type {
-  TeamRole, SeriesProductionRole, CollaborationType, RecruitmentApplication, CustomRole,
+  TeamRole, SeriesProductionRole, CollaborationType, RecruitmentApplication, CustomRole, Team, TeamCategory, User,
 } from "@/lib/types";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -29,6 +31,7 @@ import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
 import { Checkbox } from "@/components/ui/checkbox";
+import { Switch } from "@/components/ui/switch";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import {
   Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
@@ -49,16 +52,12 @@ function demote(role: TeamRole): TeamRole {
   return PROMOTION_LADDER[Math.max(idx - 1, 0)];
 }
 
-const PRODUCTION_ROLES: SeriesProductionRole[] = ["translator", "proofreader", "cleaner", "redrawer", "typesetter", "qc", "publisher"];
-const PRODUCTION_ROLE_LABELS: Record<SeriesProductionRole, string> = {
-  translator: "مترجم", proofreader: "مدقق", cleaner: "منظف", redrawer: "رسّام",
-  typesetter: "منسّق", qc: "مراقب جودة", publisher: "ناشر",
-};
+const PRODUCTION_ROLES: SeriesProductionRole[] = ["translator", "editor", "proofreader", "qc", "publisher"];
 
 const COLLAB_TYPE_LABELS: Record<CollaborationType, string> = {
   need_translator: "بحاجة مترجم",
-  need_cleaner: "بحاجة منظف صور",
-  need_typesetter: "بحاجة منسّق",
+  need_editor: "بحاجة محرر",
+  need_proofreader: "بحاجة مدقق لغوي",
   need_qc: "بحاجة مراقب جودة",
   need_publisher: "بحاجة ناشر",
   need_complete_team_support: "بحاجة دعم فريق كامل",
@@ -75,7 +74,8 @@ export default function TeamDashboardPage() {
 
   const db = useMemo(() => getMockDatabase(), []);
   const store = useTeamManagement();
-  const team = [...db.teams, ...store.createdTeams].find((t) => t.slug === slug);
+  const rawTeam = [...db.teams, ...store.createdTeams].find((t) => t.slug === slug);
+  const team = rawTeam ? applyTeamOverride(rawTeam, store.teamInfoOverrides) : undefined;
 
   const currentUserId = useSession((s) => s.currentUserId);
   const currentUser = db.users.find((u) => u.id === currentUserId);
@@ -98,14 +98,21 @@ export default function TeamDashboardPage() {
 
   const isMember = currentUser?.teamId === team.id;
   const isGlobalAdmin = currentUser?.role === "owner" || currentUser?.role === "super_administrator";
+  const isLeader = currentUser?.id === team.leaderId;
+  const effectiveTeamRole = currentUser ? store.memberRoleOverrides[currentUser.id]?.teamRole ?? currentUser.teamRole : undefined;
+  const isAssistantLeader = isMember && effectiveTeamRole === "assistant_leader";
+  const canAccessDashboard = isLeader || isAssistantLeader || isGlobalAdmin;
 
-  if (!currentUser || (!isMember && !isGlobalAdmin)) {
+  // Dashboard access is intentionally narrower than "team member": only the team
+  // leader, their assistant leader, and platform admins manage the team here —
+  // other roles (translators, QC, etc.) only get the public team page.
+  if (!currentUser || !canAccessDashboard) {
     return (
       <div className="container flex flex-col items-center gap-4 py-24 text-center">
         <ShieldAlert className="h-14 w-14 text-red-400" />
         <h1 className="font-display text-2xl font-bold text-white">وصول مرفوض</h1>
         <p className="max-w-sm text-sm text-lunex-gray">
-          هذه لوحة إدارة خاصة بأعضاء فريق {team.name} فقط. جرّب تبديل الدور من قائمة الحساب للتجربة.
+          هذه اللوحة مخصصة لقائد فريق {team.name} ونائبه ومشرفي المنصة فقط.
         </p>
         <Button asChild><Link href={`/teams/${team.slug}`}>عرض صفحة الفريق العامة</Link></Button>
       </div>
@@ -131,6 +138,7 @@ export default function TeamDashboardPage() {
   const teamDepartments = db.departments.filter((d) => d.teamId === team.id);
   const canManage = isGlobalAdmin || canInTeam(currentUser, "manage_members", customRoles) || currentUser.id === team.leaderId;
   const canManageRoles = isGlobalAdmin || canInTeam(currentUser, "manage_roles", customRoles) || currentUser.id === team.leaderId;
+  const canEditInfo = isGlobalAdmin || canInTeam(currentUser, "edit_team_info", customRoles) || currentUser.id === team.leaderId;
 
   const activityLog = [
     ...db.teamActivityLog.filter((a) => a.teamId === team.id),
@@ -141,10 +149,14 @@ export default function TeamDashboardPage() {
     <div className="container space-y-6 py-6">
       <div className="flex flex-wrap items-center gap-3">
         <div
-          className="art-glow shine flex h-14 w-14 items-center justify-center rounded-2xl font-display text-xl font-black text-white"
-          style={{ background: `linear-gradient(135deg, ${team.color}, #C084FC)` }}
+          className="art-glow shine relative flex h-14 w-14 items-center justify-center overflow-hidden rounded-2xl font-display text-xl font-black text-white"
+          style={team.logoUrl ? undefined : { background: `linear-gradient(135deg, ${team.color}, #C084FC)` }}
         >
-          {team.name[0]}
+          {team.logoUrl ? (
+            <Image src={team.logoUrl} alt={team.name} fill className="object-cover" unoptimized />
+          ) : (
+            team.name[0]
+          )}
         </div>
         <div>
           <h1 className="section-title font-display text-2xl font-black text-white sm:text-3xl">لوحة إدارة {team.name}</h1>
@@ -164,6 +176,7 @@ export default function TeamDashboardPage() {
           <TabsTrigger value="recruitment">التوظيف</TabsTrigger>
           <TabsTrigger value="collaboration">التعاون</TabsTrigger>
           <TabsTrigger value="activity">سجل النشاط</TabsTrigger>
+          {(canEditInfo || isGlobalAdmin) && <TabsTrigger value="settings">الإعدادات</TabsTrigger>}
         </TabsList>
 
         <TabsContent value="overview" className="space-y-4">
@@ -261,7 +274,7 @@ export default function TeamDashboardPage() {
                   const currentUserIdForRole = override?.userId ?? base?.userId ?? "none";
                   return (
                     <div key={role} className="space-y-1">
-                      <Label className="text-xs">{PRODUCTION_ROLE_LABELS[role]}</Label>
+                      <Label className="text-xs">{TEAM_ROLE_LABELS[role]}</Label>
                       <Select
                         value={currentUserIdForRole}
                         onValueChange={(v) => store.setSeriesAssignment(s.id, role, v, currentUser.id)}
@@ -286,7 +299,7 @@ export default function TeamDashboardPage() {
           <Card>
             <CardHeader><CardTitle>الأدوار الافتراضية</CardTitle></CardHeader>
             <CardContent className="space-y-3">
-              {(["team_leader", "assistant_leader", "team_administrator", "publisher", "qc", "typesetter", "translator", "member"] as TeamRole[]).map((role) => (
+              {(["team_leader", "assistant_leader", "team_administrator", "publisher", "qc", "editor", "proofreader", "translator", "member"] as TeamRole[]).map((role) => (
                 <div key={role} className="flex flex-wrap items-center gap-2 border-b-2 border-white/10 pb-2 last:border-0">
                   <Badge variant="secondary" className="shrink-0">{TEAM_ROLE_LABELS[role]}</Badge>
                   <div className="flex flex-wrap gap-1">
@@ -416,6 +429,24 @@ export default function TeamDashboardPage() {
           {activityLog.map((a) => <ActivityRow key={a.id} entry={a} users={db.users} />)}
           {activityLog.length === 0 && <div className="panel p-10 text-center text-lunex-gray">لا يوجد نشاط مسجل بعد.</div>}
         </TabsContent>
+
+        {(canEditInfo || isGlobalAdmin) && (
+          <TabsContent value="settings" className="space-y-4">
+            {canEditInfo && (
+              <TeamInfoSettingsForm
+                team={team}
+                onSave={(patch) => store.updateTeamInfo(team.id, patch, currentUser.id)}
+              />
+            )}
+            {isGlobalAdmin && (
+              <LeaderTransferPanel
+                team={team}
+                members={members}
+                onTransfer={(toUserId, reason) => store.transferLeadership(team.id, team.leaderId, toUserId, currentUser.id, reason)}
+              />
+            )}
+          </TabsContent>
+        )}
       </Tabs>
     </div>
   );
@@ -586,5 +617,216 @@ function CreateCollaborationDialog({
         </div>
       </DialogContent>
     </Dialog>
+  );
+}
+
+function TeamInfoSettingsForm({
+  team,
+  onSave,
+}: {
+  team: Team;
+  onSave: (patch: Partial<Pick<Team, "name" | "description" | "goals" | "discordUrl" | "category" | "recruiting" | "logoUrl" | "color">>) => void;
+}) {
+  const [form, setForm] = useState({
+    name: team.name,
+    description: team.description,
+    goals: team.goals,
+    discordUrl: team.discordUrl ?? "",
+    category: team.category,
+    recruiting: team.recruiting,
+    logoUrl: team.logoUrl ?? "",
+    color: team.color,
+  });
+  const [saved, setSaved] = useState(false);
+
+  function submit(e: React.FormEvent) {
+    e.preventDefault();
+    onSave({
+      name: form.name.trim() || team.name,
+      description: form.description.trim(),
+      goals: form.goals.trim(),
+      discordUrl: form.discordUrl.trim(),
+      category: form.category,
+      recruiting: form.recruiting,
+      logoUrl: form.logoUrl.trim() || undefined,
+      color: form.color,
+    });
+    setSaved(true);
+    setTimeout(() => setSaved(false), 2500);
+  }
+
+  return (
+    <Card>
+      <CardHeader className="flex-row items-center gap-2">
+        <Settings className="h-4 w-4 text-primary-300" />
+        <CardTitle>معلومات الفريق</CardTitle>
+      </CardHeader>
+      <CardContent>
+        <form onSubmit={submit} className="space-y-4">
+          <div className="space-y-1.5">
+            <Label>شعار الفريق</Label>
+            <div className="flex flex-wrap items-center gap-4">
+              <div
+                className="art-glow shine relative flex h-16 w-16 shrink-0 items-center justify-center overflow-hidden rounded-2xl font-display text-2xl font-black text-white"
+                style={{ background: `linear-gradient(135deg, ${form.color}, #C084FC)` }}
+              >
+                {form.logoUrl.trim() ? (
+                  <Image src={form.logoUrl.trim()} alt="معاينة الشعار" fill className="object-cover" unoptimized />
+                ) : (
+                  (form.name.trim()[0] ?? "L").toUpperCase()
+                )}
+              </div>
+              <div className="min-w-[220px] flex-1 space-y-1.5">
+                <Input
+                  value={form.logoUrl}
+                  onChange={(e) => setForm((f) => ({ ...f, logoUrl: e.target.value }))}
+                  placeholder="رابط صورة الشعار (اختياري)"
+                />
+              </div>
+            </div>
+            <div className="flex flex-wrap gap-2 pt-1">
+              {TEAM_COLOR_PALETTE.map((c) => (
+                <button
+                  key={c}
+                  type="button"
+                  aria-label={`اختر اللون ${c}`}
+                  onClick={() => setForm((f) => ({ ...f, color: c }))}
+                  className={cn(
+                    "hover-pop h-7 w-7 rounded-full border-2 transition-transform",
+                    form.color === c ? "border-white scale-110" : "border-white/20"
+                  )}
+                  style={{ background: c }}
+                />
+              ))}
+            </div>
+          </div>
+
+          <div className="space-y-1.5">
+            <Label htmlFor="teamName">اسم الفريق</Label>
+            <Input id="teamName" value={form.name} onChange={(e) => setForm((f) => ({ ...f, name: e.target.value }))} />
+          </div>
+
+          <div className="space-y-1.5">
+            <Label htmlFor="teamDescription">وصف الفريق</Label>
+            <Textarea
+              id="teamDescription"
+              rows={3}
+              value={form.description}
+              onChange={(e) => setForm((f) => ({ ...f, description: e.target.value }))}
+            />
+          </div>
+
+          <div className="space-y-1.5">
+            <Label htmlFor="teamGoals">أهداف الفريق</Label>
+            <Textarea
+              id="teamGoals"
+              rows={2}
+              value={form.goals}
+              onChange={(e) => setForm((f) => ({ ...f, goals: e.target.value }))}
+            />
+          </div>
+
+          <div className="grid gap-4 sm:grid-cols-2">
+            <div className="space-y-1.5">
+              <Label htmlFor="teamDiscord">رابط سيرفر الديسكورد</Label>
+              <Input
+                id="teamDiscord"
+                value={form.discordUrl}
+                onChange={(e) => setForm((f) => ({ ...f, discordUrl: e.target.value }))}
+                placeholder="https://discord.gg/..."
+              />
+            </div>
+            <div className="space-y-1.5">
+              <Label>تصنيف الفريق</Label>
+              <Select value={form.category} onValueChange={(v) => setForm((f) => ({ ...f, category: v as TeamCategory }))}>
+                <SelectTrigger><SelectValue /></SelectTrigger>
+                <SelectContent>
+                  {Object.entries(CATEGORY_LABELS).map(([value, label]) => (
+                    <SelectItem key={value} value={value}>{label}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+          </div>
+
+          <div className="flex items-center justify-between rounded-xl border border-white/10 p-3">
+            <div>
+              <p className="text-sm font-bold text-white">استقبال طلبات الانضمام</p>
+              <p className="text-xs text-lunex-gray">فعّل هذا الخيار ليظهر فريقك كفريق يستقبل أعضاء جدد.</p>
+            </div>
+            <Switch checked={form.recruiting} onCheckedChange={(v) => setForm((f) => ({ ...f, recruiting: v }))} />
+          </div>
+
+          <div className="flex items-center gap-3">
+            <Button type="submit">حفظ التغييرات</Button>
+            {saved && <span className="text-sm text-emerald-400">تم الحفظ ✓</span>}
+          </div>
+        </form>
+      </CardContent>
+    </Card>
+  );
+}
+
+function LeaderTransferPanel({
+  team,
+  members,
+  onTransfer,
+}: {
+  team: Team;
+  members: (User & { teamRole?: TeamRole })[];
+  onTransfer: (toUserId: string, reason: string) => void;
+}) {
+  const currentLeader = members.find((m) => m.id === team.leaderId);
+  const candidates = members.filter((m) => m.id !== team.leaderId);
+  const [selectedId, setSelectedId] = useState("");
+  const [reason, setReason] = useState("");
+  const [done, setDone] = useState(false);
+
+  function submit() {
+    if (!selectedId) return;
+    onTransfer(selectedId, reason.trim());
+    setSelectedId("");
+    setReason("");
+    setDone(true);
+    setTimeout(() => setDone(false), 2500);
+  }
+
+  return (
+    <Card className="ring-2 ring-amber-400/20">
+      <CardHeader className="flex-row items-center gap-2">
+        <Crown className="h-4 w-4 text-amber-300" />
+        <CardTitle>تعيين قائد الفريق</CardTitle>
+      </CardHeader>
+      <CardContent className="space-y-3">
+        <p className="text-xs text-lunex-gray">صلاحية خاصة بمشرفي المنصة — تتيح نقل قيادة أي فريق إلى عضو آخر.</p>
+        {currentLeader && (
+          <div className="flex items-center gap-2 text-sm text-lunex-gray">
+            <span>القائد الحالي:</span>
+            <Badge variant="default">{currentLeader.displayName}</Badge>
+          </div>
+        )}
+        <div className="grid gap-3 sm:grid-cols-2">
+          <div className="space-y-1.5">
+            <Label>القائد الجديد</Label>
+            <Select value={selectedId} onValueChange={setSelectedId}>
+              <SelectTrigger><SelectValue placeholder="اختر عضواً" /></SelectTrigger>
+              <SelectContent>
+                {candidates.map((m) => <SelectItem key={m.id} value={m.id}>{m.displayName}</SelectItem>)}
+              </SelectContent>
+            </Select>
+          </div>
+          <div className="space-y-1.5">
+            <Label>سبب النقل (اختياري)</Label>
+            <Input value={reason} onChange={(e) => setReason(e.target.value)} placeholder="مثال: تفرغ القائد السابق" />
+          </div>
+        </div>
+        <div className="flex items-center gap-3">
+          <Button onClick={submit} disabled={!selectedId} variant="secondary">
+            <Crown className="h-3.5 w-3.5" /> نقل القيادة
+          </Button>
+          {done && <span className="text-sm text-emerald-400">تم نقل القيادة ✓</span>}
+        </div>
+      </CardContent>
+    </Card>
   );
 }

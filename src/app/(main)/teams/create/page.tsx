@@ -2,6 +2,7 @@
 
 import { useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
+import Image from "next/image";
 import { CheckCircle2, Send } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
@@ -19,17 +20,12 @@ import {
 import { useSession } from "@/store/session";
 import { useTeamManagement } from "@/store/team-management";
 import { TEAM_ROLE_LABELS } from "@/lib/rbac";
+import { TEAM_COLOR_PALETTE } from "@/lib/team-colors";
+import { CATEGORY_LABELS } from "@/lib/team-labels";
+import { cn } from "@/lib/utils";
 import type { TeamCategory, TeamRole } from "@/lib/types";
 
-const CATEGORY_LABELS: Record<TeamCategory, string> = {
-  manhwa: "مانهوا",
-  manhua: "مانها",
-  manga: "مانجا",
-  novel: "روايات",
-  mixed: "متنوع",
-};
-
-const POSITION_OPTIONS: TeamRole[] = ["translator", "proofreader", "cleaner", "redrawer", "typesetter", "qc", "publisher"];
+const POSITION_OPTIONS: TeamRole[] = ["translator", "editor", "proofreader", "qc", "publisher"];
 
 export default function CreateTeamPage() {
   useEffect(() => {
@@ -50,6 +46,8 @@ export default function CreateTeamPage() {
     expectedMembers: 8,
     previousExperience: "",
     portfolioUrl: "",
+    logoUrl: "",
+    color: TEAM_COLOR_PALETTE[0] as string,
   });
   const [positions, setPositions] = useState<TeamRole[]>([]);
   const [error, setError] = useState("");
@@ -87,6 +85,8 @@ export default function CreateTeamPage() {
       expectedMembers: form.expectedMembers,
       previousExperience: form.previousExperience.trim(),
       portfolioUrl: form.portfolioUrl.trim() || undefined,
+      logoUrl: form.logoUrl.trim() || undefined,
+      color: form.color,
     });
     setSubmitted(true);
   }
@@ -131,6 +131,45 @@ export default function CreateTeamPage() {
                 onChange={(e) => setForm((f) => ({ ...f, teamName: e.target.value }))}
                 placeholder="مثال: Crescent Ink"
               />
+            </div>
+
+            <div className="space-y-1.5">
+              <Label>شعار الفريق</Label>
+              <div className="flex flex-wrap items-center gap-4">
+                <div
+                  className="art-glow shine relative flex h-16 w-16 shrink-0 items-center justify-center overflow-hidden rounded-2xl font-display text-2xl font-black text-white"
+                  style={{ background: `linear-gradient(135deg, ${form.color}, #C084FC)` }}
+                >
+                  {form.logoUrl.trim() ? (
+                    <Image src={form.logoUrl.trim()} alt="معاينة الشعار" fill className="object-cover" unoptimized />
+                  ) : (
+                    (form.teamName.trim()[0] ?? "L").toUpperCase()
+                  )}
+                </div>
+                <div className="min-w-[220px] flex-1 space-y-1.5">
+                  <Input
+                    value={form.logoUrl}
+                    onChange={(e) => setForm((f) => ({ ...f, logoUrl: e.target.value }))}
+                    placeholder="رابط صورة الشعار (اختياري)"
+                  />
+                  <p className="text-xs text-lunex-gray">إن لم تضع رابطاً، سيظهر شعار بحرف اسم الفريق مع اللون المختار.</p>
+                </div>
+              </div>
+              <div className="flex flex-wrap gap-2 pt-1">
+                {TEAM_COLOR_PALETTE.map((c) => (
+                  <button
+                    key={c}
+                    type="button"
+                    aria-label={`اختر اللون ${c}`}
+                    onClick={() => setForm((f) => ({ ...f, color: c }))}
+                    className={cn(
+                      "hover-pop h-7 w-7 rounded-full border-2 transition-transform",
+                      form.color === c ? "border-white scale-110" : "border-white/20"
+                    )}
+                    style={{ background: c }}
+                  />
+                ))}
+              </div>
             </div>
 
             <div className="space-y-1.5">

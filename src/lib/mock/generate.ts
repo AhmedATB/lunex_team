@@ -109,8 +109,8 @@ function build(): MockDatabase {
   ] as GlobalRole[];
 
   const teamRolePool: TeamRole[] = [
-    "trainee", "member", "translator", "proofreader", "cleaner",
-    "redrawer", "typesetter", "qc", "publisher", "uploader", "reviewer",
+    "trainee", "member", "translator", "editor", "proofreader",
+    "qc", "publisher", "uploader", "reviewer",
   ];
 
   const users: User[] = Array.from({ length: USER_COUNT }).map((_, i) => {
@@ -140,8 +140,14 @@ function build(): MockDatabase {
   });
 
   const teamCategories: TeamCategory[] = ["manhwa", "manhwa", "manhwa", "manhua", "manga", "mixed"];
+  // Draw from one shared, shrinking pool so no user ends up in more than one team's
+  // memberIds — a user's `teamId`/`teamRole` are single fields, and if the same id
+  // appeared in two teams the later team in this list would silently overwrite them.
+  let availableUserIds = rng.shuffle(users.map((u) => u.id));
   const teams: Team[] = TEAM_NAMES.slice(0, TEAM_COUNT).map((name, i) => {
-    const memberIds = rng.pickMany(users.map((u) => u.id), rng.int(6, 14));
+    const size = Math.min(rng.int(6, 14), availableUserIds.length);
+    const memberIds = availableUserIds.slice(0, size);
+    availableUserIds = availableUserIds.slice(size);
     const leaderId = memberIds[0] ?? users[i].id;
     return {
       id: `team-${i + 1}`,
@@ -326,10 +332,8 @@ function build(): MockDatabase {
   // --- Departments ---
   const DEPARTMENT_KINDS: { kind: DepartmentKind; name: string; nameAr: string }[] = [
     { kind: "translation", name: "Translation", nameAr: "الترجمة" },
+    { kind: "editing", name: "Editing", nameAr: "التحرير" },
     { kind: "proofreading", name: "Proofreading", nameAr: "التدقيق اللغوي" },
-    { kind: "cleaning", name: "Cleaning", nameAr: "التنظيف" },
-    { kind: "redrawing", name: "Redrawing", nameAr: "الرسم" },
-    { kind: "typesetting", name: "Typesetting", nameAr: "التنسيق" },
     { kind: "quality_control", name: "Quality Control", nameAr: "مراقبة الجودة" },
     { kind: "publishing", name: "Publishing", nameAr: "النشر" },
     { kind: "media", name: "Media", nameAr: "الإعلام" },
@@ -337,10 +341,8 @@ function build(): MockDatabase {
   ];
   const ROLE_TO_DEPARTMENT: Partial<Record<TeamRole, DepartmentKind>> = {
     translator: "translation",
+    editor: "editing",
     proofreader: "proofreading",
-    cleaner: "cleaning",
-    redrawer: "redrawing",
-    typesetter: "typesetting",
     qc: "quality_control",
     publisher: "publishing",
     recruiter: "recruitment",
@@ -366,7 +368,7 @@ function build(): MockDatabase {
 
   // --- Per-series production assignments (who works on this specific title) ---
   const PRODUCTION_ROLES: SeriesProductionRole[] = [
-    "translator", "proofreader", "cleaner", "redrawer", "typesetter", "qc", "publisher",
+    "translator", "editor", "proofreader", "qc", "publisher",
   ];
   const seriesAssignments: SeriesAssignment[] = [];
   let assignmentCounter = 1;
@@ -413,7 +415,7 @@ function build(): MockDatabase {
   );
 
   // --- Recruitment ---
-  const RECRUIT_ROLES: TeamRole[] = ["translator", "cleaner", "typesetter", "qc", "publisher", "redrawer"];
+  const RECRUIT_ROLES: TeamRole[] = ["translator", "editor", "proofreader", "qc", "publisher"];
   const recruitmentPositions: RecruitmentPosition[] = teams
     .filter((t) => t.recruiting)
     .flatMap((team) =>
@@ -451,7 +453,7 @@ function build(): MockDatabase {
 
   // --- Cross-team collaboration requests ---
   const COLLAB_TYPES: CollaborationType[] = [
-    "need_translator", "need_cleaner", "need_typesetter", "need_qc", "need_publisher",
+    "need_translator", "need_editor", "need_proofreader", "need_qc", "need_publisher",
     "need_complete_team_support", "emergency_assistance",
   ];
   const collaborationRequests: CollaborationRequest[] = Array.from({ length: 16 }).map((_, i) => {

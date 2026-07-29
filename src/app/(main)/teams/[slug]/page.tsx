@@ -6,7 +6,7 @@ import { notFound } from "next/navigation";
 import Image from "next/image";
 import { Users, ExternalLink, Crown } from "lucide-react";
 import { getMockDatabase } from "@/lib/mock/generate";
-import { useTeamManagement } from "@/store/team-management";
+import { useTeamManagement, applyTeamOverride } from "@/store/team-management";
 import { TEAM_ROLE_LABELS } from "@/lib/rbac";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -19,8 +19,9 @@ export default function TeamDetailPage() {
   const slug = safeDecodeURIComponent(params.slug);
 
   const db = useMemo(() => getMockDatabase(), []);
-  const createdTeams = useTeamManagement((s) => s.createdTeams);
-  const team = [...db.teams, ...createdTeams].find((t) => t.slug === slug);
+  const store = useTeamManagement();
+  const rawTeam = [...db.teams, ...store.createdTeams].find((t) => t.slug === slug);
+  const team = rawTeam ? applyTeamOverride(rawTeam, store.teamInfoOverrides) : undefined;
 
   // Persisted stores use skipHydration + rehydrate-on-mount (see StoreHydration), so
   // `createdTeams` is still empty on the very first client render after a hard reload.
@@ -37,7 +38,15 @@ export default function TeamDetailPage() {
     notFound();
   }
 
-  const members = team.memberIds.map((id) => db.users.find((u) => u.id === id)).filter(Boolean);
+  const removedIds = new Set(store.removedMemberIds[team.id] ?? []);
+  const members = team.memberIds
+    .filter((id) => !removedIds.has(id))
+    .map((id) => db.users.find((u) => u.id === id))
+    .filter(Boolean)
+    .map((u) => {
+      const override = store.memberRoleOverrides[u!.id];
+      return { ...u!, teamRole: override?.teamRole ?? u!.teamRole, customRoleId: override?.customRoleId ?? u!.customRoleId };
+    });
   const leader = db.users.find((u) => u.id === team.leaderId);
   const projects = db.series.filter((s) => s.teamId === team.id);
 
@@ -53,10 +62,14 @@ export default function TeamDetailPage() {
         </div>
         <div className="relative flex flex-col items-center gap-4 text-center sm:flex-row sm:text-start">
           <div
-            className="magic-border art-glow shine flex h-20 w-20 shrink-0 items-center justify-center rounded-2xl font-display text-3xl font-black text-white"
-            style={{ background: `linear-gradient(135deg, ${team.color}, #C084FC)` }}
+            className="magic-border art-glow shine relative flex h-20 w-20 shrink-0 items-center justify-center overflow-hidden rounded-2xl font-display text-3xl font-black text-white"
+            style={team.logoUrl ? undefined : { background: `linear-gradient(135deg, ${team.color}, #C084FC)` }}
           >
-            {team.name[0]}
+            {team.logoUrl ? (
+              <Image src={team.logoUrl} alt={team.name} fill className="object-cover" unoptimized />
+            ) : (
+              team.name[0]
+            )}
           </div>
           <div className="flex-1">
             <div className="flex flex-wrap items-center justify-center gap-2 sm:justify-start">
@@ -68,7 +81,7 @@ export default function TeamDetailPage() {
             <p className="mt-2 max-w-xl text-sm text-lunex-gray">{team.description}</p>
           </div>
           <div className="flex gap-2">
-            <TeamDashboardLink teamId={team.id} teamSlug={team.slug} />
+            <TeamDashboardLink teamId={team.id} teamSlug={team.slug} leaderId={team.leaderId} />
             {team.recruiting && <Button>قدّم للانضمام</Button>}
             {team.discordUrl && (
               <Button variant="secondary" asChild>
