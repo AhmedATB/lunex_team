@@ -18,11 +18,12 @@ import {
   getTeamPermissions,
   canInTeam,
 } from "@/lib/rbac";
-import { CATEGORY_LABELS } from "@/lib/team-labels";
+import { CATEGORY_LABELS, DEPARTMENT_KIND_LABELS } from "@/lib/team-labels";
 import { TEAM_COLOR_PALETTE } from "@/lib/team-colors";
 import { avatarUrl, cn, formatNumber, safeDecodeURIComponent, timeAgo } from "@/lib/utils";
 import type {
   TeamRole, SeriesProductionRole, CollaborationType, RecruitmentApplication, CustomRole, Team, TeamCategory, User,
+  Department, DepartmentKind, RecruitmentPosition,
 } from "@/lib/types";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -129,13 +130,28 @@ export default function TeamDashboardPage() {
       return { ...u!, teamRole: override?.teamRole ?? u!.teamRole, customRoleId: override?.customRoleId ?? u!.customRoleId };
     });
 
+  const removedRoleIds = new Set(store.removedCustomRoleIds);
   const customRoles: CustomRole[] = [
     ...db.customRoles.filter((r) => r.teamId === team.id),
     ...store.addedCustomRoles.filter((r) => r.teamId === team.id),
-  ];
+  ]
+    .filter((r) => !removedRoleIds.has(r.id))
+    .map((r) => ({ ...r, ...store.customRoleOverrides[r.id] }));
 
   const teamSeries = db.series.filter((s) => s.teamId === team.id);
-  const teamDepartments = db.departments.filter((d) => d.teamId === team.id);
+  const removedDeptIds = new Set(store.removedDepartmentIds);
+  const teamDepartments = [
+    ...db.departments.filter((d) => d.teamId === team.id),
+    ...store.addedDepartments.filter((d) => d.teamId === team.id),
+  ]
+    .filter((d) => !removedDeptIds.has(d.id))
+    .map((d) => ({ ...d, ...store.departmentOverrides[d.id] }));
+
+  const recruitmentPositions = [
+    ...db.recruitmentPositions.filter((p) => p.teamId === team.id),
+    ...store.addedRecruitmentPositions.filter((p) => p.teamId === team.id),
+  ].map((p) => ({ ...p, ...store.recruitmentPositionOverrides[p.id] }));
+
   const canManage = isGlobalAdmin || canInTeam(currentUser, "manage_members", customRoles) || currentUser.id === team.leaderId;
   const canManageRoles = isGlobalAdmin || canInTeam(currentUser, "manage_roles", customRoles) || currentUser.id === team.leaderId;
   const canEditInfo = isGlobalAdmin || canInTeam(currentUser, "edit_team_info", customRoles) || currentUser.id === team.leaderId;
@@ -188,11 +204,41 @@ export default function TeamDashboardPage() {
           </div>
 
           <Card>
-            <CardHeader><CardTitle>الأقسام</CardTitle></CardHeader>
-            <CardContent className="flex flex-wrap gap-2">
-              {teamDepartments.map((d) => (
-                <Badge key={d.id} variant="secondary">{d.nameAr} · {d.memberIds.length}</Badge>
-              ))}
+            <CardHeader className="flex-row items-center justify-between">
+              <CardTitle>الأقسام</CardTitle>
+              {canManage && (
+                <CreateDepartmentDialog
+                  teamId={team.id}
+                  members={members}
+                  onCreate={(d) => store.createDepartment(d, currentUser.id)}
+                />
+              )}
+            </CardHeader>
+            <CardContent className="space-y-2">
+              {teamDepartments.map((d) => {
+                const leader = members.find((m) => m.id === d.leaderId);
+                return (
+                  <div key={d.id} className="flex flex-wrap items-center gap-2 border-b-2 border-white/10 pb-2 last:border-0">
+                    <Badge variant="secondary" className="shrink-0">{d.nameAr} · {d.memberIds.length}</Badge>
+                    {leader && <span className="text-xs text-lunex-gray">رئيس القسم: {leader.displayName}</span>}
+                    {canManage && (
+                      <div className="ms-auto flex shrink-0 gap-1">
+                        <EditDepartmentDialog
+                          department={d}
+                          members={members}
+                          onSave={(patch) => store.updateDepartment(d.id, patch, team.id, currentUser.id)}
+                        />
+                        <Button
+                          size="icon" variant="ghost" aria-label="حذف القسم" className="text-red-400 hover:bg-red-500/10"
+                          onClick={() => store.removeDepartment(d.id, team.id, currentUser.id)}
+                        >
+                          <Trash2 className="h-4 w-4" />
+                        </Button>
+                      </div>
+                    )}
+                  </div>
+                );
+              })}
               {teamDepartments.length === 0 && <p className="text-sm text-lunex-gray">لا توجد أقسام بعد.</p>}
             </CardContent>
           </Card>
@@ -326,6 +372,22 @@ export default function TeamDashboardPage() {
                       <span key={p} className="text-[10px] text-lunex-gray">#{TEAM_PERMISSION_LABELS[p]}</span>
                     ))}
                   </div>
+                  {canManageRoles && (
+                    <div className="ms-auto flex shrink-0 gap-1">
+                      <CreateCustomRoleDialog
+                        teamId={team.id}
+                        existingRole={r}
+                        onCreate={store.createCustomRole}
+                        onSave={(patch) => store.updateCustomRole(r.id, patch, team.id, currentUser.id)}
+                      />
+                      <Button
+                        size="icon" variant="ghost" aria-label="حذف الدور" className="text-red-400 hover:bg-red-500/10"
+                        onClick={() => store.removeCustomRole(r.id, team.id, currentUser.id)}
+                      >
+                        <Trash2 className="h-4 w-4" />
+                      </Button>
+                    </div>
+                  )}
                 </div>
               ))}
               {customRoles.length === 0 && <p className="text-sm text-lunex-gray">لا توجد أدوار مخصصة بعد.</p>}
@@ -335,12 +397,26 @@ export default function TeamDashboardPage() {
 
         <TabsContent value="recruitment" className="space-y-4">
           <Card>
-            <CardHeader><CardTitle>الوظائف المفتوحة</CardTitle></CardHeader>
-            <CardContent className="flex flex-wrap gap-2">
-              {db.recruitmentPositions.filter((p) => p.teamId === team.id).map((p) => (
-                <Badge key={p.id} variant="success">{TEAM_ROLE_LABELS[p.role]}</Badge>
+            <CardHeader className="flex-row items-center justify-between">
+              <CardTitle>الوظائف المفتوحة</CardTitle>
+              {canManage && <CreateRecruitmentPositionDialog teamId={team.id} onCreate={(p) => store.createRecruitmentPosition(p, currentUser.id)} />}
+            </CardHeader>
+            <CardContent className="space-y-2">
+              {recruitmentPositions.map((p) => (
+                <div key={p.id} className="flex flex-wrap items-center gap-2 border-b-2 border-white/10 pb-2 last:border-0">
+                  <Badge variant={p.isOpen ? "success" : "secondary"}>{TEAM_ROLE_LABELS[p.role]}</Badge>
+                  <span className="text-xs text-lunex-gray">{p.description}</span>
+                  {canManage && (
+                    <Button
+                      size="sm" variant="secondary" className="ms-auto shrink-0"
+                      onClick={() => store.toggleRecruitmentPosition(p.id, team.id, !p.isOpen, currentUser.id)}
+                    >
+                      {p.isOpen ? "إغلاق" : "إعادة فتح"}
+                    </Button>
+                  )}
+                </div>
               ))}
-              {db.recruitmentPositions.filter((p) => p.teamId === team.id).length === 0 && (
+              {recruitmentPositions.length === 0 && (
                 <p className="text-sm text-lunex-gray">لا توجد وظائف مفتوحة حالياً.</p>
               )}
             </CardContent>
@@ -483,15 +559,20 @@ function ActivityRow({ entry, users }: { entry: { id: string; userId: string; ac
 
 function CreateCustomRoleDialog({
   teamId,
+  existingRole,
   onCreate,
+  onSave,
 }: {
   teamId: string;
+  existingRole?: CustomRole;
   onCreate: (role: { teamId: string; name: string; nameAr: string; color: string; permissions: import("@/lib/types").TeamPermission[] }) => void;
+  onSave?: (patch: { nameAr: string; name: string; color: string; permissions: import("@/lib/types").TeamPermission[] }) => void;
 }) {
+  const isEdit = Boolean(existingRole);
   const [open, setOpen] = useState(false);
-  const [name, setName] = useState("");
-  const [nameAr, setNameAr] = useState("");
-  const [selected, setSelected] = useState<Set<string>>(new Set());
+  const [name, setName] = useState(existingRole?.name ?? "");
+  const [nameAr, setNameAr] = useState(existingRole?.nameAr ?? "");
+  const [selected, setSelected] = useState<Set<string>>(new Set(existingRole?.permissions ?? []));
 
   function toggle(p: string) {
     setSelected((s) => {
@@ -503,23 +584,27 @@ function CreateCustomRoleDialog({
 
   function submit() {
     if (!nameAr.trim()) return;
-    onCreate({
-      teamId,
-      name: name.trim() || nameAr.trim(),
-      nameAr: nameAr.trim(),
-      color: "#6D28D9",
-      permissions: [...selected] as import("@/lib/types").TeamPermission[],
-    });
-    setName(""); setNameAr(""); setSelected(new Set()); setOpen(false);
+    const permissions = [...selected] as import("@/lib/types").TeamPermission[];
+    if (isEdit) {
+      onSave?.({ nameAr: nameAr.trim(), name: name.trim() || nameAr.trim(), color: existingRole!.color, permissions });
+    } else {
+      onCreate({ teamId, name: name.trim() || nameAr.trim(), nameAr: nameAr.trim(), color: "#6D28D9", permissions });
+      setName(""); setNameAr(""); setSelected(new Set());
+    }
+    setOpen(false);
   }
 
   return (
     <Dialog open={open} onOpenChange={setOpen}>
       <DialogTrigger asChild>
-        <Button size="sm"><Plus className="h-3.5 w-3.5" /> دور مخصص جديد</Button>
+        {isEdit ? (
+          <Button size="icon" variant="ghost" aria-label="تعديل الدور"><Settings className="h-4 w-4" /></Button>
+        ) : (
+          <Button size="sm"><Plus className="h-3.5 w-3.5" /> دور مخصص جديد</Button>
+        )}
       </DialogTrigger>
       <DialogContent className="max-h-[80vh] overflow-y-auto">
-        <DialogHeader><DialogTitle>إنشاء دور مخصص</DialogTitle></DialogHeader>
+        <DialogHeader><DialogTitle>{isEdit ? `تعديل دور ${existingRole!.nameAr}` : "إنشاء دور مخصص"}</DialogTitle></DialogHeader>
         <div className="space-y-4 pt-2">
           <div className="space-y-1.5">
             <Label>اسم الدور (عربي)</Label>
@@ -544,7 +629,7 @@ function CreateCustomRoleDialog({
               </div>
             ))}
           </div>
-          <Button onClick={submit} className="w-full">إنشاء الدور</Button>
+          <Button onClick={submit} className="w-full">{isEdit ? "حفظ التغييرات" : "إنشاء الدور"}</Button>
         </div>
       </DialogContent>
     </Dialog>
@@ -828,5 +913,192 @@ function LeaderTransferPanel({
         </div>
       </CardContent>
     </Card>
+  );
+}
+
+const DEPARTMENT_KIND_OPTIONS: DepartmentKind[] = [
+  "translation", "editing", "proofreading", "quality_control", "publishing", "media", "recruitment",
+];
+
+function CreateDepartmentDialog({
+  teamId,
+  members,
+  onCreate,
+}: {
+  teamId: string;
+  members: (User & { teamRole?: TeamRole })[];
+  onCreate: (dept: Omit<Department, "id">) => void;
+}) {
+  const [open, setOpen] = useState(false);
+  const [nameAr, setNameAr] = useState("");
+  const [kind, setKind] = useState<DepartmentKind>("translation");
+  const [leaderId, setLeaderId] = useState<string>("none");
+
+  function submit() {
+    if (!nameAr.trim()) return;
+    onCreate({
+      teamId,
+      kind,
+      name: nameAr.trim(),
+      nameAr: nameAr.trim(),
+      leaderId: leaderId === "none" ? undefined : leaderId,
+      memberIds: [],
+    });
+    setNameAr(""); setKind("translation"); setLeaderId("none"); setOpen(false);
+  }
+
+  return (
+    <Dialog open={open} onOpenChange={setOpen}>
+      <DialogTrigger asChild>
+        <Button size="sm"><Plus className="h-3.5 w-3.5" /> قسم جديد</Button>
+      </DialogTrigger>
+      <DialogContent>
+        <DialogHeader><DialogTitle>إنشاء قسم جديد</DialogTitle></DialogHeader>
+        <div className="space-y-3 pt-2">
+          <div className="space-y-1.5">
+            <Label>اسم القسم</Label>
+            <Input value={nameAr} onChange={(e) => setNameAr(e.target.value)} placeholder="مثال: قسم التدقيق اللغوي" />
+          </div>
+          <div className="space-y-1.5">
+            <Label>نوع القسم</Label>
+            <Select value={kind} onValueChange={(v) => setKind(v as DepartmentKind)}>
+              <SelectTrigger><SelectValue /></SelectTrigger>
+              <SelectContent>
+                {DEPARTMENT_KIND_OPTIONS.map((k) => <SelectItem key={k} value={k}>{DEPARTMENT_KIND_LABELS[k]}</SelectItem>)}
+              </SelectContent>
+            </Select>
+          </div>
+          <div className="space-y-1.5">
+            <Label>رئيس القسم (اختياري)</Label>
+            <Select value={leaderId} onValueChange={setLeaderId}>
+              <SelectTrigger><SelectValue placeholder="بدون رئيس قسم" /></SelectTrigger>
+              <SelectContent>
+                <SelectItem value="none">بدون رئيس قسم</SelectItem>
+                {members.map((m) => <SelectItem key={m.id} value={m.id}>{m.displayName}</SelectItem>)}
+              </SelectContent>
+            </Select>
+          </div>
+          <Button onClick={submit} className="w-full">إنشاء القسم</Button>
+        </div>
+      </DialogContent>
+    </Dialog>
+  );
+}
+
+function EditDepartmentDialog({
+  department,
+  members,
+  onSave,
+}: {
+  department: Department;
+  members: (User & { teamRole?: TeamRole })[];
+  onSave: (patch: Partial<Pick<Department, "nameAr" | "leaderId" | "memberIds">>) => void;
+}) {
+  const [open, setOpen] = useState(false);
+  const [nameAr, setNameAr] = useState(department.nameAr);
+  const [leaderId, setLeaderId] = useState(department.leaderId ?? "none");
+  const [memberIds, setMemberIds] = useState<Set<string>>(new Set(department.memberIds));
+
+  function toggleMember(id: string) {
+    setMemberIds((s) => {
+      const next = new Set(s);
+      if (next.has(id)) next.delete(id); else next.add(id);
+      return next;
+    });
+  }
+
+  function submit() {
+    onSave({
+      nameAr: nameAr.trim() || department.nameAr,
+      leaderId: leaderId === "none" ? undefined : leaderId,
+      memberIds: [...memberIds],
+    });
+    setOpen(false);
+  }
+
+  return (
+    <Dialog open={open} onOpenChange={setOpen}>
+      <DialogTrigger asChild>
+        <Button size="icon" variant="ghost" aria-label="تعديل القسم"><Settings className="h-4 w-4" /></Button>
+      </DialogTrigger>
+      <DialogContent className="max-h-[80vh] overflow-y-auto">
+        <DialogHeader><DialogTitle>تعديل قسم {department.nameAr}</DialogTitle></DialogHeader>
+        <div className="space-y-3 pt-2">
+          <div className="space-y-1.5">
+            <Label>اسم القسم</Label>
+            <Input value={nameAr} onChange={(e) => setNameAr(e.target.value)} />
+          </div>
+          <div className="space-y-1.5">
+            <Label>رئيس القسم</Label>
+            <Select value={leaderId} onValueChange={setLeaderId}>
+              <SelectTrigger><SelectValue placeholder="بدون رئيس قسم" /></SelectTrigger>
+              <SelectContent>
+                <SelectItem value="none">بدون رئيس قسم</SelectItem>
+                {members.map((m) => <SelectItem key={m.id} value={m.id}>{m.displayName}</SelectItem>)}
+              </SelectContent>
+            </Select>
+          </div>
+          <div className="space-y-1.5">
+            <Label>أعضاء القسم</Label>
+            <div className="grid max-h-48 gap-1.5 overflow-y-auto sm:grid-cols-2">
+              {members.map((m) => (
+                <label key={m.id} className="flex items-center gap-2 text-xs text-lunex-gray">
+                  <Checkbox checked={memberIds.has(m.id)} onCheckedChange={() => toggleMember(m.id)} />
+                  {m.displayName}
+                </label>
+              ))}
+            </div>
+          </div>
+          <Button onClick={submit} className="w-full">حفظ التغييرات</Button>
+        </div>
+      </DialogContent>
+    </Dialog>
+  );
+}
+
+function CreateRecruitmentPositionDialog({
+  teamId,
+  onCreate,
+}: {
+  teamId: string;
+  onCreate: (pos: Omit<RecruitmentPosition, "id" | "createdAt" | "isOpen">) => void;
+}) {
+  const [open, setOpen] = useState(false);
+  const [role, setRole] = useState<TeamRole>("translator");
+  const [description, setDescription] = useState("");
+
+  function submit() {
+    if (!description.trim()) return;
+    onCreate({ teamId, role, description: description.trim() });
+    setDescription(""); setRole("translator"); setOpen(false);
+  }
+
+  return (
+    <Dialog open={open} onOpenChange={setOpen}>
+      <DialogTrigger asChild>
+        <Button size="sm"><Plus className="h-3.5 w-3.5" /> فتح وظيفة</Button>
+      </DialogTrigger>
+      <DialogContent>
+        <DialogHeader><DialogTitle>فتح وظيفة توظيف جديدة</DialogTitle></DialogHeader>
+        <div className="space-y-3 pt-2">
+          <div className="space-y-1.5">
+            <Label>الوظيفة المطلوبة</Label>
+            <Select value={role} onValueChange={(v) => setRole(v as TeamRole)}>
+              <SelectTrigger><SelectValue /></SelectTrigger>
+              <SelectContent>
+                {(["translator", "editor", "proofreader", "qc", "publisher"] as TeamRole[]).map((r) => (
+                  <SelectItem key={r} value={r}>{TEAM_ROLE_LABELS[r]}</SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+          <div className="space-y-1.5">
+            <Label>وصف الوظيفة</Label>
+            <Textarea value={description} onChange={(e) => setDescription(e.target.value)} rows={3} placeholder="المتطلبات والمهام المتوقعة..." />
+          </div>
+          <Button onClick={submit} className="w-full">فتح الوظيفة</Button>
+        </div>
+      </DialogContent>
+    </Dialog>
   );
 }

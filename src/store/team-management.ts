@@ -7,12 +7,14 @@ import type {
   TeamCreationRequest,
   CustomRole,
   RecruitmentApplication,
+  RecruitmentPosition,
   TeamActivityLogEntry,
   CollaborationRequest,
   CollaborationType,
   TeamRole,
   SeriesProductionRole,
   LeadershipTransferEntry,
+  Department,
 } from "@/lib/types";
 
 function slugify(s: string) {
@@ -38,6 +40,13 @@ interface TeamManagementState {
   addedCollaborationRequests: CollaborationRequest[];
   teamInfoOverrides: Record<string, Partial<Team>>;
   leadershipTransfers: LeadershipTransferEntry[];
+  addedDepartments: Department[];
+  departmentOverrides: Record<string, Partial<Pick<Department, "nameAr" | "leaderId" | "memberIds">>>;
+  removedDepartmentIds: string[];
+  addedRecruitmentPositions: RecruitmentPosition[];
+  recruitmentPositionOverrides: Record<string, Partial<Pick<RecruitmentPosition, "isOpen" | "description">>>;
+  customRoleOverrides: Record<string, Partial<Pick<CustomRole, "nameAr" | "name" | "color" | "permissions">>>;
+  removedCustomRoleIds: string[];
 
   submitTeamRequest: (req: Omit<TeamCreationRequest, "id" | "status" | "createdAt">) => void;
   reviewRequest: (
@@ -66,6 +75,23 @@ interface TeamManagementState {
     actorId: string
   ) => void;
   transferLeadership: (teamId: string, fromUserId: string, toUserId: string, actorId: string, reason: string) => void;
+  createDepartment: (dept: Omit<Department, "id">, actorId: string) => void;
+  updateDepartment: (
+    id: string,
+    patch: Partial<Pick<Department, "nameAr" | "leaderId" | "memberIds">>,
+    teamId: string,
+    actorId: string
+  ) => void;
+  removeDepartment: (id: string, teamId: string, actorId: string) => void;
+  createRecruitmentPosition: (pos: Omit<RecruitmentPosition, "id" | "createdAt" | "isOpen">, actorId: string) => void;
+  toggleRecruitmentPosition: (id: string, teamId: string, isOpen: boolean, actorId: string) => void;
+  updateCustomRole: (
+    id: string,
+    patch: Partial<Pick<CustomRole, "nameAr" | "name" | "color" | "permissions">>,
+    teamId: string,
+    actorId: string
+  ) => void;
+  removeCustomRole: (id: string, teamId: string, actorId: string) => void;
 }
 
 export const useTeamManagement = create<TeamManagementState>()(
@@ -84,6 +110,13 @@ export const useTeamManagement = create<TeamManagementState>()(
       addedCollaborationRequests: [],
       teamInfoOverrides: {},
       leadershipTransfers: [],
+      addedDepartments: [],
+      departmentOverrides: {},
+      removedDepartmentIds: [],
+      addedRecruitmentPositions: [],
+      recruitmentPositionOverrides: {},
+      customRoleOverrides: {},
+      removedCustomRoleIds: [],
 
       submitTeamRequest: (req) => {
         const id = `submitted-request-${Date.now()}`;
@@ -252,6 +285,49 @@ export const useTeamManagement = create<TeamManagementState>()(
           ],
         }));
         get().logActivity({ teamId, userId: actorId, action: "نقل قيادة الفريق", target: toUserId });
+      },
+
+      createDepartment: (dept, actorId) => {
+        const newDept: Department = { ...dept, id: `dept-added-${Date.now()}` };
+        set((s) => ({ addedDepartments: [...s.addedDepartments, newDept] }));
+        get().logActivity({ teamId: dept.teamId, userId: actorId, action: `أنشأ قسماً جديداً "${dept.nameAr}"` });
+      },
+
+      updateDepartment: (id, patch, teamId, actorId) => {
+        set((s) => ({
+          departmentOverrides: { ...s.departmentOverrides, [id]: { ...s.departmentOverrides[id], ...patch } },
+        }));
+        get().logActivity({ teamId, userId: actorId, action: "عدّل بيانات قسم" });
+      },
+
+      removeDepartment: (id, teamId, actorId) => {
+        set((s) => ({ removedDepartmentIds: [...s.removedDepartmentIds, id] }));
+        get().logActivity({ teamId, userId: actorId, action: "حذف قسماً" });
+      },
+
+      createRecruitmentPosition: (pos, actorId) => {
+        const newPos: RecruitmentPosition = { ...pos, id: `recruit-pos-added-${Date.now()}`, isOpen: true, createdAt: new Date().toISOString() };
+        set((s) => ({ addedRecruitmentPositions: [...s.addedRecruitmentPositions, newPos] }));
+        get().logActivity({ teamId: pos.teamId, userId: actorId, action: `فتح وظيفة "${newPos.role}" للتوظيف` });
+      },
+
+      toggleRecruitmentPosition: (id, teamId, isOpen, actorId) => {
+        set((s) => ({
+          recruitmentPositionOverrides: { ...s.recruitmentPositionOverrides, [id]: { ...s.recruitmentPositionOverrides[id], isOpen } },
+        }));
+        get().logActivity({ teamId, userId: actorId, action: isOpen ? "أعاد فتح وظيفة للتوظيف" : "أغلق وظيفة توظيف" });
+      },
+
+      updateCustomRole: (id, patch, teamId, actorId) => {
+        set((s) => ({
+          customRoleOverrides: { ...s.customRoleOverrides, [id]: { ...s.customRoleOverrides[id], ...patch } },
+        }));
+        get().logActivity({ teamId, userId: actorId, action: "عدّل دوراً مخصصاً" });
+      },
+
+      removeCustomRole: (id, teamId, actorId) => {
+        set((s) => ({ removedCustomRoleIds: [...s.removedCustomRoleIds, id] }));
+        get().logActivity({ teamId, userId: actorId, action: "حذف دوراً مخصصاً" });
       },
     }),
     { name: "lunex-team-management", skipHydration: true }
