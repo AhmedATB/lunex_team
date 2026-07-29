@@ -17,6 +17,7 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { useSession } from "@/store/session";
+import { useProfile, effectiveAvatarSeed } from "@/store/profile";
 import { getMockDatabase } from "@/lib/mock/generate";
 import { GLOBAL_ROLE_LABELS, can } from "@/lib/rbac";
 import { avatarUrl, cn } from "@/lib/utils";
@@ -42,6 +43,7 @@ export function Header() {
     () => db.users.find((u) => u.id === currentUserId),
     [db, currentUserId]
   );
+  const avatarOverrides = useProfile((s) => s.avatarOverrides);
   const demoUsers = useMemo(
     () =>
       [
@@ -114,7 +116,7 @@ export function Header() {
             <DropdownMenuTrigger asChild>
               <button className="flex items-center gap-2 rounded-full border border-white/10 p-0.5 pe-2 transition-colors hover:border-primary-400/50 hover:bg-white/5">
                 <Avatar className="h-8 w-8">
-                  <AvatarImage src={currentUser ? avatarUrl(currentUser.avatarSeed) : undefined} />
+                  <AvatarImage src={currentUser ? avatarUrl(effectiveAvatarSeed(currentUser, avatarOverrides)) : undefined} />
                   <AvatarFallback>{currentUser?.displayName?.[0] ?? "ض"}</AvatarFallback>
                 </Avatar>
                 <span className="hidden text-sm font-medium text-white sm:inline">

@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo } from "react";
+import { useEffect, useMemo, useState } from "react";
 import Image from "next/image";
 import {
   Award,
@@ -11,19 +11,24 @@ import {
   Settings,
   Moon,
   Shield,
+  Pencil,
 } from "lucide-react";
 import { useSession } from "@/store/session";
 import { useBookmarks, useReadingProgress } from "@/store/reader-settings";
+import { useProfile, effectiveAvatarSeed } from "@/store/profile";
 import { getMockDatabase } from "@/lib/mock/generate";
 import { GLOBAL_ROLE_LABELS, TEAM_ROLE_LABELS } from "@/lib/rbac";
-import { avatarUrl, formatNumber } from "@/lib/utils";
+import { AVATAR_PRESET_SEEDS } from "@/lib/avatar-presets";
+import { avatarUrl, cn, formatNumber } from "@/lib/utils";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
 import { Progress } from "@/components/ui/progress";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Switch } from "@/components/ui/switch";
 import { Label } from "@/components/ui/label";
 import { Separator } from "@/components/ui/separator";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { SeriesCard } from "@/components/shared/series-card";
 
 export default function ProfilePage() {
@@ -34,6 +39,8 @@ export default function ProfilePage() {
   const db = useMemo(() => getMockDatabase(), []);
   const user = db.users.find((u) => u.id === currentUserId);
   const team = db.teams.find((t) => t.id === user?.teamId);
+  const avatarOverrides = useProfile((s) => s.avatarOverrides);
+  const setAvatarSeed = useProfile((s) => s.setAvatarSeed);
 
   const bookmarkIds = useBookmarks((s) => s.bookmarks);
   const progress = useReadingProgress((s) => s.progress);
@@ -54,8 +61,14 @@ export default function ProfilePage() {
     <div className="container space-y-6 py-6">
       <Card>
         <CardContent className="flex flex-col items-center gap-4 p-6 sm:flex-row sm:items-start">
-          <div className="relative h-24 w-24 shrink-0 overflow-hidden rounded-full ring-4 ring-primary-500/30">
-            <Image src={avatarUrl(user.avatarSeed)} alt={user.displayName} fill className="object-cover" />
+          <div className="relative h-24 w-24 shrink-0">
+            <div className="art-glow relative h-24 w-24 overflow-hidden rounded-full ring-4 ring-primary-500/30">
+              <Image src={avatarUrl(effectiveAvatarSeed(user, avatarOverrides))} alt={user.displayName} fill className="object-cover" />
+            </div>
+            <AvatarPickerDialog
+              currentSeed={effectiveAvatarSeed(user, avatarOverrides)}
+              onSelect={(seed) => setAvatarSeed(user.id, seed)}
+            />
           </div>
           <div className="flex-1 space-y-2 text-center sm:text-start">
             <div className="flex flex-wrap items-center justify-center gap-2 sm:justify-start">
@@ -199,5 +212,52 @@ function SettingRow({
       </Label>
       <Switch defaultChecked={defaultChecked} />
     </div>
+  );
+}
+
+function AvatarPickerDialog({
+  currentSeed,
+  onSelect,
+}: {
+  currentSeed: string;
+  onSelect: (seed: string) => void;
+}) {
+  const [open, setOpen] = useState(false);
+
+  function pick(seed: string) {
+    onSelect(seed);
+    setOpen(false);
+  }
+
+  return (
+    <Dialog open={open} onOpenChange={setOpen}>
+      <DialogTrigger asChild>
+        <Button
+          size="icon"
+          className="hover-pop absolute bottom-0 end-0 h-8 w-8 rounded-full shadow-lg"
+          aria-label="تغيير الصورة الرمزية"
+        >
+          <Pencil className="h-3.5 w-3.5" />
+        </Button>
+      </DialogTrigger>
+      <DialogContent className="max-h-[80vh] overflow-y-auto">
+        <DialogHeader><DialogTitle>اختر صورتك الرمزية</DialogTitle></DialogHeader>
+        <div className="grid grid-cols-4 gap-3 pt-2 sm:grid-cols-6">
+          {AVATAR_PRESET_SEEDS.map((seed) => (
+            <button
+              key={seed}
+              type="button"
+              onClick={() => pick(seed)}
+              className={cn(
+                "hover-pop relative h-16 w-16 overflow-hidden rounded-full ring-2 transition-transform",
+                seed === currentSeed ? "ring-primary-400" : "ring-white/10"
+              )}
+            >
+              <Image src={avatarUrl(seed)} alt="خيار صورة رمزية" fill className="object-cover" />
+            </button>
+          ))}
+        </div>
+      </DialogContent>
+    </Dialog>
   );
 }

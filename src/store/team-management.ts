@@ -15,6 +15,7 @@ import type {
   SeriesProductionRole,
   LeadershipTransferEntry,
   Department,
+  Series,
 } from "@/lib/types";
 
 function slugify(s: string) {
@@ -47,6 +48,7 @@ interface TeamManagementState {
   recruitmentPositionOverrides: Record<string, Partial<Pick<RecruitmentPosition, "isOpen" | "description">>>;
   customRoleOverrides: Record<string, Partial<Pick<CustomRole, "nameAr" | "name" | "color" | "permissions">>>;
   removedCustomRoleIds: string[];
+  addedSeries: Series[];
 
   submitTeamRequest: (req: Omit<TeamCreationRequest, "id" | "status" | "createdAt">) => void;
   reviewRequest: (
@@ -71,7 +73,7 @@ interface TeamManagementState {
   logActivity: (entry: Omit<TeamActivityLogEntry, "id" | "at">) => void;
   updateTeamInfo: (
     teamId: string,
-    patch: Partial<Pick<Team, "name" | "description" | "goals" | "discordUrl" | "category" | "recruiting" | "logoUrl" | "color">>,
+    patch: Partial<Pick<Team, "name" | "description" | "goals" | "discordUrl" | "category" | "recruiting" | "logoUrl" | "color" | "status">>,
     actorId: string
   ) => void;
   transferLeadership: (teamId: string, fromUserId: string, toUserId: string, actorId: string, reason: string) => void;
@@ -92,6 +94,10 @@ interface TeamManagementState {
     actorId: string
   ) => void;
   removeCustomRole: (id: string, teamId: string, actorId: string) => void;
+  createSeries: (
+    series: Pick<Series, "title" | "titleAr" | "synopsis" | "type" | "status" | "country" | "author" | "artist" | "year" | "cover" | "banner" | "genreIds" | "tags" | "teamId">,
+    actorId: string
+  ) => void;
 }
 
 export const useTeamManagement = create<TeamManagementState>()(
@@ -117,6 +123,7 @@ export const useTeamManagement = create<TeamManagementState>()(
       recruitmentPositionOverrides: {},
       customRoleOverrides: {},
       removedCustomRoleIds: [],
+      addedSeries: [],
 
       submitTeamRequest: (req) => {
         const id = `submitted-request-${Date.now()}`;
@@ -328,6 +335,28 @@ export const useTeamManagement = create<TeamManagementState>()(
       removeCustomRole: (id, teamId, actorId) => {
         set((s) => ({ removedCustomRoleIds: [...s.removedCustomRoleIds, id] }));
         get().logActivity({ teamId, userId: actorId, action: "حذف دوراً مخصصاً" });
+      },
+
+      createSeries: (series, actorId) => {
+        const at = new Date().toISOString();
+        const newSeries: Series = {
+          ...series,
+          id: `series-added-${Date.now()}`,
+          slug: `${slugify(series.titleAr)}-${Date.now().toString(36)}`,
+          alternativeTitles: [],
+          rating: 0,
+          ratingCount: 0,
+          views: 0,
+          bookmarks: 0,
+          likes: 0,
+          chapterCount: 0,
+          latestChapterNumber: 0,
+          updatedAt: at,
+          isFeatured: false,
+          isRecommended: false,
+        };
+        set((s) => ({ addedSeries: [...s.addedSeries, newSeries] }));
+        get().logActivity({ teamId: series.teamId, userId: actorId, action: `أضاف سلسلة جديدة "${series.titleAr}"` });
       },
     }),
     { name: "lunex-team-management", skipHydration: true }

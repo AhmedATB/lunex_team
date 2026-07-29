@@ -4,6 +4,7 @@ import { useEffect } from "react";
 import { useSession } from "@/store/session";
 import { useReaderSettings, useReadingProgress, useBookmarks } from "@/store/reader-settings";
 import { useTeamManagement } from "@/store/team-management";
+import { useProfile } from "@/store/profile";
 
 /**
  * All persisted stores use `skipHydration: true` so the first client render
@@ -18,6 +19,7 @@ export function StoreHydration() {
     useReadingProgress.persist.rehydrate();
     useBookmarks.persist.rehydrate();
     useTeamManagement.persist.rehydrate();
+    useProfile.persist.rehydrate();
   }, []);
 
   return null;

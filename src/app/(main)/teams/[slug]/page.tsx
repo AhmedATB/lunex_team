@@ -7,12 +7,14 @@ import Image from "next/image";
 import { Users, ExternalLink, Crown } from "lucide-react";
 import { getMockDatabase } from "@/lib/mock/generate";
 import { useTeamManagement, applyTeamOverride } from "@/store/team-management";
+import { useProfile, effectiveAvatarSeed } from "@/store/profile";
 import { TEAM_ROLE_LABELS } from "@/lib/rbac";
+import { roleTierAvatarClass, roleTierAnimationClass } from "@/lib/role-tier";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { SeriesRow } from "@/components/shared/series-card";
 import { TeamDashboardLink } from "@/components/series/team-dashboard-link";
-import { avatarUrl, safeDecodeURIComponent } from "@/lib/utils";
+import { avatarUrl, cn, safeDecodeURIComponent } from "@/lib/utils";
 
 export default function TeamDetailPage() {
   const params = useParams<{ slug: string }>();
@@ -20,6 +22,7 @@ export default function TeamDetailPage() {
 
   const db = useMemo(() => getMockDatabase(), []);
   const store = useTeamManagement();
+  const avatarOverrides = useProfile((s) => s.avatarOverrides);
   const rawTeam = [...db.teams, ...store.createdTeams].find((t) => t.slug === slug);
   const team = rawTeam ? applyTeamOverride(rawTeam, store.teamInfoOverrides) : undefined;
 
@@ -48,7 +51,10 @@ export default function TeamDetailPage() {
       return { ...u!, teamRole: override?.teamRole ?? u!.teamRole, customRoleId: override?.customRoleId ?? u!.customRoleId };
     });
   const leader = db.users.find((u) => u.id === team.leaderId);
-  const projects = db.series.filter((s) => s.teamId === team.id);
+  const projects = [
+    ...db.series.filter((s) => s.teamId === team.id),
+    ...store.addedSeries.filter((s) => s.teamId === team.id),
+  ];
 
   return (
     <div className="container space-y-8 py-6">
@@ -77,6 +83,11 @@ export default function TeamDetailPage() {
               <Badge variant={team.recruiting ? "success" : "secondary"}>
                 {team.recruiting ? "يستقبل طلبات انضمام" : "مكتمل العدد"}
               </Badge>
+              {team.status !== "active" && (
+                <Badge variant={team.status === "suspended" ? "warning" : "secondary"}>
+                  {team.status === "suspended" ? "معلّق" : "مؤرشف"}
+                </Badge>
+              )}
             </div>
             <p className="mt-2 max-w-xl text-sm text-lunex-gray">{team.description}</p>
           </div>
@@ -105,10 +116,18 @@ export default function TeamDetailPage() {
       <section className="space-y-4">
         <h2 className="section-title font-display text-xl font-bold text-white">الأعضاء</h2>
         <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
-          {members.map((m) => (
+          {members.map((m) => {
+            const isLeader = m!.id === leader?.id;
+            return (
             <div key={m!.id} className="panel panel-hover flex items-center gap-3 p-3">
-              <div className="relative h-10 w-10 shrink-0 overflow-hidden rounded-full ring-2 ring-primary-500/30">
-                <Image src={avatarUrl(m!.avatarSeed)} alt={m!.displayName} fill className="object-cover" />
+              <div
+                className={cn(
+                  "relative h-10 w-10 shrink-0 overflow-hidden rounded-full",
+                  roleTierAvatarClass(m!.teamRole, isLeader),
+                  roleTierAnimationClass(m!.teamRole, isLeader)
+                )}
+              >
+                <Image src={avatarUrl(effectiveAvatarSeed(m!, avatarOverrides))} alt={m!.displayName} fill className="object-cover" />
               </div>
               <div className="min-w-0 flex-1">
                 <p className="truncate text-sm font-semibold text-white">{m!.displayName}</p>
@@ -118,7 +137,8 @@ export default function TeamDetailPage() {
                 <Crown className="hover-pop h-4 w-4 shrink-0 fill-amber-300 text-amber-300 drop-shadow-[0_0_6px_rgba(252,211,77,0.6)]" />
               )}
             </div>
-          ))}
+            );
+          })}
         </div>
       </section>
 

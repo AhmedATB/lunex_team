@@ -11,6 +11,7 @@ import {
 import { getMockDatabase } from "@/lib/mock/generate";
 import { useSession } from "@/store/session";
 import { useTeamManagement, applyTeamOverride } from "@/store/team-management";
+import { useProfile, effectiveAvatarSeed } from "@/store/profile";
 import {
   TEAM_ROLE_LABELS,
   TEAM_PERMISSION_LABELS,
@@ -20,10 +21,11 @@ import {
 } from "@/lib/rbac";
 import { CATEGORY_LABELS, DEPARTMENT_KIND_LABELS } from "@/lib/team-labels";
 import { TEAM_COLOR_PALETTE } from "@/lib/team-colors";
+import { roleTierAvatarClass, roleTierAnimationClass } from "@/lib/role-tier";
 import { avatarUrl, cn, formatNumber, safeDecodeURIComponent, timeAgo } from "@/lib/utils";
 import type {
   TeamRole, SeriesProductionRole, CollaborationType, RecruitmentApplication, CustomRole, Team, TeamCategory, User,
-  Department, DepartmentKind, RecruitmentPosition,
+  Department, DepartmentKind, RecruitmentPosition, Series, SeriesType, SeriesStatus,
 } from "@/lib/types";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -75,6 +77,7 @@ export default function TeamDashboardPage() {
 
   const db = useMemo(() => getMockDatabase(), []);
   const store = useTeamManagement();
+  const avatarOverrides = useProfile((s) => s.avatarOverrides);
   const rawTeam = [...db.teams, ...store.createdTeams].find((t) => t.slug === slug);
   const team = rawTeam ? applyTeamOverride(rawTeam, store.teamInfoOverrides) : undefined;
 
@@ -138,7 +141,10 @@ export default function TeamDashboardPage() {
     .filter((r) => !removedRoleIds.has(r.id))
     .map((r) => ({ ...r, ...store.customRoleOverrides[r.id] }));
 
-  const teamSeries = db.series.filter((s) => s.teamId === team.id);
+  const teamSeries = [
+    ...db.series.filter((s) => s.teamId === team.id),
+    ...store.addedSeries.filter((s) => s.teamId === team.id),
+  ];
   const removedDeptIds = new Set(store.removedDepartmentIds);
   const teamDepartments = [
     ...db.departments.filter((d) => d.teamId === team.id),
@@ -257,11 +263,18 @@ export default function TeamDashboardPage() {
         <TabsContent value="members" className="space-y-3">
           {members.map((m) => {
             const customRole = customRoles.find((r) => r.id === m.customRoleId);
+            const isLeader = m.id === team.leaderId;
             return (
               <Card key={m.id} className="panel-hover">
                 <CardContent className="flex flex-wrap items-center gap-3 p-4">
-                  <div className="relative h-10 w-10 shrink-0 overflow-hidden rounded-full ring-2 ring-primary-500/30">
-                    <Image src={avatarUrl(m.avatarSeed)} alt={m.displayName} fill className="object-cover" />
+                  <div
+                    className={cn(
+                      "relative h-10 w-10 shrink-0 overflow-hidden rounded-full",
+                      roleTierAvatarClass(m.teamRole, isLeader),
+                      roleTierAnimationClass(m.teamRole, isLeader)
+                    )}
+                  >
+                    <Image src={avatarUrl(effectiveAvatarSeed(m, avatarOverrides))} alt={m.displayName} fill className="object-cover" />
                   </div>
                   <div className="min-w-0 flex-1">
                     <p className="truncate text-sm font-bold text-white">{m.displayName}</p>
@@ -310,6 +323,15 @@ export default function TeamDashboardPage() {
         </TabsContent>
 
         <TabsContent value="series" className="space-y-3">
+          {canManage && (
+            <div className="flex justify-end">
+              <CreateSeriesDialog
+                teamId={team.id}
+                genres={db.genres}
+                onCreate={(s) => store.createSeries(s, currentUser.id)}
+              />
+            </div>
+          )}
           {teamSeries.map((s) => (
             <Card key={s.id} className="panel-hover">
               <CardHeader><CardTitle className="text-base">{s.titleAr}</CardTitle></CardHeader>
@@ -431,7 +453,7 @@ export default function TeamDashboardPage() {
                 <Card key={application.id} className="panel-hover">
                   <CardContent className="flex flex-wrap items-center gap-3 p-4">
                     <div className="relative h-9 w-9 shrink-0 overflow-hidden rounded-full ring-2 ring-primary-500/30">
-                      <Image src={avatarUrl(applicant.avatarSeed)} alt={applicant.displayName} fill className="object-cover" />
+                      <Image src={avatarUrl(effectiveAvatarSeed(applicant, avatarOverrides))} alt={applicant.displayName} fill className="object-cover" />
                     </div>
                     <div className="min-w-0 flex-1">
                       <p className="text-sm font-bold text-white">{applicant.displayName} — {TEAM_ROLE_LABELS[application.preferredRole]}</p>
@@ -519,6 +541,12 @@ export default function TeamDashboardPage() {
                 team={team}
                 members={members}
                 onTransfer={(toUserId, reason) => store.transferLeadership(team.id, team.leaderId, toUserId, currentUser.id, reason)}
+              />
+            )}
+            {isGlobalAdmin && (
+              <TeamStatusPanel
+                team={team}
+                onSetStatus={(status) => store.updateTeamInfo(team.id, { status }, currentUser.id)}
               />
             )}
           </TabsContent>
@@ -916,6 +944,47 @@ function LeaderTransferPanel({
   );
 }
 
+const TEAM_STATUS_LABELS: Record<Team["status"], string> = { active: "نشط", suspended: "معلّق", archived: "مؤرشف" };
+
+function TeamStatusPanel({
+  team,
+  onSetStatus,
+}: {
+  team: Team;
+  onSetStatus: (status: Team["status"]) => void;
+}) {
+  return (
+    <Card className="ring-2 ring-red-400/20">
+      <CardHeader className="flex-row items-center gap-2">
+        <ShieldAlert className="h-4 w-4 text-red-400" />
+        <CardTitle>حالة الفريق</CardTitle>
+      </CardHeader>
+      <CardContent className="space-y-3">
+        <p className="text-xs text-lunex-gray">
+          صلاحية خاصة بمشرفي المنصة — تعليق الفريق يخفي إمكانية استقبال طلبات جديدة، والأرشفة تُخرجه من قوائم الفرق النشطة.
+        </p>
+        <div className="flex items-center gap-2 text-sm text-lunex-gray">
+          <span>الحالة الحالية:</span>
+          <Badge variant={team.status === "active" ? "success" : team.status === "suspended" ? "warning" : "secondary"}>
+            {TEAM_STATUS_LABELS[team.status]}
+          </Badge>
+        </div>
+        <div className="flex flex-wrap gap-2">
+          <Button size="sm" variant="secondary" disabled={team.status === "active"} onClick={() => onSetStatus("active")}>
+            تنشيط
+          </Button>
+          <Button size="sm" variant="secondary" disabled={team.status === "suspended"} onClick={() => onSetStatus("suspended")}>
+            تعليق
+          </Button>
+          <Button size="sm" variant="destructive" disabled={team.status === "archived"} onClick={() => onSetStatus("archived")}>
+            أرشفة
+          </Button>
+        </div>
+      </CardContent>
+    </Card>
+  );
+}
+
 const DEPARTMENT_KIND_OPTIONS: DepartmentKind[] = [
   "translation", "editing", "proofreading", "quality_control", "publishing", "media", "recruitment",
 ];
@@ -1097,6 +1166,124 @@ function CreateRecruitmentPositionDialog({
             <Textarea value={description} onChange={(e) => setDescription(e.target.value)} rows={3} placeholder="المتطلبات والمهام المتوقعة..." />
           </div>
           <Button onClick={submit} className="w-full">فتح الوظيفة</Button>
+        </div>
+      </DialogContent>
+    </Dialog>
+  );
+}
+
+const SERIES_TYPE_LABELS: Record<SeriesType, string> = { manhwa: "مانهوا", manga: "مانجا", manhua: "مانها", novel: "رواية" };
+const SERIES_STATUS_LABELS: Record<SeriesStatus, string> = { ongoing: "مستمر", completed: "مكتمل", hiatus: "متوقف مؤقتاً", dropped: "متروك" };
+
+function CreateSeriesDialog({
+  teamId,
+  genres,
+  onCreate,
+}: {
+  teamId: string;
+  genres: { id: string; nameAr: string }[];
+  onCreate: (series: Pick<Series, "title" | "titleAr" | "synopsis" | "type" | "status" | "country" | "author" | "artist" | "year" | "cover" | "banner" | "genreIds" | "tags" | "teamId">) => void;
+}) {
+  const [open, setOpen] = useState(false);
+  const [titleAr, setTitleAr] = useState("");
+  const [title, setTitle] = useState("");
+  const [synopsis, setSynopsis] = useState("");
+  const [type, setType] = useState<SeriesType>("manhwa");
+  const [status, setStatus] = useState<SeriesStatus>("ongoing");
+  const [author, setAuthor] = useState("");
+  const [cover, setCover] = useState("");
+  const [genreIds, setGenreIds] = useState<Set<string>>(new Set());
+
+  function toggleGenre(id: string) {
+    setGenreIds((s) => {
+      const next = new Set(s);
+      if (next.has(id)) next.delete(id); else next.add(id);
+      return next;
+    });
+  }
+
+  function submit() {
+    if (!titleAr.trim() || !synopsis.trim()) return;
+    const seed = `lunex-series-new-${Date.now()}`;
+    onCreate({
+      teamId,
+      titleAr: titleAr.trim(),
+      title: title.trim() || titleAr.trim(),
+      synopsis: synopsis.trim(),
+      type,
+      status,
+      country: "kr",
+      author: author.trim() || "غير معروف",
+      artist: author.trim() || "غير معروف",
+      year: new Date().getFullYear(),
+      cover: cover.trim() || `https://picsum.photos/seed/${seed}/480/680`,
+      banner: cover.trim() || `https://picsum.photos/seed/${seed}-banner/1200/400`,
+      genreIds: [...genreIds],
+      tags: [],
+    });
+    setTitleAr(""); setTitle(""); setSynopsis(""); setAuthor(""); setCover(""); setGenreIds(new Set()); setOpen(false);
+  }
+
+  return (
+    <Dialog open={open} onOpenChange={setOpen}>
+      <DialogTrigger asChild>
+        <Button size="sm"><Plus className="h-3.5 w-3.5" /> إضافة سلسلة جديدة</Button>
+      </DialogTrigger>
+      <DialogContent className="max-h-[80vh] overflow-y-auto">
+        <DialogHeader><DialogTitle>إضافة سلسلة جديدة</DialogTitle></DialogHeader>
+        <div className="space-y-3 pt-2">
+          <div className="space-y-1.5">
+            <Label>اسم السلسلة (عربي)</Label>
+            <Input value={titleAr} onChange={(e) => setTitleAr(e.target.value)} placeholder="مثال: عودة قناص العصور" />
+          </div>
+          <div className="space-y-1.5">
+            <Label>اسم السلسلة (إنجليزي)</Label>
+            <Input value={title} onChange={(e) => setTitle(e.target.value)} placeholder="Return of the Ancient Sniper" />
+          </div>
+          <div className="space-y-1.5">
+            <Label>القصة</Label>
+            <Textarea value={synopsis} onChange={(e) => setSynopsis(e.target.value)} rows={3} placeholder="ملخص قصير عن أحداث السلسلة..." />
+          </div>
+          <div className="grid gap-3 sm:grid-cols-2">
+            <div className="space-y-1.5">
+              <Label>النوع</Label>
+              <Select value={type} onValueChange={(v) => setType(v as SeriesType)}>
+                <SelectTrigger><SelectValue /></SelectTrigger>
+                <SelectContent>
+                  {Object.entries(SERIES_TYPE_LABELS).map(([v, l]) => <SelectItem key={v} value={v}>{l}</SelectItem>)}
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="space-y-1.5">
+              <Label>الحالة</Label>
+              <Select value={status} onValueChange={(v) => setStatus(v as SeriesStatus)}>
+                <SelectTrigger><SelectValue /></SelectTrigger>
+                <SelectContent>
+                  {Object.entries(SERIES_STATUS_LABELS).map(([v, l]) => <SelectItem key={v} value={v}>{l}</SelectItem>)}
+                </SelectContent>
+              </Select>
+            </div>
+          </div>
+          <div className="space-y-1.5">
+            <Label>المؤلف/الرسّام (اختياري)</Label>
+            <Input value={author} onChange={(e) => setAuthor(e.target.value)} placeholder="اسم المؤلف" />
+          </div>
+          <div className="space-y-1.5">
+            <Label>رابط صورة الغلاف (اختياري)</Label>
+            <Input value={cover} onChange={(e) => setCover(e.target.value)} placeholder="https://..." />
+          </div>
+          <div className="space-y-1.5">
+            <Label>التصنيفات</Label>
+            <div className="grid max-h-40 grid-cols-2 gap-1.5 overflow-y-auto sm:grid-cols-3">
+              {genres.map((g) => (
+                <label key={g.id} className="flex items-center gap-2 text-xs text-lunex-gray">
+                  <Checkbox checked={genreIds.has(g.id)} onCheckedChange={() => toggleGenre(g.id)} />
+                  {g.nameAr}
+                </label>
+              ))}
+            </div>
+          </div>
+          <Button onClick={submit} className="w-full">إضافة السلسلة</Button>
         </div>
       </DialogContent>
     </Dialog>
