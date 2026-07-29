@@ -43,9 +43,9 @@ export function ChapterList({ seriesSlug, chapters }: { seriesSlug: string; chap
           <Link
             key={c.id}
             href={`/series/${seriesSlug}/${c.number}`}
-            className="group relative flex items-center justify-between gap-3 border-b border-white/5 px-4 py-3 text-sm transition-colors last:border-0 hover:bg-primary-600/10"
+            className="group relative flex items-center justify-between gap-3 border-b border-white/5 px-4 py-3 text-sm transition-colors last:border-0 hover:bg-primary-600/10 active:bg-primary-600/10"
           >
-            <span className="absolute inset-y-0 start-0 w-0.5 scale-y-0 bg-lunex-gradient transition-transform duration-300 group-hover:scale-y-100" />
+            <span className="absolute inset-y-0 start-0 w-0.5 scale-y-0 bg-lunex-gradient transition-transform duration-300 group-hover:scale-y-100 group-active:scale-y-100" />
             <div className="min-w-0">
               <p className="truncate font-medium text-white">
                 {c.title}
@@ -57,7 +57,7 @@ export function ChapterList({ seriesSlug, chapters }: { seriesSlug: string; chap
               </p>
               <p className="text-xs text-lunex-gray">{timeAgo(c.releasedAt)}</p>
             </div>
-            <span className="flex shrink-0 items-center gap-1 text-xs text-lunex-gray transition-colors group-hover:text-primary-300">
+            <span className="flex shrink-0 items-center gap-1 text-xs text-lunex-gray transition-colors group-hover:text-primary-300 group-active:text-primary-300">
               <Eye className="h-3.5 w-3.5" /> {formatNumber(c.views)}
             </span>
           </Link>

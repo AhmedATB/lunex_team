@@ -23,7 +23,7 @@ export function NewsSection({ news }: { news: NewsItem[] }) {
             <Link
               key={item.id}
               href="/news"
-              className="group panel panel-hover overflow-hidden transition-all hover:-translate-y-1 hover:border-primary-400/40 active:scale-[0.98]"
+              className="group panel panel-hover overflow-hidden transition-all hover:-translate-y-1 hover:border-primary-400/40 active:scale-[0.98] active:border-primary-400/40"
             >
               <div className="relative h-40 w-full overflow-hidden">
                 <Image
@@ -31,7 +31,7 @@ export function NewsSection({ news }: { news: NewsItem[] }) {
                   alt={item.title}
                   fill
                   sizes="(max-width: 768px) 100vw, 33vw"
-                  className="object-cover transition-transform duration-500 group-hover:scale-110"
+                  className="object-cover transition-transform duration-500 group-hover:scale-110 group-active:scale-110"
                 />
                 <div className="absolute inset-0 bg-gradient-to-t from-black/80 to-transparent" />
                 <Badge variant="secondary" className="absolute start-3 top-3 flex items-center gap-1">

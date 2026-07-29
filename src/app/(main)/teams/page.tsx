@@ -42,7 +42,7 @@ export default function TeamsPage() {
           <FadeIn key={team.id} delay={i * 0.04}>
             <Link
               href={`/teams/${team.slug}`}
-              className="group panel panel-hover flex flex-col gap-3 p-5 transition-all hover:-translate-y-1 hover:border-primary-400/40 active:scale-[0.98]"
+              className="group panel panel-hover flex flex-col gap-3 p-5 transition-all hover:-translate-y-1 hover:border-primary-400/40 active:scale-[0.98] active:border-primary-400/40"
             >
               <div className="flex items-center justify-between">
                 <div
@@ -56,7 +56,7 @@ export default function TeamsPage() {
                 </Badge>
               </div>
               <div>
-                <h3 className="font-display text-lg font-bold text-white group-hover:text-primary-300">
+                <h3 className="font-display text-lg font-bold text-white group-hover:text-primary-300 group-active:text-primary-300">
                   {team.name}
                 </h3>
                 <p className="mt-1 line-clamp-2 text-xs text-lunex-gray">{team.description}</p>

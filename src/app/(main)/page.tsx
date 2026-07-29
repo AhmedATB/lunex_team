@@ -94,7 +94,7 @@ export default async function HomePage() {
                 <Link
                   key={c.id}
                   href={`/series/${c.series.slug}/${c.number}`}
-                  className="group flex flex-col overflow-hidden rounded-2xl border border-white/10 bg-[#120a1f] transition-all duration-300 hover:-translate-y-1 hover:border-primary-400/40 hover:shadow-xl hover:shadow-primary-900/30"
+                  className="group flex flex-col overflow-hidden rounded-2xl border border-white/10 bg-[#120a1f] transition-all duration-300 hover:-translate-y-1 hover:border-primary-400/40 hover:shadow-xl hover:shadow-primary-900/30 active:border-primary-400/40 active:shadow-xl active:shadow-primary-900/30"
                 >
                   <div className="relative aspect-[3/4] w-full overflow-hidden">
                     <Image
@@ -102,7 +102,7 @@ export default async function HomePage() {
                       alt={c.series.titleAr}
                       fill
                       sizes="(max-width: 768px) 45vw, 16vw"
-                      className="object-cover transition-transform duration-500 group-hover:scale-110"
+                      className="object-cover transition-transform duration-500 group-hover:scale-110 group-active:scale-110"
                     />
                     <div className="absolute inset-0 bg-gradient-to-t from-black/40 via-transparent to-transparent" />
                     <Badge className="absolute start-2 top-2 text-[10px]">جديد</Badge>
@@ -152,7 +152,7 @@ export default async function HomePage() {
                 <Link
                   key={s.id}
                   href={`/series/${s.slug}`}
-                  className="group relative flex w-40 shrink-0 flex-col overflow-hidden rounded-2xl border border-white/10 bg-[#120a1f] transition-all duration-300 hover:-translate-y-1 hover:border-primary-400/40 hover:shadow-xl hover:shadow-primary-900/30 sm:w-48"
+                  className="group relative flex w-40 shrink-0 flex-col overflow-hidden rounded-2xl border border-white/10 bg-[#120a1f] transition-all duration-300 hover:-translate-y-1 hover:border-primary-400/40 hover:shadow-xl hover:shadow-primary-900/30 active:border-primary-400/40 active:shadow-xl active:shadow-primary-900/30 sm:w-48"
                 >
                   <div className="relative aspect-[3/4] w-full overflow-hidden">
                     <span className="absolute start-2 top-2 z-10 flex h-7 w-7 items-center justify-center rounded-full bg-lunex-gradient font-display text-sm font-black text-white">
@@ -163,7 +163,7 @@ export default async function HomePage() {
                       alt={s.titleAr}
                       fill
                       sizes="160px"
-                      className="object-cover transition-transform duration-500 group-hover:scale-110"
+                      className="object-cover transition-transform duration-500 group-hover:scale-110 group-active:scale-110"
                     />
                     <div className="absolute inset-0 bg-gradient-to-t from-black/40 via-transparent to-transparent" />
                   </div>

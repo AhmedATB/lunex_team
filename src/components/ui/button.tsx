@@ -38,16 +38,15 @@ export interface ButtonProps
   asChild?: boolean;
 }
 
-function spawnRipple(e: React.MouseEvent<HTMLElement>) {
-  const el = e.currentTarget;
+function spawnRippleAt(el: HTMLElement, clientX: number, clientY: number) {
   if (getComputedStyle(el).position === "static") return;
   const rect = el.getBoundingClientRect();
   const size = Math.max(rect.width, rect.height) * 1.4;
   const ripple = document.createElement("span");
   ripple.style.cssText = `
     position: absolute;
-    left: ${e.clientX - rect.left - size / 2}px;
-    top: ${e.clientY - rect.top - size / 2}px;
+    left: ${clientX - rect.left - size / 2}px;
+    top: ${clientY - rect.top - size / 2}px;
     width: ${size}px;
     height: ${size}px;
     border-radius: 9999px;
@@ -61,15 +60,20 @@ function spawnRipple(e: React.MouseEvent<HTMLElement>) {
 }
 
 const Button = React.forwardRef<HTMLButtonElement, ButtonProps>(
-  ({ className, variant, size, asChild = false, onMouseDown, ...props }, ref) => {
+  ({ className, variant, size, asChild = false, onMouseDown, onTouchStart, ...props }, ref) => {
     const Comp = asChild ? Slot : "button";
     return (
       <Comp
         className={cn(buttonVariants({ variant, size, className }), "relative")}
         ref={ref}
         onMouseDown={(e: React.MouseEvent<HTMLButtonElement>) => {
-          spawnRipple(e);
+          spawnRippleAt(e.currentTarget, e.clientX, e.clientY);
           onMouseDown?.(e);
+        }}
+        onTouchStart={(e: React.TouchEvent<HTMLButtonElement>) => {
+          const touch = e.touches[0];
+          if (touch) spawnRippleAt(e.currentTarget, touch.clientX, touch.clientY);
+          onTouchStart?.(e);
         }}
         {...props}
       />

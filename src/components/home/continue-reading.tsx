@@ -39,8 +39,10 @@ export function ContinueReading() {
             <div className="relative aspect-[3/4.2] w-full">
               <Image src={series.cover} alt={series.titleAr} fill className="object-cover" />
               <div className="absolute inset-0 bg-gradient-to-t from-black/90 via-black/20 to-transparent" />
-              <div className="absolute inset-0 flex items-center justify-center opacity-0 transition-opacity group-hover:opacity-100">
-                <div className="rounded-full bg-lunex-gradient p-3 shadow-glow">
+              {/* Always at least a little visible — on touch there's no hover to reveal
+                  this "tap to continue" affordance, so it can't be opacity-0 by default. */}
+              <div className="absolute inset-0 flex items-center justify-center opacity-70 transition-opacity group-hover:opacity-100 group-active:opacity-100">
+                <div className="rounded-full bg-lunex-gradient p-3 shadow-[0_0_20px_rgba(168,85,247,0.5)]">
                   <Play className="h-5 w-5 text-white" />
                 </div>
               </div>
