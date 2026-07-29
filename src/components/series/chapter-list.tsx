@@ -43,20 +43,21 @@ export function ChapterList({ seriesSlug, chapters }: { seriesSlug: string; chap
           <Link
             key={c.id}
             href={`/series/${seriesSlug}/${c.number}`}
-            className="flex items-center justify-between gap-3 border-b border-white/5 px-4 py-3 text-sm transition-colors last:border-0 hover:bg-white/5"
+            className="group relative flex items-center justify-between gap-3 border-b border-white/5 px-4 py-3 text-sm transition-colors last:border-0 hover:bg-primary-600/10"
           >
+            <span className="absolute inset-y-0 start-0 w-0.5 scale-y-0 bg-lunex-gradient transition-transform duration-300 group-hover:scale-y-100" />
             <div className="min-w-0">
               <p className="truncate font-medium text-white">
                 {c.title}
                 {lastRead === c.number && (
-                  <span className="ms-2 rounded-full bg-primary-500/20 px-2 py-0.5 text-[10px] text-primary-300">
+                  <span className="ms-2 rounded-full bg-primary-500/20 px-2 py-0.5 text-[10px] text-primary-300 shadow-[0_0_10px_rgba(168,85,247,0.4)]">
                     آخر قراءة
                   </span>
                 )}
               </p>
               <p className="text-xs text-lunex-gray">{timeAgo(c.releasedAt)}</p>
             </div>
-            <span className="flex shrink-0 items-center gap-1 text-xs text-lunex-gray">
+            <span className="flex shrink-0 items-center gap-1 text-xs text-lunex-gray transition-colors group-hover:text-primary-300">
               <Eye className="h-3.5 w-3.5" /> {formatNumber(c.views)}
             </span>
           </Link>

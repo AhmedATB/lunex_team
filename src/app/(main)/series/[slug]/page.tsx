@@ -12,6 +12,7 @@ import {
 } from "@/lib/mock/repo";
 import { getMockDatabase } from "@/lib/mock/generate";
 import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
 import { BookmarkButton, ShareButton } from "@/components/series/bookmark-button";
 import { ChapterList } from "@/components/series/chapter-list";
 import { CommentSection } from "@/components/series/comment-section";
@@ -78,14 +79,26 @@ export default async function SeriesDetailPage({ params }: { params: Promise<{ s
       <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }} />
 
       <div className="relative h-64 w-full overflow-hidden sm:h-80">
-        <Image src={series.banner} alt={series.titleAr} fill priority sizes="100vw" className="object-cover" />
+        <Image
+          src={series.banner}
+          alt={series.titleAr}
+          fill
+          priority
+          sizes="100vw"
+          className="object-cover [animation:bob_18s_ease-in-out_infinite] motion-reduce:animate-none"
+          style={{ transform: "scale(1.08)" }}
+        />
         <div className="absolute inset-0 bg-gradient-to-t from-[#09090B] via-[#09090B]/70 to-[#09090B]/30" />
+        <div className="pointer-events-none absolute inset-0 opacity-60">
+          <div className="ambient-blob start-[10%] top-[-20%] h-64 w-64 bg-primary-600/40" />
+          <div className="ambient-blob end-[15%] top-[10%] h-56 w-56 bg-pink-500/30" style={{ animationDelay: "-5s" }} />
+        </div>
       </div>
 
       <div className="container -mt-24 space-y-8 sm:-mt-28">
         <FadeIn>
           <div className="flex flex-col gap-6 sm:flex-row">
-            <div className="relative aspect-[3/4.2] w-40 shrink-0 overflow-hidden border border-white/10 shadow-glow-lg sm:w-52">
+            <div className="art-glow shine relative aspect-[3/4.2] w-40 shrink-0 overflow-hidden rounded-2xl border border-white/10 shadow-2xl shadow-black/60 sm:w-52">
               <Image src={series.cover} alt={series.titleAr} fill sizes="208px" className="object-cover" />
             </div>
 
@@ -114,19 +127,17 @@ export default async function SeriesDetailPage({ params }: { params: Promise<{ s
               <p className="max-w-3xl text-sm leading-relaxed text-lunex-gray">{series.synopsis}</p>
 
               <div className="flex flex-wrap items-center gap-2 pt-2">
-                <a
-                  href={`/series/${series.slug}/${chapters[chapters.length - 1]?.number ?? 1}`}
-                  className="inline-flex h-10 items-center gap-2 bg-lunex-gradient px-5 text-sm font-semibold text-white shadow-glow transition-transform hover:scale-[1.02]"
-                >
-                  <BookOpen className="h-4 w-4" /> ابدأ من الفصل الأول
-                </a>
-                {chapters[0] && (
-                  <a
-                    href={`/series/${series.slug}/${chapters[0].number}`}
-                    className="inline-flex h-10 items-center gap-2 border border-white/10 bg-white/5 px-5 text-sm font-semibold text-white backdrop-blur-md transition-colors hover:bg-white/10"
-                  >
-                    أحدث فصل ({chapters[0].number})
+                <Button size="lg" asChild>
+                  <a href={`/series/${series.slug}/${chapters[chapters.length - 1]?.number ?? 1}`}>
+                    <BookOpen className="h-4 w-4" /> ابدأ من الفصل الأول
                   </a>
+                </Button>
+                {chapters[0] && (
+                  <Button size="lg" variant="secondary" asChild>
+                    <a href={`/series/${series.slug}/${chapters[0].number}`}>
+                      أحدث فصل ({chapters[0].number})
+                    </a>
+                  </Button>
                 )}
                 <BookmarkButton seriesId={series.id} />
                 <ShareButton />
@@ -143,7 +154,10 @@ export default async function SeriesDetailPage({ params }: { params: Promise<{ s
 
               <div className="flex flex-wrap gap-1.5 pt-1">
                 {series.tags.map((tag) => (
-                  <span key={tag} className="rounded-full bg-white/5 px-2.5 py-1 text-[11px] text-lunex-gray">
+                  <span
+                    key={tag}
+                    className="hover-pop cursor-default rounded-full bg-white/5 px-2.5 py-1 text-[11px] text-lunex-gray transition-colors hover:bg-primary-600/20 hover:text-primary-200"
+                  >
                     #{tag}
                   </span>
                 ))}
@@ -152,18 +166,20 @@ export default async function SeriesDetailPage({ params }: { params: Promise<{ s
           </div>
         </FadeIn>
 
+        <div className="magic-divider" />
+
         <div className="grid gap-8 lg:grid-cols-[1fr_320px]">
           <FadeIn className="space-y-6">
-            <h2 className="font-display text-xl font-bold text-white">الفصول ({chapters.length})</h2>
+            <h2 className="section-title font-display text-xl font-bold text-white">الفصول ({chapters.length})</h2>
             <ChapterList seriesSlug={series.slug} chapters={chapters} />
 
-            <h2 className="pt-4 font-display text-xl font-bold text-white">التعليقات ({comments.length})</h2>
+            <h2 className="section-title pt-4 font-display text-xl font-bold text-white">التعليقات ({comments.length})</h2>
             <CommentSection seriesId={series.id} initialComments={comments} users={db.users} />
           </FadeIn>
 
           <FadeIn className="space-y-4">
-            <div className="panel p-4">
-              <h3 className="mb-3 font-display text-sm font-bold text-white">معلومات إضافية</h3>
+            <div className="panel panel-hover p-4">
+              <h3 className="section-title mb-4 font-display text-sm font-bold text-white">معلومات إضافية</h3>
               <dl className="space-y-2 text-sm">
                 <Row label="الرسّام" value={series.artist} />
                 <Row label="سنة الإصدار" value={String(series.year)} />
@@ -175,9 +191,12 @@ export default async function SeriesDetailPage({ params }: { params: Promise<{ s
         </div>
 
         {related.length > 0 && (
-          <FadeIn>
-            <SeriesRow title="أعمال مشابهة" series={related.filter((s) => s.id !== series.id).slice(0, 6)} />
-          </FadeIn>
+          <>
+            <div className="magic-divider" />
+            <FadeIn>
+              <SeriesRow title="أعمال مشابهة" series={related.filter((s) => s.id !== series.id).slice(0, 6)} />
+            </FadeIn>
+          </>
         )}
       </div>
     </div>

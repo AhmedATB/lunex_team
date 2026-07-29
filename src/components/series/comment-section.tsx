@@ -52,7 +52,7 @@ export function CommentSection({
     <div className="space-y-4">
       {currentUser && (
         <div className="flex gap-3">
-          <div className="relative h-10 w-10 shrink-0 overflow-hidden rounded-full ring-2 ring-white/10">
+          <div className="relative h-10 w-10 shrink-0 overflow-hidden rounded-full ring-2 ring-primary-500/40 shadow-[0_0_14px_rgba(168,85,247,0.35)]">
             <Image src={avatarUrl(currentUser.avatarSeed)} alt={currentUser.displayName} fill className="object-cover" />
           </div>
           <div className="flex-1 space-y-2">
@@ -79,7 +79,7 @@ export function CommentSection({
           const likes = c.likes + (reaction === "like" ? 1 : 0);
           const dislikes = c.dislikes + (reaction === "dislike" ? 1 : 0);
           return (
-            <div key={c.id} className="panel flex gap-3 p-4">
+            <div key={c.id} className="panel panel-hover flex gap-3 p-4">
               <div className="relative h-9 w-9 shrink-0 overflow-hidden rounded-full ring-2 ring-white/10">
                 <Image src={avatarUrl(user.avatarSeed)} alt={user.displayName} fill className="object-cover" />
               </div>
@@ -97,13 +97,13 @@ export function CommentSection({
                 <div className="mt-2 flex items-center gap-3">
                   <button
                     onClick={() => react(c.id, "like")}
-                    className={`flex items-center gap-1 text-xs transition-colors ${reaction === "like" ? "text-primary-300" : "text-lunex-gray hover:text-white"}`}
+                    className={`hover-pop flex items-center gap-1 text-xs transition-colors ${reaction === "like" ? "text-primary-300" : "text-lunex-gray hover:text-white"}`}
                   >
                     <ThumbsUp className="h-3.5 w-3.5" /> {likes}
                   </button>
                   <button
                     onClick={() => react(c.id, "dislike")}
-                    className={`flex items-center gap-1 text-xs transition-colors ${reaction === "dislike" ? "text-red-400" : "text-lunex-gray hover:text-white"}`}
+                    className={`hover-pop flex items-center gap-1 text-xs transition-colors ${reaction === "dislike" ? "text-red-400" : "text-lunex-gray hover:text-white"}`}
                   >
                     <ThumbsDown className="h-3.5 w-3.5" /> {dislikes}
                   </button>
