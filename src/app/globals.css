@@ -199,16 +199,31 @@
   .magic-border {
     position: relative;
     isolation: isolate;
+    overflow: hidden;
   }
+  /*
+    Rendered as a thin rotating ring via mask-composite, not a filled rotating
+    rectangle: without the mask, this pseudo-element is an opaque rotating
+    conic-gradient the full size of the box, sitting in front of the box's own
+    background (negative z-index only clears the box's background, not its
+    content) — on anything larger than a small, fully-opaque-faced badge, that
+    shows the whole spinning gradient through the content, and rotating a wide
+    rectangle sweeps its corners far outside the box into neighboring elements.
+  */
   .magic-border::before {
     content: "";
     position: absolute;
     inset: -2px;
     z-index: -1;
+    padding: 2px;
     border-radius: inherit;
     background: conic-gradient(from 0deg, #6d28d9, #f0abfc, #fcd34d, #a855f7, #6d28d9);
     animation: spin-slow 6s linear infinite;
     opacity: 0.7;
+    pointer-events: none;
+    -webkit-mask: linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0);
+    -webkit-mask-composite: xor;
+            mask-composite: exclude;
   }
 
   /* Button ripple — expands from the pointer on click. */

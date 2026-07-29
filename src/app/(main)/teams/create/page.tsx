@@ -116,7 +116,7 @@ export default function CreateTeamPage() {
         <p className="mt-2 text-sm text-lunex-gray">عبّئ النموذج التالي وسيراجع فريق LUNEX طلبك للموافقة عليه.</p>
       </div>
 
-      <Card className="magic-border">
+      <Card>
         <CardHeader>
           <CardTitle>معلومات الفريق</CardTitle>
           <CardDescription>كل الحقول أدناه تساعدنا على تقييم طلبك بشكل أفضل.</CardDescription>

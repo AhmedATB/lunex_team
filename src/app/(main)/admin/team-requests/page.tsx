@@ -92,7 +92,10 @@ export default function AdminTeamRequestsPage() {
           return (
             <Card
               key={request.id}
-              className={cn("panel-hover", request.status === "pending" && "magic-border")}
+              className={cn(
+                "panel-hover",
+                request.status === "pending" && "ring-2 ring-amber-400/30 shadow-[0_0_28px_rgba(251,191,36,0.2)]"
+              )}
             >
               <CardContent className="space-y-3 p-5">
                 <div className="flex flex-wrap items-start justify-between gap-2">
