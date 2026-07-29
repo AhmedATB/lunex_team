@@ -18,7 +18,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { TEAM_ROLE_LABELS } from "@/lib/rbac";
-import { timeAgo } from "@/lib/utils";
+import { cn, timeAgo } from "@/lib/utils";
 import type { TeamCreationRequest } from "@/lib/types";
 
 const STATUS_LABEL: Record<TeamCreationRequest["status"], string> = {
@@ -72,7 +72,7 @@ export default function AdminTeamRequestsPage() {
     <div className="space-y-4">
       <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
         <div>
-          <h1 className="font-display text-2xl font-bold text-white">طلبات إنشاء الفرق ({filtered.length})</h1>
+          <h1 className="section-title font-display text-2xl font-bold text-white">طلبات إنشاء الفرق ({filtered.length})</h1>
           <p className="text-sm text-lunex-gray">راجع طلبات إنشاء الفرق الجديدة واتخذ الإجراء المناسب.</p>
         </div>
         <Select value={statusFilter} onValueChange={(v) => setStatusFilter(v as typeof statusFilter)}>
@@ -90,7 +90,10 @@ export default function AdminTeamRequestsPage() {
         {filtered.map((request) => {
           const requester = db.users.find((u) => u.id === request.requesterId);
           return (
-            <Card key={request.id}>
+            <Card
+              key={request.id}
+              className={cn("panel-hover", request.status === "pending" && "magic-border")}
+            >
               <CardContent className="space-y-3 p-5">
                 <div className="flex flex-wrap items-start justify-between gap-2">
                   <div className="flex items-center gap-3">
@@ -99,7 +102,7 @@ export default function AdminTeamRequestsPage() {
                       alt={request.teamName}
                       width={48}
                       height={48}
-                      className="rounded-xl border border-white/10"
+                      className="art-glow shine rounded-xl border border-white/10"
                     />
                     <div>
                       <h3 className="font-display text-lg font-black text-white">{request.teamName}</h3>
@@ -143,13 +146,13 @@ export default function AdminTeamRequestsPage() {
                     />
                     <div className="flex flex-wrap gap-2">
                       <Button size="sm" onClick={() => act(request, "approved")}>
-                        <Check className="h-3.5 w-3.5" /> قبول
+                        <Check className="hover-pop h-3.5 w-3.5" /> قبول
                       </Button>
                       <Button size="sm" variant="destructive" onClick={() => act(request, "rejected")}>
-                        <X className="h-3.5 w-3.5" /> رفض
+                        <X className="hover-pop h-3.5 w-3.5" /> رفض
                       </Button>
                       <Button size="sm" variant="secondary" onClick={() => act(request, "needs_modification")}>
-                        <MessageSquareWarning className="h-3.5 w-3.5" /> طلب تعديل
+                        <MessageSquareWarning className="hover-pop h-3.5 w-3.5" /> طلب تعديل
                       </Button>
                     </div>
                   </div>

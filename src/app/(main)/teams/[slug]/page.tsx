@@ -47,9 +47,13 @@ export default function TeamDetailPage() {
         className="relative overflow-hidden rounded-2xl border border-white/10 p-8"
         style={{ background: `linear-gradient(135deg, ${team.color}33, transparent)` }}
       >
-        <div className="flex flex-col items-center gap-4 text-center sm:flex-row sm:text-start">
+        <div className="pointer-events-none absolute inset-0 opacity-70">
+          <div className="ambient-blob start-[-10%] top-[-20%] h-56 w-56 bg-primary-600/40" />
+          <div className="ambient-blob end-[10%] top-[10%] h-48 w-48 bg-pink-500/25" style={{ animationDelay: "-4s" }} />
+        </div>
+        <div className="relative flex flex-col items-center gap-4 text-center sm:flex-row sm:text-start">
           <div
-            className="flex h-20 w-20 shrink-0 items-center justify-center rounded-2xl font-display text-3xl font-black text-white"
+            className="magic-border art-glow shine flex h-20 w-20 shrink-0 items-center justify-center rounded-2xl font-display text-3xl font-black text-white"
             style={{ background: `linear-gradient(135deg, ${team.color}, #C084FC)` }}
           >
             {team.name[0]}
@@ -83,32 +87,41 @@ export default function TeamDetailPage() {
         <MiniStat label="الترتيب" value={team.rank} prefix="#" />
       </div>
 
+      <div className="magic-divider" />
+
       <section className="space-y-4">
-        <h2 className="font-display text-xl font-bold text-white">الأعضاء</h2>
+        <h2 className="section-title font-display text-xl font-bold text-white">الأعضاء</h2>
         <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
           {members.map((m) => (
-            <div key={m!.id} className="panel flex items-center gap-3 p-3">
-              <div className="relative h-10 w-10 shrink-0 overflow-hidden rounded-full ring-2 ring-white/10">
+            <div key={m!.id} className="panel panel-hover flex items-center gap-3 p-3">
+              <div className="relative h-10 w-10 shrink-0 overflow-hidden rounded-full ring-2 ring-primary-500/30">
                 <Image src={avatarUrl(m!.avatarSeed)} alt={m!.displayName} fill className="object-cover" />
               </div>
               <div className="min-w-0 flex-1">
                 <p className="truncate text-sm font-semibold text-white">{m!.displayName}</p>
                 <p className="text-xs text-primary-300">{m!.teamRole ? TEAM_ROLE_LABELS[m!.teamRole] : "عضو"}</p>
               </div>
-              {m!.id === leader?.id && <Crown className="h-4 w-4 shrink-0 text-amber-300" />}
+              {m!.id === leader?.id && (
+                <Crown className="hover-pop h-4 w-4 shrink-0 fill-amber-300 text-amber-300 drop-shadow-[0_0_6px_rgba(252,211,77,0.6)]" />
+              )}
             </div>
           ))}
         </div>
       </section>
 
-      {projects.length > 0 && <SeriesRow title="مشاريع الفريق" series={projects} />}
+      {projects.length > 0 && (
+        <>
+          <div className="magic-divider" />
+          <SeriesRow title="مشاريع الفريق" series={projects} />
+        </>
+      )}
     </div>
   );
 }
 
 function MiniStat({ label, value, prefix = "" }: { label: string; value: number; prefix?: string }) {
   return (
-    <div className="panel flex flex-col items-center gap-1 py-4 text-center">
+    <div className="panel panel-hover flex flex-col items-center gap-1 py-4 text-center">
       <span className="flex items-center gap-1 font-display text-xl font-bold text-white">
         <Users className="h-4 w-4 text-primary-300" /> {prefix}{value}
       </span>

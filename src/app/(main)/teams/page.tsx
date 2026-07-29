@@ -2,12 +2,13 @@
 
 import { useEffect, useMemo } from "react";
 import Link from "next/link";
-import { Users, Crown, Trophy, Plus } from "lucide-react";
+import { Users, Crown, Trophy, Plus, Sparkle } from "lucide-react";
 import { getMockDatabase } from "@/lib/mock/generate";
 import { useTeamManagement } from "@/store/team-management";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { FadeIn } from "@/components/motion/fade-in";
+import { cn } from "@/lib/utils";
 
 export default function TeamsPage() {
   useEffect(() => {
@@ -29,8 +30,8 @@ export default function TeamsPage() {
     <div className="container space-y-6 py-6">
       <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
         <div>
-          <h1 className="font-display text-2xl font-bold text-white sm:text-3xl">فرق الترجمة</h1>
-          <p className="mt-1 text-sm text-lunex-gray">كل فريق يعمل باستقلالية على مشاريعه الخاصة ضمن منظومة LUNEX TEAM.</p>
+          <h1 className="section-title font-display text-2xl font-bold text-white sm:text-3xl">فرق الترجمة</h1>
+          <p className="mt-2 text-sm text-lunex-gray">كل فريق يعمل باستقلالية على مشاريعه الخاصة ضمن منظومة LUNEX TEAM.</p>
         </div>
         <Button asChild>
           <Link href="/teams/create"><Plus className="h-4 w-4" /> إنشاء فريق جديد</Link>
@@ -42,11 +43,17 @@ export default function TeamsPage() {
           <FadeIn key={team.id} delay={i * 0.04}>
             <Link
               href={`/teams/${team.slug}`}
-              className="group panel panel-hover flex flex-col gap-3 p-5 transition-all hover:-translate-y-1 hover:border-primary-400/40 active:scale-[0.98] active:border-primary-400/40"
+              className="group panel panel-hover relative flex flex-col gap-3 overflow-hidden p-5 transition-all hover:-translate-y-1 hover:border-primary-400/40 active:scale-[0.98] active:border-primary-400/40"
             >
+              {team.rank <= 3 && (
+                <Sparkle className="hover-pop pointer-events-none absolute end-3 top-3 h-4 w-4 fill-amber-300 text-amber-300 opacity-70" />
+              )}
               <div className="flex items-center justify-between">
                 <div
-                  className="flex h-12 w-12 items-center justify-center font-display text-lg font-black text-white"
+                  className={cn(
+                    "art-glow shine flex h-12 w-12 items-center justify-center rounded-2xl font-display text-lg font-black text-white transition-transform duration-300 group-hover:scale-110 group-active:scale-110",
+                    team.rank <= 3 && "magic-border"
+                  )}
                   style={{ background: `linear-gradient(135deg, ${team.color}, #C084FC)` }}
                 >
                   {team.name[0]}

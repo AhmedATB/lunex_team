@@ -94,8 +94,13 @@ export default function CreateTeamPage() {
   if (submitted) {
     return (
       <div className="container flex flex-col items-center gap-4 py-24 text-center">
-        <CheckCircle2 className="h-16 w-16 text-emerald-400" />
-        <h1 className="font-display text-2xl font-black text-white">تم إرسال طلبك بنجاح</h1>
+        <div className="relative">
+          <div className="pointer-events-none absolute -inset-6 -z-10 opacity-60 blur-2xl">
+            <div className="h-full w-full rounded-full bg-emerald-500" />
+          </div>
+          <CheckCircle2 className="float-slow h-16 w-16 text-emerald-400 drop-shadow-[0_0_20px_rgba(52,211,153,0.6)]" />
+        </div>
+        <h1 className="section-title font-display text-2xl font-black text-white">تم إرسال طلبك بنجاح</h1>
         <p className="max-w-md text-sm text-lunex-gray">
           سيقوم فريق إدارة المنصة بمراجعة طلبك والرد عليه قريباً. يمكنك متابعة حالة الطلب من لوحة إدارة الطلبات إذا كنت مسؤولاً.
         </p>
@@ -107,11 +112,11 @@ export default function CreateTeamPage() {
   return (
     <div className="container max-w-2xl space-y-6 py-8">
       <div>
-        <h1 className="font-display text-2xl font-black text-white sm:text-3xl">طلب إنشاء فريق جديد</h1>
-        <p className="mt-1 text-sm text-lunex-gray">عبّئ النموذج التالي وسيراجع فريق LUNEX طلبك للموافقة عليه.</p>
+        <h1 className="section-title font-display text-2xl font-black text-white sm:text-3xl">طلب إنشاء فريق جديد</h1>
+        <p className="mt-2 text-sm text-lunex-gray">عبّئ النموذج التالي وسيراجع فريق LUNEX طلبك للموافقة عليه.</p>
       </div>
 
-      <Card>
+      <Card className="magic-border">
         <CardHeader>
           <CardTitle>معلومات الفريق</CardTitle>
           <CardDescription>كل الحقول أدناه تساعدنا على تقييم طلبك بشكل أفضل.</CardDescription>

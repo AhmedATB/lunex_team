@@ -141,13 +141,13 @@ export default function TeamDashboardPage() {
     <div className="container space-y-6 py-6">
       <div className="flex flex-wrap items-center gap-3">
         <div
-          className="flex h-14 w-14 items-center justify-center rounded-2xl font-display text-xl font-black text-white"
+          className="art-glow shine flex h-14 w-14 items-center justify-center rounded-2xl font-display text-xl font-black text-white"
           style={{ background: `linear-gradient(135deg, ${team.color}, #C084FC)` }}
         >
           {team.name[0]}
         </div>
         <div>
-          <h1 className="font-display text-2xl font-black text-white sm:text-3xl">لوحة إدارة {team.name}</h1>
+          <h1 className="section-title font-display text-2xl font-black text-white sm:text-3xl">لوحة إدارة {team.name}</h1>
           <p className="text-sm text-lunex-gray">إدارة الأعضاء والمشاريع والصلاحيات الخاصة بالفريق.</p>
         </div>
         <Badge className="ms-auto" variant={team.status === "active" ? "success" : "warning"}>
@@ -199,9 +199,9 @@ export default function TeamDashboardPage() {
           {members.map((m) => {
             const customRole = customRoles.find((r) => r.id === m.customRoleId);
             return (
-              <Card key={m.id}>
+              <Card key={m.id} className="panel-hover">
                 <CardContent className="flex flex-wrap items-center gap-3 p-4">
-                  <div className="relative h-10 w-10 shrink-0 overflow-hidden rounded-full ring-2 ring-white/20">
+                  <div className="relative h-10 w-10 shrink-0 overflow-hidden rounded-full ring-2 ring-primary-500/30">
                     <Image src={avatarUrl(m.avatarSeed)} alt={m.displayName} fill className="object-cover" />
                   </div>
                   <div className="min-w-0 flex-1">
@@ -252,7 +252,7 @@ export default function TeamDashboardPage() {
 
         <TabsContent value="series" className="space-y-3">
           {teamSeries.map((s) => (
-            <Card key={s.id}>
+            <Card key={s.id} className="panel-hover">
               <CardHeader><CardTitle className="text-base">{s.titleAr}</CardTitle></CardHeader>
               <CardContent className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
                 {PRODUCTION_ROLES.map((role) => {
@@ -339,9 +339,9 @@ export default function TeamDashboardPage() {
               const status = store.applicationOverrides[application.id] ?? application.status;
               if (!applicant) return null;
               return (
-                <Card key={application.id}>
+                <Card key={application.id} className="panel-hover">
                   <CardContent className="flex flex-wrap items-center gap-3 p-4">
-                    <div className="relative h-9 w-9 shrink-0 overflow-hidden rounded-full ring-2 ring-white/20">
+                    <div className="relative h-9 w-9 shrink-0 overflow-hidden rounded-full ring-2 ring-primary-500/30">
                       <Image src={avatarUrl(applicant.avatarSeed)} alt={applicant.displayName} fill className="object-cover" />
                     </div>
                     <div className="min-w-0 flex-1">
@@ -385,9 +385,9 @@ export default function TeamDashboardPage() {
                   const status = store.collaborationOverrides[c.id] ?? c.status;
                   const s = db.series.find((x) => x.id === c.seriesId);
                   return (
-                    <Card key={c.id}>
+                    <Card key={c.id} className="panel-hover">
                       <CardContent className="flex flex-wrap items-center gap-3 p-4">
-                        <HandHeart className="h-5 w-5 shrink-0 text-primary-300" />
+                        <HandHeart className="hover-pop h-5 w-5 shrink-0 text-primary-300" />
                         <div className="min-w-0 flex-1">
                           <p className="text-sm font-bold text-white">{otherTeam?.name} — {COLLAB_TYPE_LABELS[c.type]}</p>
                           <p className="text-xs text-lunex-gray">{s?.titleAr} · {c.message}</p>
@@ -423,9 +423,9 @@ export default function TeamDashboardPage() {
 
 function StatCard({ icon: Icon, label, value }: { icon: typeof Users; label: string; value: number }) {
   return (
-    <Card>
+    <Card className="panel-hover">
       <CardContent className="flex flex-col gap-1 p-4">
-        <Icon className="h-4 w-4 text-primary-300" />
+        <Icon className="hover-pop h-4 w-4 text-primary-300" />
         <span className="font-display text-xl font-bold text-white">{formatNumber(value)}</span>
         <span className="text-xs text-lunex-gray">{label}</span>
       </CardContent>
