@@ -5,6 +5,7 @@ import { useSession } from "@/store/session";
 import { useReaderSettings, useReadingProgress, useBookmarks } from "@/store/reader-settings";
 import { useTeamManagement } from "@/store/team-management";
 import { useProfile } from "@/store/profile";
+import { useRewards } from "@/store/rewards";
 
 /**
  * All persisted stores use `skipHydration: true` so the first client render
@@ -20,6 +21,7 @@ export function StoreHydration() {
     useBookmarks.persist.rehydrate();
     useTeamManagement.persist.rehydrate();
     useProfile.persist.rehydrate();
+    useRewards.persist.rehydrate();
   }, []);
 
   return null;

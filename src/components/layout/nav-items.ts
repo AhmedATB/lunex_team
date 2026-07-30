@@ -12,6 +12,7 @@ import {
   BookOpen,
   MessageSquare,
   ClipboardList,
+  Coins,
 } from "lucide-react";
 
 export interface NavItem {
@@ -43,4 +44,5 @@ export const ADMIN_NAV: NavItem[] = [
   { href: "/admin/series", label: "السلاسل", icon: Layers },
   { href: "/admin/chapters", label: "الفصول", icon: BookOpen },
   { href: "/admin/comments", label: "التعليقات", icon: MessageSquare },
+  { href: "/admin/monetization", label: "المكافآت والأرباح", icon: Coins },
 ];

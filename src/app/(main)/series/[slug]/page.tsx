@@ -1,5 +1,4 @@
 import { notFound } from "next/navigation";
-import Image from "next/image";
 import Link from "next/link";
 import type { Metadata } from "next";
 import { Star, Eye, Bookmark, Heart, BookOpen, Calendar, User as UserIcon } from "lucide-react";
@@ -14,18 +13,15 @@ import { getMockDatabase } from "@/lib/mock/generate";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { BookmarkButton, ShareButton } from "@/components/series/bookmark-button";
+import {
+  SeriesAdminControls, SeriesStatusBadge, SeriesRemovedGuard,
+  SeriesTitleAr, SeriesSynopsis, SeriesCoverImage, SeriesBannerImage,
+} from "@/components/series/series-admin-controls";
 import { ChapterList } from "@/components/series/chapter-list";
 import { CommentSection } from "@/components/series/comment-section";
 import { SeriesRow } from "@/components/shared/series-card";
 import { FadeIn } from "@/components/motion/fade-in";
 import { formatNumber, safeDecodeURIComponent } from "@/lib/utils";
-
-const STATUS_LABEL: Record<string, string> = {
-  ongoing: "مستمر",
-  completed: "مكتمل",
-  hiatus: "متوقف مؤقتاً",
-  dropped: "متروك",
-};
 
 const TYPE_LABEL: Record<string, string> = {
   manhwa: "مانهوا",
@@ -77,14 +73,13 @@ export default async function SeriesDetailPage({ params }: { params: Promise<{ s
   return (
     <div className="pb-10">
       <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }} />
+      <SeriesRemovedGuard seriesId={series.id} />
 
       <div className="relative h-64 w-full overflow-hidden sm:h-80">
-        <Image
-          src={series.banner}
+        <SeriesBannerImage
+          seriesId={series.id}
+          initialBanner={series.banner}
           alt={series.titleAr}
-          fill
-          priority
-          sizes="100vw"
           className="object-cover [animation:bob_18s_ease-in-out_infinite] motion-reduce:animate-none"
           style={{ transform: "scale(1.08)" }}
         />
@@ -99,18 +94,20 @@ export default async function SeriesDetailPage({ params }: { params: Promise<{ s
         <FadeIn>
           <div className="flex flex-col gap-6 sm:flex-row">
             <div className="art-glow shine relative aspect-[3/4.2] w-40 shrink-0 overflow-hidden rounded-2xl border border-white/10 shadow-2xl shadow-black/60 sm:w-52">
-              <Image src={series.cover} alt={series.titleAr} fill sizes="208px" className="object-cover" />
+              <SeriesCoverImage seriesId={series.id} initialCover={series.cover} alt={series.titleAr} sizes="208px" className="object-cover" />
             </div>
 
             <div className="flex-1 space-y-3 pt-2">
               <div className="flex flex-wrap items-center gap-2">
-                <Badge variant="success">{STATUS_LABEL[series.status]}</Badge>
+                <SeriesStatusBadge seriesId={series.id} initialStatus={series.status} />
                 <Badge variant="secondary">{TYPE_LABEL[series.type]}</Badge>
                 {seriesGenres.slice(0, 4).map((g) => (
                   <Badge key={g.id} variant="outline">{g.nameAr}</Badge>
                 ))}
               </div>
-              <h1 className="font-display text-2xl font-black text-white sm:text-4xl">{series.titleAr}</h1>
+              <h1 className="font-display text-2xl font-black text-white sm:text-4xl">
+                <SeriesTitleAr seriesId={series.id} initialTitleAr={series.titleAr} />
+              </h1>
               <p className="text-sm text-lunex-gray">{series.title}</p>
 
               <div className="flex flex-wrap items-center gap-4 text-sm text-lunex-gray">
@@ -124,7 +121,9 @@ export default async function SeriesDetailPage({ params }: { params: Promise<{ s
                 <span className="flex items-center gap-1"><UserIcon className="h-4 w-4" /> {series.author}</span>
               </div>
 
-              <p className="max-w-3xl text-sm leading-relaxed text-lunex-gray">{series.synopsis}</p>
+              <p className="max-w-3xl text-sm leading-relaxed text-lunex-gray">
+                <SeriesSynopsis seriesId={series.id} initialSynopsis={series.synopsis} />
+              </p>
 
               <div className="flex flex-wrap items-center gap-2 pt-2">
                 <Button size="lg" asChild>
@@ -151,6 +150,16 @@ export default async function SeriesDetailPage({ params }: { params: Promise<{ s
                   ترجمة فريق <span className="font-semibold text-primary-300">{team.name}</span>
                 </Link>
               )}
+
+              <SeriesAdminControls
+                seriesId={series.id}
+                teamId={series.teamId}
+                initialStatus={series.status}
+                initialTitleAr={series.titleAr}
+                initialSynopsis={series.synopsis}
+                initialCover={series.cover}
+                initialBanner={series.banner}
+              />
 
               <div className="flex flex-wrap gap-1.5 pt-1">
                 {series.tags.map((tag) => (

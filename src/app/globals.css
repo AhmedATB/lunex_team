@@ -232,6 +232,22 @@
     overflow: hidden;
   }
 
+  /*
+    Chapter-page protection: no text/image selection, no iOS long-press
+    save-sheet, no drag-out. Pairs with the canvas rendering + overlay in
+    ProtectedImage — CSS alone is defense-in-depth, not the whole story.
+  */
+  .reader-protect,
+  .reader-protect * {
+    user-select: none;
+    -webkit-user-select: none;
+    -webkit-touch-callout: none;
+  }
+  .reader-protect img,
+  .reader-protect canvas {
+    -webkit-user-drag: none;
+  }
+
   /* Glowing divider between sections — a line with a crystal spark at its center. */
   .magic-divider {
     position: relative;

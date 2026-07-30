@@ -4,6 +4,7 @@ import { getSeriesBySlug, getChaptersBySeries, getCommentsForSeries } from "@/li
 import { getMockDatabase } from "@/lib/mock/generate";
 import { ReaderToolbar } from "@/components/reader/reader-toolbar";
 import { ReaderViewer } from "@/components/reader/reader-viewer";
+import { ChapterGate } from "@/components/reader/chapter-gate";
 import { CommentSection } from "@/components/series/comment-section";
 import { safeDecodeURIComponent } from "@/lib/utils";
 
@@ -50,13 +51,21 @@ export default async function ReaderPage({
         prevChapter={prevChapter}
         nextChapter={nextChapter}
       />
-      <ReaderViewer
-        seriesSlug={series.slug}
+      <ChapterGate
         seriesId={series.id}
-        chapter={chapter}
-        prevChapter={prevChapter}
-        nextChapter={nextChapter}
-      />
+        seriesSlug={series.slug}
+        seriesTitle={series.titleAr}
+        chapterNumber={chapter.number}
+        latestChapterNumber={sorted[sorted.length - 1]?.number ?? chapter.number}
+      >
+        <ReaderViewer
+          seriesSlug={series.slug}
+          seriesId={series.id}
+          chapter={chapter}
+          prevChapter={prevChapter}
+          nextChapter={nextChapter}
+        />
+      </ChapterGate>
       <div className="container max-w-3xl space-y-4 py-8">
         <h2 className="font-display text-lg font-bold text-white">التعليقات على الفصل</h2>
         <CommentSection seriesId={series.id} initialComments={comments} users={db.users} />

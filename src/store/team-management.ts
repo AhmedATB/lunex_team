@@ -49,6 +49,8 @@ interface TeamManagementState {
   customRoleOverrides: Record<string, Partial<Pick<CustomRole, "nameAr" | "name" | "color" | "permissions">>>;
   removedCustomRoleIds: string[];
   addedSeries: Series[];
+  seriesInfoOverrides: Record<string, Partial<Pick<Series, "status" | "titleAr" | "synopsis" | "cover" | "banner">>>;
+  removedSeriesIds: string[];
 
   submitTeamRequest: (req: Omit<TeamCreationRequest, "id" | "status" | "createdAt">) => void;
   reviewRequest: (
@@ -98,6 +100,13 @@ interface TeamManagementState {
     series: Pick<Series, "title" | "titleAr" | "synopsis" | "type" | "status" | "country" | "author" | "artist" | "year" | "cover" | "banner" | "genreIds" | "tags" | "teamId">,
     actorId: string
   ) => void;
+  updateSeriesInfo: (
+    seriesId: string,
+    patch: Partial<Pick<Series, "status" | "titleAr" | "synopsis" | "cover" | "banner">>,
+    teamId: string,
+    actorId: string
+  ) => void;
+  removeSeries: (seriesId: string, teamId: string, actorId: string) => void;
 }
 
 export const useTeamManagement = create<TeamManagementState>()(
@@ -124,6 +133,8 @@ export const useTeamManagement = create<TeamManagementState>()(
       customRoleOverrides: {},
       removedCustomRoleIds: [],
       addedSeries: [],
+      seriesInfoOverrides: {},
+      removedSeriesIds: [],
 
       submitTeamRequest: (req) => {
         const id = `submitted-request-${Date.now()}`;
@@ -357,6 +368,18 @@ export const useTeamManagement = create<TeamManagementState>()(
         };
         set((s) => ({ addedSeries: [...s.addedSeries, newSeries] }));
         get().logActivity({ teamId: series.teamId, userId: actorId, action: `أضاف سلسلة جديدة "${series.titleAr}"` });
+      },
+
+      updateSeriesInfo: (seriesId, patch, teamId, actorId) => {
+        set((s) => ({
+          seriesInfoOverrides: { ...s.seriesInfoOverrides, [seriesId]: { ...s.seriesInfoOverrides[seriesId], ...patch } },
+        }));
+        get().logActivity({ teamId, userId: actorId, action: "عدّل إعدادات عمل" });
+      },
+
+      removeSeries: (seriesId, teamId, actorId) => {
+        set((s) => ({ removedSeriesIds: [...s.removedSeriesIds, seriesId] }));
+        get().logActivity({ teamId, userId: actorId, action: "حذف عملاً من المنصة" });
       },
     }),
     { name: "lunex-team-management", skipHydration: true }

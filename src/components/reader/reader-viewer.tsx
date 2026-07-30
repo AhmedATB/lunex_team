@@ -1,10 +1,11 @@
 "use client";
 
 import { useEffect, useMemo, useRef, useState, useCallback } from "react";
-import Image from "next/image";
 import { useRouter } from "next/navigation";
 import { ChevronLeft, ChevronRight } from "lucide-react";
 import { useReaderSettings, useReadingProgress } from "@/store/reader-settings";
+import { useRewards, chapterKey } from "@/store/rewards";
+import { ProtectedImage } from "@/components/reader/protected-image";
 import type { Chapter } from "@/lib/types";
 
 export function ReaderViewer({
@@ -65,21 +66,46 @@ export function ReaderViewer({
     return () => window.removeEventListener("keydown", onKey);
   }, [goNext, goPrev]);
 
+  // The vertical container grows with its content — the WINDOW scrolls, not the
+  // container — so progress must be measured against the container's viewport
+  // position, not its own scrollTop (which stays 0 forever).
   const [scrollProgress, setScrollProgress] = useState(0);
   useEffect(() => {
     if (mode !== "vertical") return;
     function onScroll() {
       const el = containerRef.current;
       if (!el) return;
-      const scrollable = el.scrollHeight - el.clientHeight;
-      setScrollProgress(scrollable > 0 ? Math.min(1, el.scrollTop / scrollable) : 0);
+      const rect = el.getBoundingClientRect();
+      const total = rect.height - window.innerHeight;
+      if (total <= 0) {
+        setScrollProgress(1);
+        return;
+      }
+      setScrollProgress(Math.min(1, Math.max(0, -rect.top / total)));
     }
-    const el = containerRef.current;
-    el?.addEventListener("scroll", onScroll);
-    return () => el?.removeEventListener("scroll", onScroll);
+    onScroll();
+    window.addEventListener("scroll", onScroll, { passive: true });
+    return () => window.removeEventListener("scroll", onScroll);
   }, [mode]);
 
   const progress = mode === "vertical" ? scrollProgress : pages.length ? (pageIndex + 1) / pages.length : 0;
+
+  // A chapter only counts toward the daily reading reward once actually FINISHED
+  // (scrolled to the end / reached the last page) — merely opening it is not enough.
+  const recordChapterRead = useRewards((s) => s.recordChapterRead);
+  const recordedRef = useRef(false);
+  useEffect(() => {
+    recordedRef.current = false;
+  }, [chapter.id]);
+  useEffect(() => {
+    if (recordedRef.current) return;
+    const finished =
+      mode === "vertical" ? scrollProgress >= 0.98 : pages.length > 0 && pageIndex >= pages.length - 1;
+    if (finished) {
+      recordedRef.current = true;
+      recordChapterRead(chapterKey(seriesId, chapter.number));
+    }
+  }, [mode, scrollProgress, pageIndex, pages.length, seriesId, chapter.number, recordChapterRead]);
 
   const fitClass =
     fit === "width" ? "w-full h-auto" : fit === "height" ? "h-[calc(100vh-8rem)] w-auto" : "";
@@ -97,17 +123,17 @@ export function ReaderViewer({
       </div>
 
       {mode === "vertical" ? (
-        <div ref={containerRef} className="mx-auto flex max-w-3xl flex-col items-center gap-1 overflow-y-auto py-4">
+        <div
+          ref={containerRef}
+          className="reader-protect mx-auto flex max-w-3xl flex-col items-center gap-1 overflow-y-auto py-4"
+          onContextMenu={(e) => e.preventDefault()}
+        >
           {pages.map((src, i) => (
             <div key={src} style={zoomStyle} className="w-full">
-              <Image
+              <ProtectedImage
                 src={src}
                 alt={`صفحة ${i + 1}`}
-                width={900}
-                height={1350}
-                sizes="(max-width: 768px) 100vw, 768px"
                 priority={i < 2}
-                loading={i < 2 ? "eager" : "lazy"}
                 style={filterStyle}
                 className={fitClass}
               />
@@ -115,7 +141,10 @@ export function ReaderViewer({
           ))}
         </div>
       ) : (
-        <div className="relative mx-auto flex max-w-3xl items-center justify-center py-4">
+        <div
+          className="reader-protect relative mx-auto flex max-w-3xl items-center justify-center py-4"
+          onContextMenu={(e) => e.preventDefault()}
+        >
           <button
             onClick={goPrev}
             aria-label="السابق"
@@ -123,12 +152,10 @@ export function ReaderViewer({
           >
             <ChevronRight className="h-6 w-6 rtl:rotate-180" />
           </button>
-          <div style={zoomStyle}>
-            <Image
+          <div style={zoomStyle} className="w-full">
+            <ProtectedImage
               src={pages[pageIndex]}
               alt={`صفحة ${pageIndex + 1}`}
-              width={900}
-              height={1350}
               priority
               style={filterStyle}
               className={fitClass}

@@ -2,18 +2,25 @@
 
 import { useMemo, useState } from "react";
 import Link from "next/link";
-import { ArrowDownUp, Eye, Search } from "lucide-react";
+import { ArrowDownUp, Eye, Search, Lock } from "lucide-react";
 import type { Chapter } from "@/lib/types";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { timeAgo, formatNumber } from "@/lib/utils";
 import { useReadingProgress } from "@/store/reader-settings";
+import { useRewards, isChapterLocked } from "@/store/rewards";
 
 export function ChapterList({ seriesSlug, chapters }: { seriesSlug: string; chapters: Chapter[] }) {
   const [query, setQuery] = useState("");
   const [asc, setAsc] = useState(false);
   const seriesId = chapters[0]?.seriesId;
   const lastRead = useReadingProgress((s) => (seriesId ? s.getProgress(seriesId) : undefined));
+  const lockedChapterCount = useRewards((s) => s.settings.lockedChapterCount);
+  const unlockedChapters = useRewards((s) => s.unlockedChapters);
+  const latestNumber = useMemo(
+    () => chapters.reduce((max, c) => Math.max(max, c.number), 0),
+    [chapters]
+  );
 
   const list = useMemo(() => {
     let items = chapters.filter((c) => c.number.toString().includes(query) || c.title.includes(query));
@@ -47,7 +54,10 @@ export function ChapterList({ seriesSlug, chapters }: { seriesSlug: string; chap
           >
             <span className="absolute inset-y-0 start-0 w-0.5 scale-y-0 bg-lunex-gradient transition-transform duration-300 group-hover:scale-y-100 group-active:scale-y-100" />
             <div className="min-w-0">
-              <p className="truncate font-medium text-white">
+              <p className="flex items-center gap-1.5 truncate font-medium text-white">
+                {seriesId && isChapterLocked(c.number, latestNumber, lockedChapterCount, unlockedChapters, seriesId) && (
+                  <Lock className="h-3.5 w-3.5 shrink-0 text-amber-300" aria-label="فصل مقفل" />
+                )}
                 {c.title}
                 {lastRead === c.number && (
                   <span className="ms-2 rounded-full bg-primary-500/20 px-2 py-0.5 text-[10px] text-primary-300 shadow-[0_0_10px_rgba(168,85,247,0.4)]">

@@ -4,7 +4,7 @@ import Link from "next/link";
 import Image from "next/image";
 import { useRouter } from "next/navigation";
 import { useEffect, useMemo, useState } from "react";
-import { Search, Bell, Menu, LogOut, Settings, User as UserIcon, ShieldCheck } from "lucide-react";
+import { Search, Bell, Menu, LogOut, Settings, User as UserIcon, ShieldCheck, Coins } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Avatar, AvatarImage, AvatarFallback } from "@/components/ui/avatar";
@@ -18,6 +18,7 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { useSession } from "@/store/session";
 import { useProfile, effectiveAvatarSeed } from "@/store/profile";
+import { useRewards } from "@/store/rewards";
 import { getMockDatabase } from "@/lib/mock/generate";
 import { GLOBAL_ROLE_LABELS, can } from "@/lib/rbac";
 import { avatarUrl, cn } from "@/lib/utils";
@@ -44,6 +45,7 @@ export function Header() {
     [db, currentUserId]
   );
   const avatarOverrides = useProfile((s) => s.avatarOverrides);
+  const coins = useRewards((s) => s.coins);
   const demoUsers = useMemo(
     () =>
       [
@@ -106,6 +108,10 @@ export function Header() {
           >
             <Search className="h-5 w-5" />
           </Button>
+
+          <span className="hidden items-center gap-1.5 rounded-full border border-yellow-400/30 bg-yellow-400/10 px-3 py-1.5 text-xs font-bold text-yellow-300 sm:flex">
+            <Coins className="h-3.5 w-3.5" /> {coins}
+          </span>
 
           <Button variant="ghost" size="icon" aria-label="الإشعارات" className="relative">
             <Bell className="h-5 w-5" />
