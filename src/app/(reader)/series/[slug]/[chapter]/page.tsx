@@ -55,6 +55,7 @@ export default async function ReaderPage({
         seriesId={series.id}
         seriesSlug={series.slug}
         seriesTitle={series.titleAr}
+        chapterId={chapter.id}
         chapterNumber={chapter.number}
         latestChapterNumber={sorted[sorted.length - 1]?.number ?? chapter.number}
       >

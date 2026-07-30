@@ -15,7 +15,7 @@ import { Button } from "@/components/ui/button";
 import { BookmarkButton, ShareButton } from "@/components/series/bookmark-button";
 import {
   SeriesAdminControls, SeriesStatusBadge, SeriesRemovedGuard,
-  SeriesTitleAr, SeriesSynopsis, SeriesCoverImage, SeriesBannerImage,
+  SeriesTitleAr, SeriesSynopsis, SeriesCoverImage, SeriesBannerImage, SeriesCollaboratorTeams,
 } from "@/components/series/series-admin-controls";
 import { ChapterList } from "@/components/series/chapter-list";
 import { CommentSection } from "@/components/series/comment-section";
@@ -150,6 +150,7 @@ export default async function SeriesDetailPage({ params }: { params: Promise<{ s
                   ترجمة فريق <span className="font-semibold text-primary-300">{team.name}</span>
                 </Link>
               )}
+              <SeriesCollaboratorTeams seriesId={series.id} />
 
               <SeriesAdminControls
                 seriesId={series.id}
@@ -180,7 +181,7 @@ export default async function SeriesDetailPage({ params }: { params: Promise<{ s
         <div className="grid gap-8 lg:grid-cols-[1fr_320px]">
           <FadeIn className="space-y-6">
             <h2 className="section-title font-display text-xl font-bold text-white">الفصول ({chapters.length})</h2>
-            <ChapterList seriesSlug={series.slug} chapters={chapters} />
+            <ChapterList seriesSlug={series.slug} chapters={chapters} teamId={series.teamId} />
 
             <h2 className="section-title pt-4 font-display text-xl font-bold text-white">التعليقات ({comments.length})</h2>
             <CommentSection seriesId={series.id} initialComments={comments} users={db.users} />

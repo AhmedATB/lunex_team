@@ -320,3 +320,25 @@ export function SeriesBannerImage({
     />
   );
 }
+
+/** Teams that joined this series via an accepted collaboration request — shown next to the owning team's badge. */
+export function SeriesCollaboratorTeams({ seriesId }: { seriesId: string }) {
+  const collaboratorTeamIds = useTeamManagement((s) => s.seriesCollaboratorTeamIds[seriesId]) ?? [];
+  const createdTeams = useTeamManagement((s) => s.createdTeams);
+  const db = useMemo(() => getMockDatabase(), []);
+  if (collaboratorTeamIds.length === 0) return null;
+  const teams = [...db.teams, ...createdTeams].filter((t) => collaboratorTeamIds.includes(t.id));
+  return (
+    <>
+      {teams.map((t) => (
+        <Link
+          key={t.id}
+          href={`/teams/${t.slug}`}
+          className="panel mt-2 inline-flex items-center gap-2 px-3 py-1.5 text-xs text-lunex-gray transition-colors hover:border-primary-400/40"
+        >
+          بالتعاون مع <span className="font-semibold text-primary-300">{t.name}</span>
+        </Link>
+      ))}
+    </>
+  );
+}

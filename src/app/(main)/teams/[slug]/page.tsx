@@ -1,11 +1,13 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
+import Link from "next/link";
 import { useParams } from "next/navigation";
 import { notFound } from "next/navigation";
 import Image from "next/image";
-import { Users, ExternalLink, Crown } from "lucide-react";
+import { Users, ExternalLink, Crown, MessageCircle } from "lucide-react";
 import { getMockDatabase } from "@/lib/mock/generate";
+import { useSession } from "@/store/session";
 import { useTeamManagement, applyTeamOverride } from "@/store/team-management";
 import { useProfile, effectiveAvatarSeed } from "@/store/profile";
 import { TEAM_ROLE_LABELS } from "@/lib/rbac";
@@ -22,6 +24,7 @@ export default function TeamDetailPage() {
 
   const db = useMemo(() => getMockDatabase(), []);
   const store = useTeamManagement();
+  const currentUserId = useSession((s) => s.currentUserId);
   const avatarOverrides = useProfile((s) => s.avatarOverrides);
   const rawTeam = [...db.teams, ...store.createdTeams].find((t) => t.slug === slug);
   const team = rawTeam ? applyTeamOverride(rawTeam, store.teamInfoOverrides) : undefined;
@@ -94,6 +97,13 @@ export default function TeamDetailPage() {
           <div className="flex gap-2">
             <TeamDashboardLink teamId={team.id} teamSlug={team.slug} leaderId={team.leaderId} />
             {team.recruiting && <Button>قدّم للانضمام</Button>}
+            {currentUserId && currentUserId !== team.leaderId && (
+              <Button variant="secondary" asChild>
+                <Link href={`/messages?to=${team.leaderId}`}>
+                  <MessageCircle className="h-4 w-4" /> راسل القائد
+                </Link>
+              </Button>
+            )}
             {team.discordUrl && (
               <Button variant="secondary" asChild>
                 <a href={team.discordUrl} target="_blank" rel="noopener noreferrer">

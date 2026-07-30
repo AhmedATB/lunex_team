@@ -134,14 +134,23 @@ export function chapterKey(seriesId: string, chapterNumber: number): string {
  * The newest N chapters of every series are premium-locked; everything older is
  * free. Derived from the chapter number rather than stored per chapter, so the
  * lock window slides automatically as new chapters release.
+ *
+ * A team leader/admin can override this automatic rule per chapter via
+ * `manualLock` (true = force-locked, false = force-open, undefined = automatic).
+ * A manual lock still respects a reader's purchase — someone who already paid
+ * to unlock a chapter keeps access even if a leader later force-locks it again.
  */
 export function isChapterLocked(
   chapterNumber: number,
   latestChapterNumber: number,
   lockedChapterCount: number,
   unlockedChapters: string[],
-  seriesId: string
+  seriesId: string,
+  manualLock?: boolean
 ): boolean {
+  const alreadyUnlocked = unlockedChapters.includes(chapterKey(seriesId, chapterNumber));
+  if (manualLock === false) return false;
+  if (manualLock === true) return !alreadyUnlocked;
   if (chapterNumber <= latestChapterNumber - lockedChapterCount) return false;
-  return !unlockedChapters.includes(chapterKey(seriesId, chapterNumber));
+  return !alreadyUnlocked;
 }

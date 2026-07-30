@@ -6,7 +6,7 @@ import Link from "next/link";
 import Image from "next/image";
 import {
   Users, Layers, BookOpen, Star, ShieldAlert, ArrowUp, ArrowDown, Trash2,
-  Plus, Check, X, HandHeart, Clock, ClipboardList, Crown, Settings,
+  Plus, Check, X, HandHeart, Clock, ClipboardList, Crown, Settings, MessageCircle,
 } from "lucide-react";
 import { getMockDatabase } from "@/lib/mock/generate";
 import { useSession } from "@/store/session";
@@ -141,10 +141,29 @@ export default function TeamDashboardPage() {
     .filter((r) => !removedRoleIds.has(r.id))
     .map((r) => ({ ...r, ...store.customRoleOverrides[r.id] }));
 
-  const teamSeries = [
-    ...db.series.filter((s) => s.teamId === team.id),
-    ...store.addedSeries.filter((s) => s.teamId === team.id),
-  ];
+  const allSeriesPool = [...db.series, ...store.addedSeries];
+  const ownSeries = allSeriesPool.filter((s) => s.teamId === team.id);
+  const collaboratorSeries = allSeriesPool.filter(
+    (s) => s.teamId !== team.id && (store.seriesCollaboratorTeamIds[s.id] ?? []).includes(team.id)
+  );
+  const teamSeries = [...ownSeries, ...collaboratorSeries];
+
+  const currentTeamId = team.id;
+  const membersForSeries = (s: Series) => {
+    if (s.teamId === currentTeamId) return members;
+    const owningTeamRaw = [...db.teams, ...store.createdTeams].find((t) => t.id === s.teamId);
+    if (!owningTeamRaw) return members;
+    const owningRemoved = new Set(store.removedMemberIds[owningTeamRaw.id] ?? []);
+    const owningMembers = owningTeamRaw.memberIds
+      .filter((id) => !owningRemoved.has(id))
+      .map((id) => db.users.find((u) => u.id === id))
+      .filter(Boolean)
+      .map((u) => {
+        const override = store.memberRoleOverrides[u!.id];
+        return { ...u!, teamRole: override?.teamRole ?? u!.teamRole, customRoleId: override?.customRoleId ?? u!.customRoleId };
+      });
+    return [...members, ...owningMembers];
+  };
   const removedDeptIds = new Set(store.removedDepartmentIds);
   const teamDepartments = [
     ...db.departments.filter((d) => d.teamId === team.id),
@@ -332,9 +351,15 @@ export default function TeamDashboardPage() {
               />
             </div>
           )}
-          {teamSeries.map((s) => (
+          {teamSeries.map((s) => {
+            const isCollaboration = s.teamId !== team.id;
+            const assignableMembers = membersForSeries(s);
+            return (
             <Card key={s.id} className="panel-hover">
-              <CardHeader><CardTitle className="text-base">{s.titleAr}</CardTitle></CardHeader>
+              <CardHeader className="flex-row items-center gap-2">
+                <CardTitle className="text-base">{s.titleAr}</CardTitle>
+                {isCollaboration && <Badge variant="secondary">تعاون</Badge>}
+              </CardHeader>
               <CardContent className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
                 {PRODUCTION_ROLES.map((role) => {
                   const override = store.seriesAssignmentOverrides.find((a) => a.seriesId === s.id && a.role === role);
@@ -351,7 +376,7 @@ export default function TeamDashboardPage() {
                         <SelectTrigger><SelectValue placeholder="غير معيّن" /></SelectTrigger>
                         <SelectContent>
                           <SelectItem value="none">غير معيّن</SelectItem>
-                          {members.map((m) => <SelectItem key={m.id} value={m.id}>{m.displayName}</SelectItem>)}
+                          {assignableMembers.map((m) => <SelectItem key={m.id} value={m.id}>{m.displayName}</SelectItem>)}
                         </SelectContent>
                       </Select>
                     </div>
@@ -359,7 +384,8 @@ export default function TeamDashboardPage() {
                 })}
               </CardContent>
             </Card>
-          ))}
+            );
+          })}
           {teamSeries.length === 0 && <div className="panel p-10 text-center text-lunex-gray">لا توجد سلاسل لهذا الفريق بعد.</div>}
         </TabsContent>
 
@@ -463,6 +489,11 @@ export default function TeamDashboardPage() {
                     <Badge variant={status === "accepted" ? "success" : status === "rejected" ? "destructive" : "warning"}>
                       {APPLICATION_STATUS_LABELS[status]}
                     </Badge>
+                    {canManage && (
+                      <Button size="sm" variant="secondary" asChild>
+                        <Link href={`/messages?to=${applicant.id}`}><MessageCircle className="h-3.5 w-3.5" /> مراسلة</Link>
+                      </Button>
+                    )}
                     {canManage && status === "pending" && (
                       <div className="flex gap-1">
                         <Button size="sm" onClick={() => store.reviewApplication(application.id, team.id, "accepted")}><Check className="h-3.5 w-3.5" /></Button>
@@ -492,7 +523,8 @@ export default function TeamDashboardPage() {
               <div key={direction} className="space-y-3">
                 <h3 className="font-display text-sm font-black text-white">طلبات {direction === "وارد" ? "واردة" : "صادرة"}</h3>
                 {base.map((c) => {
-                  const otherTeam = db.teams.find((t) => t.id === (isIncoming ? c.fromTeamId : c.toTeamId));
+                  const otherTeamRaw = db.teams.find((t) => t.id === (isIncoming ? c.fromTeamId : c.toTeamId));
+                  const otherTeam = otherTeamRaw ? applyTeamOverride(otherTeamRaw, store.teamInfoOverrides) : undefined;
                   const status = store.collaborationOverrides[c.id] ?? c.status;
                   const s = db.series.find((x) => x.id === c.seriesId);
                   return (
@@ -506,11 +538,15 @@ export default function TeamDashboardPage() {
                         <Badge variant={status === "accepted" ? "success" : status === "rejected" ? "destructive" : "warning"}>
                           {status === "pending" ? "قيد الانتظار" : status === "accepted" ? "مقبول" : status === "rejected" ? "مرفوض" : "تفاوض"}
                         </Badge>
+                        {canManage && otherTeam && (
+                          <Button size="sm" variant="secondary" asChild>
+                            <Link href={`/messages?to=${otherTeam.leaderId}`}><MessageCircle className="h-3.5 w-3.5" /> مراسلة القائد</Link>
+                          </Button>
+                        )}
                         {isIncoming && canManage && status === "pending" && (
                           <div className="flex gap-1">
-                            <Button size="sm" onClick={() => store.respondToCollaboration(c.id, team.id, "accepted")}><Check className="h-3.5 w-3.5" /></Button>
-                            <Button size="sm" variant="secondary" onClick={() => store.respondToCollaboration(c.id, team.id, "negotiating")}>تفاوض</Button>
-                            <Button size="sm" variant="destructive" onClick={() => store.respondToCollaboration(c.id, team.id, "rejected")}><X className="h-3.5 w-3.5" /></Button>
+                            <Button size="sm" onClick={() => store.respondToCollaboration(c, team.id, "accepted")}><Check className="h-3.5 w-3.5" /> قبول</Button>
+                            <Button size="sm" variant="destructive" onClick={() => store.respondToCollaboration(c, team.id, "rejected")}><X className="h-3.5 w-3.5" /> رفض</Button>
                           </div>
                         )}
                       </CardContent>

@@ -16,6 +16,7 @@ import type {
   LeadershipTransferEntry,
   Department,
   Series,
+  Chapter,
 } from "@/lib/types";
 
 function slugify(s: string) {
@@ -51,6 +52,10 @@ interface TeamManagementState {
   addedSeries: Series[];
   seriesInfoOverrides: Record<string, Partial<Pick<Series, "status" | "titleAr" | "synopsis" | "cover" | "banner">>>;
   removedSeriesIds: string[];
+  chapterOverrides: Record<string, Partial<Pick<Chapter, "title" | "isPublished" | "scheduledFor">>>;
+  chapterLockOverrides: Record<string, boolean>;
+  removedChapterIds: string[];
+  seriesCollaboratorTeamIds: Record<string, string[]>;
 
   submitTeamRequest: (req: Omit<TeamCreationRequest, "id" | "status" | "createdAt">) => void;
   reviewRequest: (
@@ -61,7 +66,7 @@ interface TeamManagementState {
   ) => void;
   reviewApplication: (applicationId: string, teamId: string, status: RecruitmentApplication["status"]) => void;
   createCustomRole: (role: Omit<CustomRole, "id" | "createdAt" | "isDefault">) => void;
-  respondToCollaboration: (id: string, teamId: string, status: CollaborationRequest["status"]) => void;
+  respondToCollaboration: (request: CollaborationRequest, teamId: string, status: CollaborationRequest["status"]) => void;
   setMemberRole: (userId: string, teamId: string, patch: { teamRole?: TeamRole; customRoleId?: string }, actorId: string, actionLabel: string) => void;
   removeMember: (userId: string, teamId: string, actorId: string) => void;
   setSeriesAssignment: (seriesId: string, role: SeriesProductionRole, userId: string, assignedBy: string) => void;
@@ -107,6 +112,14 @@ interface TeamManagementState {
     actorId: string
   ) => void;
   removeSeries: (seriesId: string, teamId: string, actorId: string) => void;
+  updateChapter: (
+    chapterId: string,
+    patch: Partial<Pick<Chapter, "title" | "isPublished" | "scheduledFor">>,
+    teamId: string,
+    actorId: string
+  ) => void;
+  setChapterLock: (chapterId: string, locked: boolean | undefined, teamId: string, actorId: string) => void;
+  removeChapter: (chapterId: string, teamId: string, actorId: string) => void;
 }
 
 export const useTeamManagement = create<TeamManagementState>()(
@@ -135,6 +148,10 @@ export const useTeamManagement = create<TeamManagementState>()(
       addedSeries: [],
       seriesInfoOverrides: {},
       removedSeriesIds: [],
+      chapterOverrides: {},
+      chapterLockOverrides: {},
+      removedChapterIds: [],
+      seriesCollaboratorTeamIds: {},
 
       submitTeamRequest: (req) => {
         const id = `submitted-request-${Date.now()}`;
@@ -226,12 +243,21 @@ export const useTeamManagement = create<TeamManagementState>()(
         get().logActivity({ teamId: role.teamId, userId: role.teamId, action: `أنشأ دوراً مخصصاً جديداً "${role.nameAr}"` });
       },
 
-      respondToCollaboration: (id, teamId, status) => {
-        set((s) => ({ collaborationOverrides: { ...s.collaborationOverrides, [id]: status } }));
+      respondToCollaboration: (request, teamId, status) => {
+        set((s) => {
+          const existing = s.seriesCollaboratorTeamIds[request.seriesId] ?? [];
+          const shouldAddCollaborator = status === "accepted" && !existing.includes(request.fromTeamId);
+          return {
+            collaborationOverrides: { ...s.collaborationOverrides, [request.id]: status },
+            seriesCollaboratorTeamIds: shouldAddCollaborator
+              ? { ...s.seriesCollaboratorTeamIds, [request.seriesId]: [...existing, request.fromTeamId] }
+              : s.seriesCollaboratorTeamIds,
+          };
+        });
         get().logActivity({
           teamId,
           userId: teamId,
-          action: status === "accepted" ? "قبل طلب تعاون من فريق آخر" : status === "rejected" ? "رفض طلب تعاون" : "بدأ تفاوضاً على طلب تعاون",
+          action: status === "accepted" ? "قبل طلب تعاون من فريق آخر — دخل الفريق الطالب على العمل" : status === "rejected" ? "رفض طلب تعاون" : "بدأ تفاوضاً على طلب تعاون",
         });
       },
 
@@ -380,6 +406,32 @@ export const useTeamManagement = create<TeamManagementState>()(
       removeSeries: (seriesId, teamId, actorId) => {
         set((s) => ({ removedSeriesIds: [...s.removedSeriesIds, seriesId] }));
         get().logActivity({ teamId, userId: actorId, action: "حذف عملاً من المنصة" });
+      },
+
+      updateChapter: (chapterId, patch, teamId, actorId) => {
+        set((s) => ({
+          chapterOverrides: { ...s.chapterOverrides, [chapterId]: { ...s.chapterOverrides[chapterId], ...patch } },
+        }));
+        get().logActivity({ teamId, userId: actorId, action: "عدّل إعدادات فصل" });
+      },
+
+      setChapterLock: (chapterId, locked, teamId, actorId) => {
+        set((s) => {
+          const next = { ...s.chapterLockOverrides };
+          if (locked === undefined) delete next[chapterId];
+          else next[chapterId] = locked;
+          return { chapterLockOverrides: next };
+        });
+        get().logActivity({
+          teamId,
+          userId: actorId,
+          action: locked === undefined ? "أعاد قفل الفصل للوضع التلقائي" : locked ? "قفل الفصل يدوياً" : "فتح الفصل يدوياً",
+        });
+      },
+
+      removeChapter: (chapterId, teamId, actorId) => {
+        set((s) => ({ removedChapterIds: [...s.removedChapterIds, chapterId] }));
+        get().logActivity({ teamId, userId: actorId, action: "حذف فصلاً" });
       },
     }),
     { name: "lunex-team-management", skipHydration: true }

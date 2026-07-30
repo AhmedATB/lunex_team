@@ -4,6 +4,7 @@ import { useEffect, useState, type ReactNode } from "react";
 import Link from "next/link";
 import { Lock, PlayCircle, Coins, Gift, Ticket, Sparkles, Plus } from "lucide-react";
 import { useRewards, chapterKey, isChapterLocked } from "@/store/rewards";
+import { useTeamManagement } from "@/store/team-management";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -22,6 +23,7 @@ export function ChapterGate({
   seriesId,
   seriesSlug,
   seriesTitle,
+  chapterId,
   chapterNumber,
   latestChapterNumber,
   children,
@@ -29,11 +31,13 @@ export function ChapterGate({
   seriesId: string;
   seriesSlug: string;
   seriesTitle: string;
+  chapterId: string;
   chapterNumber: number;
   latestChapterNumber: number;
   children: ReactNode;
 }) {
   const rewards = useRewards();
+  const manualLock = useTeamManagement((s) => s.chapterLockOverrides[chapterId]);
   const key = chapterKey(seriesId, chapterNumber);
 
   // Persisted store rehydrates after mount; wait one tick so a paying user's
@@ -46,7 +50,8 @@ export function ChapterGate({
     latestChapterNumber,
     rewards.settings.lockedChapterCount,
     rewards.unlockedChapters,
-    seriesId
+    seriesId,
+    manualLock
   );
 
   if (!ready) return null;
@@ -159,7 +164,7 @@ export function ChapterGate({
   );
 }
 
-function AdWatchDialog({ onComplete }: { onComplete: () => void }) {
+export function AdWatchDialog({ onComplete }: { onComplete: () => void }) {
   const [open, setOpen] = useState(false);
   const [remaining, setRemaining] = useState(5);
 
@@ -209,7 +214,7 @@ function AdWatchDialog({ onComplete }: { onComplete: () => void }) {
   );
 }
 
-function BuyCoinsDialog({ onBuy }: { onBuy: (amount: number) => void }) {
+export function BuyCoinsDialog({ onBuy }: { onBuy: (amount: number) => void }) {
   const [open, setOpen] = useState(false);
 
   function buy(amount: number) {

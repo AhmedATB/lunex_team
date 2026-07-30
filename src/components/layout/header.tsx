@@ -4,7 +4,7 @@ import Link from "next/link";
 import Image from "next/image";
 import { useRouter } from "next/navigation";
 import { useEffect, useMemo, useState } from "react";
-import { Search, Bell, Menu, LogOut, Settings, User as UserIcon, ShieldCheck, Coins } from "lucide-react";
+import { Search, Bell, Menu, LogOut, Settings, User as UserIcon, ShieldCheck, Coins, MessageCircle } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Avatar, AvatarImage, AvatarFallback } from "@/components/ui/avatar";
@@ -19,6 +19,7 @@ import {
 import { useSession } from "@/store/session";
 import { useProfile, effectiveAvatarSeed } from "@/store/profile";
 import { useRewards } from "@/store/rewards";
+import { useMessages } from "@/store/messages";
 import { getMockDatabase } from "@/lib/mock/generate";
 import { GLOBAL_ROLE_LABELS, can } from "@/lib/rbac";
 import { avatarUrl, cn } from "@/lib/utils";
@@ -46,6 +47,11 @@ export function Header() {
   );
   const avatarOverrides = useProfile((s) => s.avatarOverrides);
   const coins = useRewards((s) => s.coins);
+  const unreadBy = useMessages((s) => s.unreadBy);
+  const hasUnreadMessages = useMemo(
+    () => (currentUserId ? Object.values(unreadBy).some((ids) => ids.includes(currentUserId)) : false),
+    [unreadBy, currentUserId]
+  );
   const demoUsers = useMemo(
     () =>
       [
@@ -109,9 +115,19 @@ export function Header() {
             <Search className="h-5 w-5" />
           </Button>
 
-          <span className="hidden items-center gap-1.5 rounded-full border border-yellow-400/30 bg-yellow-400/10 px-3 py-1.5 text-xs font-bold text-yellow-300 sm:flex">
+          <Link
+            href="/store"
+            className="hover-pop hidden items-center gap-1.5 rounded-full border border-yellow-400/30 bg-yellow-400/10 px-3 py-1.5 text-xs font-bold text-yellow-300 transition-colors hover:border-yellow-400/60 sm:flex"
+          >
             <Coins className="h-3.5 w-3.5" /> {coins}
-          </span>
+          </Link>
+
+          <Button variant="ghost" size="icon" aria-label="الرسائل" className="relative" asChild>
+            <Link href="/messages">
+              <MessageCircle className="h-5 w-5" />
+              {hasUnreadMessages && <span className="absolute end-1.5 top-1.5 h-2 w-2 rounded-full border border-black bg-primary-400" />}
+            </Link>
+          </Button>
 
           <Button variant="ghost" size="icon" aria-label="الإشعارات" className="relative">
             <Bell className="h-5 w-5" />
