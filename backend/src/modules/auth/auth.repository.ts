@@ -15,12 +15,16 @@ export class AuthRepository {
     return this.prisma.user.findUnique({ where: { email } });
   }
 
+  findUserByUsername(username: string) {
+    return this.prisma.user.findUnique({ where: { username } });
+  }
+
   findUserById(id: string) {
     return this.prisma.user.findUnique({ where: { id } });
   }
 
-  createUser(email: string, passwordHash: string) {
-    return this.prisma.user.create({ data: { email, passwordHash } });
+  createUser(email: string, username: string, passwordHash: string) {
+    return this.prisma.user.create({ data: { email, username, passwordHash } });
   }
 
   async upsertDevice(userId: string, fingerprintHash: string) {

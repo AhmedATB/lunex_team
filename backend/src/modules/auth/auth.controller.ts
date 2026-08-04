@@ -1,8 +1,10 @@
-import { Body, Controller, HttpCode, HttpStatus, Post, Req } from "@nestjs/common";
+import { Body, Controller, Get, HttpCode, HttpStatus, Post, Req } from "@nestjs/common";
 import { Throttle } from "@nestjs/throttler";
 import type { Request } from "express";
+import { CurrentUser } from "../../common/decorators/current-user.decorator";
 import { Public } from "../../common/decorators/public.decorator";
 import { RequirePow } from "../../common/decorators/require-pow.decorator";
+import type { AccessTokenPayload } from "../../common/guards/jwt-auth.guard";
 import { AuthService } from "./auth.service";
 import { LoginDto } from "./dto/login.dto";
 import { RefreshDto } from "./dto/refresh.dto";
@@ -23,7 +25,7 @@ export class AuthController {
   @HttpCode(HttpStatus.CREATED)
   @Throttle({ default: { limit: 5, ttl: 60_000 } }) // 5 registrations/min/IP — slows bulk fake-account creation
   register(@Body() dto: RegisterDto, @Req() req: Request) {
-    return this.auth.register(dto.email, dto.password, req.context);
+    return this.auth.register(dto.email, dto.password, dto.username, req.context);
   }
 
   @Public()
@@ -41,5 +43,21 @@ export class AuthController {
   @Throttle({ default: { limit: 20, ttl: 60_000 } })
   refresh(@Body() dto: RefreshDto, @Req() req: Request) {
     return this.auth.refresh(dto.refreshToken, req.context);
+  }
+
+  /** No @Public() — the global JwtAuthGuard requires a valid access token, which is exactly what "who am I" should mean. */
+  @Get("me")
+  @HttpCode(HttpStatus.OK)
+  me(@CurrentUser() user: AccessTokenPayload) {
+    return this.auth.me(user.sub);
+  }
+
+  /** @Public() like refresh — the refresh token itself is the credential; a caller can log out even with an expired/missing access token. */
+  @Public()
+  @Post("logout")
+  @HttpCode(HttpStatus.NO_CONTENT)
+  @Throttle({ default: { limit: 20, ttl: 60_000 } })
+  async logout(@Body() dto: RefreshDto, @Req() req: Request) {
+    await this.auth.logout(dto.refreshToken, req.context);
   }
 }

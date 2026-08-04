@@ -1,6 +1,7 @@
 import { ConflictException, Injectable, UnauthorizedException } from "@nestjs/common";
 import { ConfigService } from "@nestjs/config";
 import { JwtService } from "@nestjs/jwt";
+import type { User as PrismaUser } from "@prisma/client";
 import { createHmac, randomBytes, randomUUID } from "node:crypto";
 import { AuthRepository } from "./auth.repository";
 import { getDummyHash, hashPassword, verifyPassword } from "./crypto/password.util";
@@ -13,6 +14,18 @@ export interface SessionTokens {
   accessToken: string;
   refreshToken: string;
   expiresIn: number;
+}
+
+export interface PublicUser {
+  id: string;
+  email: string;
+  username: string;
+  role: string;
+  createdAt: Date;
+}
+
+export interface AuthResponse extends SessionTokens {
+  user: PublicUser;
 }
 
 /**
@@ -33,23 +46,27 @@ export class AuthService {
     this.refreshPepper = this.config.getOrThrow<string>("JWT_REFRESH_PEPPER");
   }
 
-  async register(email: string, password: string, ctx: RequestContext) {
-    const existing = await this.repo.findUserByEmail(email);
-    if (existing) {
-      // Generic message — do not reveal that the email is already taken via
-      // a different error than "check your input", or registration becomes
-      // an account-enumeration oracle.
+  async register(email: string, password: string, username: string, ctx: RequestContext): Promise<AuthResponse> {
+    const [existingEmail, existingUsername] = await Promise.all([
+      this.repo.findUserByEmail(email),
+      this.repo.findUserByUsername(username),
+    ]);
+    if (existingEmail || existingUsername) {
+      // Generic message either way — do not reveal WHICH field collided via
+      // a different error, or registration becomes an enumeration oracle
+      // for both emails and usernames.
       throw new ConflictException({ code: "registration_failed", message: "Unable to complete registration." });
     }
 
     const passwordHash = await hashPassword(password);
-    const user = await this.repo.createUser(email, passwordHash);
+    const user = await this.repo.createUser(email, username, passwordHash);
     await this.repo.writeAuditLog({ actorId: user.id, action: "user.register", ip: ctx.ip });
 
-    return this.issueSession(user.id, user.role, ctx);
+    const tokens = await this.issueSession(user.id, user.role, ctx);
+    return { ...tokens, user: this.toPublicUser(user) };
   }
 
-  async login(email: string, password: string, ctx: RequestContext): Promise<SessionTokens> {
+  async login(email: string, password: string, ctx: RequestContext): Promise<AuthResponse> {
     const user = await this.repo.findUserByEmail(email);
 
     // Always verify against SOME Argon2id hash, even for an unknown email —
@@ -66,7 +83,8 @@ export class AuthService {
     }
 
     await this.repo.recordLoginEvent({ userId: user.id, email, ip: ctx.ip, outcome: "success" });
-    return this.issueSession(user.id, user.role, ctx);
+    const tokens = await this.issueSession(user.id, user.role, ctx);
+    return { ...tokens, user: this.toPublicUser(user) };
   }
 
   /**
@@ -103,6 +121,30 @@ export class AuthService {
     }
 
     return this.issueSession(user.id, user.role, ctx, session.familyId);
+  }
+
+  async me(userId: string): Promise<PublicUser> {
+    const user = await this.repo.findUserById(userId);
+    if (!user) {
+      throw new UnauthorizedException({ code: "user_not_found", message: "Account no longer exists." });
+    }
+    return this.toPublicUser(user);
+  }
+
+  /**
+   * Revokes exactly the ONE session this refresh token belongs to — unlike
+   * refresh()'s reuse-detection, a normal logout is not an attack signal, so
+   * it must not kill the user's other logged-in devices. An unknown/already-
+   * invalid refresh token is treated as a no-op, not an error: the caller's
+   * actual goal (this token no longer being valid) is already true.
+   */
+  async logout(rawRefreshToken: string, ctx: RequestContext): Promise<void> {
+    const tokenHash = this.hashRefreshToken(rawRefreshToken);
+    const session = await this.repo.findSessionByRefreshHash(tokenHash);
+    if (session && !session.revoked) {
+      await this.repo.revokeSession(session.id);
+      await this.repo.writeAuditLog({ actorId: session.userId, action: "user.logout", ip: ctx.ip });
+    }
   }
 
   private async issueSession(
@@ -142,5 +184,10 @@ export class AuthService {
    */
   private hashRefreshToken(raw: string): string {
     return createHmac("sha256", this.refreshPepper).update(raw).digest("hex");
+  }
+
+  /** Strips passwordHash — never let the hash leave this service, even accidentally via a spread. */
+  private toPublicUser(user: PrismaUser): PublicUser {
+    return { id: user.id, email: user.email, username: user.username, role: user.role, createdAt: user.createdAt };
   }
 }
