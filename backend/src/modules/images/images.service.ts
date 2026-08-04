@@ -1,6 +1,7 @@
-import { Injectable, NotFoundException, UnauthorizedException } from "@nestjs/common";
+import { HttpException, HttpStatus, Injectable, NotFoundException, UnauthorizedException } from "@nestjs/common";
 import { ConfigService } from "@nestjs/config";
 import sharp from "sharp";
+import { ScrapingVelocityTracker } from "./anti-scraping/scraping-velocity.tracker";
 import { ImageTokenSigner, NonceCache } from "./crypto/image-token.util";
 import { ImagesRepository } from "./images.repository";
 import { StorageService } from "./storage/local-storage.service";
@@ -22,6 +23,7 @@ export interface IssuedImageToken {
 export class ImagesService {
   private readonly signer: ImageTokenSigner;
   private readonly nonces = new NonceCache();
+  private readonly velocity = new ScrapingVelocityTracker();
 
   constructor(
     private readonly repo: ImagesRepository,
@@ -32,6 +34,14 @@ export class ImagesService {
   }
 
   async issueToken(assetId: string, userId: string, ctx: RequestContext): Promise<IssuedImageToken> {
+    if (!this.velocity.record(ctx.deviceFingerprint, assetId)) {
+      await this.reject(assetId, userId, ctx, "scraping_suspected");
+      throw new HttpException(
+        { code: "scraping_suspected", message: "Too many distinct pages requested too quickly." },
+        HttpStatus.TOO_MANY_REQUESTS
+      );
+    }
+
     const asset = await this.repo.findAssetById(assetId);
     if (!asset) {
       throw new NotFoundException({ code: "asset_not_found", message: "Image asset not found." });

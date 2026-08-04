@@ -3,6 +3,7 @@ import { Throttle } from "@nestjs/throttler";
 import type { Request, Response } from "express";
 import { CurrentUser } from "../../common/decorators/current-user.decorator";
 import { Public } from "../../common/decorators/public.decorator";
+import { RequirePow } from "../../common/decorators/require-pow.decorator";
 import type { AccessTokenPayload } from "../../common/guards/jwt-auth.guard";
 import { ImagesService } from "./images.service";
 
@@ -10,8 +11,9 @@ import { ImagesService } from "./images.service";
 export class ImagesController {
   constructor(private readonly images: ImagesService) {}
 
-  /** Requires a full access token (global JwtAuthGuard applies — no @Public() here) — issuing a page token is a privileged action, unlike redeeming one. */
+  /** Requires a full access token (global JwtAuthGuard applies — no @Public() here) — issuing a page token is a privileged action, unlike redeeming one. PoW on top: this is the endpoint a scraper would hammer to enumerate every page of every chapter. */
   @Post(":assetId/token")
+  @RequirePow()
   @HttpCode(HttpStatus.CREATED)
   @Throttle({ default: { limit: 60, ttl: 60_000 } })
   issueToken(@Param("assetId") assetId: string, @CurrentUser() user: AccessTokenPayload, @Req() req: Request) {

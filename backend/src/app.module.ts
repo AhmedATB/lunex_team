@@ -5,6 +5,9 @@ import { ThrottlerGuard, ThrottlerModule } from "@nestjs/throttler";
 import { AllExceptionsFilter } from "./common/filters/http-exception.filter";
 import { JwtAuthGuard } from "./common/guards/jwt-auth.guard";
 import { RequestContextMiddleware } from "./common/middleware/request-context.middleware";
+import { BotUserAgentGuard } from "./common/security/bot-user-agent.guard";
+import { ProofOfWorkGuard } from "./common/security/proof-of-work.guard";
+import { SecurityModule } from "./common/security/security.module";
 import { AuthModule } from "./modules/auth/auth.module";
 import { ImagesModule } from "./modules/images/images.module";
 import { PrismaModule } from "./prisma/prisma.module";
@@ -17,14 +20,22 @@ import { PrismaModule } from "./prisma/prisma.module";
     // rate limiting only; production sits behind CDN/WAF-level limiting
     // too (architecture doc §14/15) as an earlier, cheaper layer.
     ThrottlerModule.forRoot([{ ttl: 60_000, limit: 120 }]),
+    SecurityModule,
     PrismaModule,
     AuthModule,
     ImagesModule,
   ],
   providers: [
-    // Auth by default (opt out per-route with @Public()) — see JwtAuthGuard.
+    // Global guard order (Nest runs multiple APP_GUARD providers in
+    // registration order): cheapest/broadest rejection first.
+    //   1. BotUserAgentGuard — free header check, filters obvious scripted clients.
+    //   2. JwtAuthGuard — auth by default (opt out per-route with @Public()).
+    //   3. ThrottlerGuard — per-IP request-rate ceiling.
+    //   4. ProofOfWorkGuard — opt-in (@RequirePow()) CPU-cost gate on abuse-prone endpoints.
+    { provide: APP_GUARD, useClass: BotUserAgentGuard },
     { provide: APP_GUARD, useClass: JwtAuthGuard },
     { provide: APP_GUARD, useClass: ThrottlerGuard },
+    { provide: APP_GUARD, useClass: ProofOfWorkGuard },
     { provide: APP_FILTER, useClass: AllExceptionsFilter },
   ],
 })

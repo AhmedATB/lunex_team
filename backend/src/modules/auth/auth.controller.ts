@@ -2,6 +2,7 @@ import { Body, Controller, HttpCode, HttpStatus, Post, Req } from "@nestjs/commo
 import { Throttle } from "@nestjs/throttler";
 import type { Request } from "express";
 import { Public } from "../../common/decorators/public.decorator";
+import { RequirePow } from "../../common/decorators/require-pow.decorator";
 import { AuthService } from "./auth.service";
 import { LoginDto } from "./dto/login.dto";
 import { RefreshDto } from "./dto/refresh.dto";
@@ -17,6 +18,7 @@ export class AuthController {
   constructor(private readonly auth: AuthService) {}
 
   @Public()
+  @RequirePow() // CPU-cost gate on top of the rate limit — see ProofOfWorkService for why
   @Post("register")
   @HttpCode(HttpStatus.CREATED)
   @Throttle({ default: { limit: 5, ttl: 60_000 } }) // 5 registrations/min/IP — slows bulk fake-account creation
@@ -25,6 +27,7 @@ export class AuthController {
   }
 
   @Public()
+  @RequirePow()
   @Post("login")
   @HttpCode(HttpStatus.OK)
   @Throttle({ default: { limit: 10, ttl: 60_000 } }) // 10 attempts/min/IP — credential-stuffing friction; per-account limiting is a Redis-backed follow-up (§14)
