@@ -1,0 +1,99 @@
+// LUNEX TEAM backend — Prisma schema (auth core).
+// Local/dev uses SQLite so this runs with zero external infra (no Docker/Postgres
+// required to verify the code). Swap the datasource below to postgresql for
+// staging/production — every model here is provider-agnostic Prisma, no
+// SQLite-specific types are used, so the migration is a one-line change plus
+// `prisma migrate dev` against a real Postgres instance.
+//
+// See /docs/security-architecture.md §7 for the full target schema (chapters,
+// image tokens, watermark ledger) — only the auth-relevant tables are modeled
+// here because that's the module actually being built right now.
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
+}
+
+model User {
+  id           String   @id @default(uuid())
+  email        String   @unique
+  passwordHash String
+  role         String   @default("reader")
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  sessions    Session[]
+  devices     Device[]
+  loginEvents LoginEvent[]
+
+  @@map("users")
+}
+
+model Device {
+  id              String   @id @default(uuid())
+  userId          String
+  user            User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  fingerprintHash String
+  firstSeenAt     DateTime @default(now())
+  lastSeenAt      DateTime @updatedAt
+  trustScore      Int      @default(0)
+
+  sessions Session[]
+
+  @@unique([userId, fingerprintHash])
+  @@map("devices")
+}
+
+/// A "session family" is the chain of refresh tokens issued from one login.
+/// Reuse of an already-rotated token in the same family revokes the whole
+/// family — see AuthService.refresh() for why.
+model Session {
+  id               String    @id @default(uuid())
+  userId           String
+  user             User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  deviceId         String
+  device           Device    @relation(fields: [deviceId], references: [id], onDelete: Cascade)
+  familyId         String
+  refreshTokenHash String    @unique
+  revoked          Boolean   @default(false)
+  createdAt        DateTime  @default(now())
+  expiresAt        DateTime
+  revokedAt        DateTime?
+
+  @@index([familyId])
+  @@map("sessions")
+}
+
+model LoginEvent {
+  id        String   @id @default(uuid())
+  userId    String?
+  user      User?    @relation(fields: [userId], references: [id], onDelete: SetNull)
+  email     String
+  ip        String
+  outcome   String // "success" | "invalid_credentials" | "rate_limited"
+  riskScore Int      @default(0)
+  at        DateTime @default(now())
+
+  @@index([email, at])
+  @@map("login_events")
+}
+
+/// Append-only by convention at the application layer here; the production
+/// Postgres deployment additionally revokes UPDATE/DELETE at the DB role
+/// grant level (see §7 / §24 of the architecture doc) — SQLite has no
+/// equivalent role system, so that specific control only exists once this
+/// is deployed against real Postgres.
+model AuditLog {
+  id       String   @id @default(uuid())
+  actorId  String?
+  action   String
+  target   String?
+  ip       String?
+  at       DateTime @default(now())
+
+  @@map("audit_log")
+}
