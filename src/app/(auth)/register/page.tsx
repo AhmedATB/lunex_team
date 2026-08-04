@@ -10,9 +10,15 @@ import { Label } from "@/components/ui/label";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Separator } from "@/components/ui/separator";
+import { useSession } from "@/store/session";
+import { useRealUsers, synthesizeProfile } from "@/store/real-users";
+import { mergeRealUsers } from "@/lib/mock/generate";
+import { getDeviceFingerprint } from "@/lib/device-fingerprint";
+import { fetchAndSolvePow } from "@/lib/pow-client";
 
 export default function RegisterPage() {
   const router = useRouter();
+  const setUser = useSession((s) => s.setUser);
   const [form, setForm] = useState({ username: "", email: "", password: "" });
   const [agree, setAgree] = useState(false);
   const [loading, setLoading] = useState(false);
@@ -20,11 +26,19 @@ export default function RegisterPage() {
 
   const passwordStrength = Math.min(4, Math.floor(form.password.length / 3));
 
-  function submit(e: React.FormEvent) {
+  async function submit(e: React.FormEvent) {
     e.preventDefault();
     setError("");
     if (!form.username || !form.email || !form.password) {
       setError("يرجى تعبئة جميع الحقول المطلوبة.");
+      return;
+    }
+    if (form.password.length < 12) {
+      setError("يجب أن تتكون كلمة المرور من 12 حرفاً على الأقل.");
+      return;
+    }
+    if (!/^[a-zA-Z0-9_]+$/.test(form.username)) {
+      setError("اسم المستخدم يجب أن يتكون من أحرف إنجليزية وأرقام و _ فقط.");
       return;
     }
     if (!agree) {
@@ -32,10 +46,32 @@ export default function RegisterPage() {
       return;
     }
     setLoading(true);
-    setTimeout(() => {
+    try {
+      const powSolution = await fetchAndSolvePow();
+      const res = await fetch("/api/auth/register", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          "x-device-fingerprint": getDeviceFingerprint(),
+          "x-pow-solution": powSolution,
+        },
+        body: JSON.stringify({ email: form.email, username: form.username, password: form.password }),
+      });
+      const body = await res.json();
+      if (!res.ok) {
+        setError(body?.message ?? "تعذر إنشاء الحساب.");
+        return;
+      }
+      setUser(body.user);
+      useRealUsers.getState().upsertProfile(synthesizeProfile(body.user));
+      mergeRealUsers(useRealUsers.getState().profiles);
+      router.push("/profile");
+      router.refresh();
+    } catch {
+      setError("تعذر الاتصال بالخادم، حاول مرة أخرى.");
+    } finally {
       setLoading(false);
-      router.push("/login");
-    }, 700);
+    }
   }
 
   return (

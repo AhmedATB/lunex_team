@@ -10,17 +10,20 @@ import { Label } from "@/components/ui/label";
 import { Button } from "@/components/ui/button";
 import { Separator } from "@/components/ui/separator";
 import { useSession } from "@/store/session";
-import { getMockDatabase } from "@/lib/mock/generate";
+import { useRealUsers, synthesizeProfile } from "@/store/real-users";
+import { mergeRealUsers } from "@/lib/mock/generate";
+import { getDeviceFingerprint } from "@/lib/device-fingerprint";
+import { fetchAndSolvePow } from "@/lib/pow-client";
 
 export default function LoginPage() {
   const router = useRouter();
-  const setCurrentUserId = useSession((s) => s.setCurrentUserId);
+  const setUser = useSession((s) => s.setUser);
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
 
-  function submit(e: React.FormEvent) {
+  async function submit(e: React.FormEvent) {
     e.preventDefault();
     setError("");
     if (!email || !password) {
@@ -28,12 +31,32 @@ export default function LoginPage() {
       return;
     }
     setLoading(true);
-    setTimeout(() => {
-      const user = getMockDatabase().users.find((u) => u.email === email) ?? getMockDatabase().users[0];
-      setCurrentUserId(user.id);
-      setLoading(false);
+    try {
+      const powSolution = await fetchAndSolvePow();
+      const res = await fetch("/api/auth/login", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          "x-device-fingerprint": getDeviceFingerprint(),
+          "x-pow-solution": powSolution,
+        },
+        body: JSON.stringify({ email, password }),
+      });
+      const body = await res.json();
+      if (!res.ok) {
+        setError(body?.message ?? "فشل تسجيل الدخول.");
+        return;
+      }
+      setUser(body.user);
+      useRealUsers.getState().upsertProfile(synthesizeProfile(body.user));
+      mergeRealUsers(useRealUsers.getState().profiles);
       router.push("/profile");
-    }, 700);
+      router.refresh();
+    } catch {
+      setError("تعذر الاتصال بالخادم، حاول مرة أخرى.");
+    } finally {
+      setLoading(false);
+    }
   }
 
   return (

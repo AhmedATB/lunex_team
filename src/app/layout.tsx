@@ -3,6 +3,7 @@ import { Cairo, Tajawal, Baloo_Bhaijaan_2 } from "next/font/google";
 import "./globals.css";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { StoreHydration } from "@/components/store-hydration";
+import { getServerSession } from "@/lib/server-session";
 
 const cairo = Cairo({
   subsets: ["arabic", "latin"],
@@ -45,11 +46,13 @@ export const metadata: Metadata = {
   robots: { index: true, follow: true },
 };
 
-export default function RootLayout({ children }: { children: React.ReactNode }) {
+export default async function RootLayout({ children }: { children: React.ReactNode }) {
+  const initialUser = await getServerSession();
+
   return (
     <html lang="ar" dir="rtl" className={`${cairo.variable} ${tajawal.variable} ${baloo.variable}`} suppressHydrationWarning>
       <body className="font-sans">
-        <StoreHydration />
+        <StoreHydration initialUser={initialUser} />
         <TooltipProvider delayDuration={200}>{children}</TooltipProvider>
       </body>
     </html>

@@ -565,3 +565,21 @@ export function getMockDatabase(): MockDatabase {
   if (!cached) cached = build();
   return cached;
 }
+
+/**
+ * Merges synthesized profiles for real (backend-authenticated) accounts
+ * into the mock dataset's `users` array, so every existing
+ * `.find(u => u.id === someRealUserId)` call site across the app resolves
+ * for a genuinely new registered account without having to touch each of
+ * those call sites individually. Mutates the cached singleton in place —
+ * safe, since this only ever adds/updates entries by id, never removes.
+ * Called from StoreHydration after real-users rehydrates from localStorage.
+ */
+export function mergeRealUsers(profiles: Record<string, User>): void {
+  const db = getMockDatabase();
+  for (const profile of Object.values(profiles)) {
+    const index = db.users.findIndex((u) => u.id === profile.id);
+    if (index === -1) db.users.push(profile);
+    else db.users[index] = profile;
+  }
+}

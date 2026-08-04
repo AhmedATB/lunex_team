@@ -21,7 +21,7 @@ export function RbacGate({ permission, children }: { permission: Permission; chi
         <ShieldAlert className="h-14 w-14 text-red-400" />
         <h1 className="font-display text-2xl font-bold text-white">وصول مرفوض</h1>
         <p className="max-w-sm text-sm text-lunex-gray">
-          لا تملك الصلاحيات الكافية للوصول إلى لوحة الإدارة. جرّب تبديل الدور من قائمة الحساب للتجربة (Demo RBAC).
+          لا تملك الصلاحيات الكافية للوصول إلى لوحة الإدارة.
         </p>
         <Button asChild>
           <Link href="/">العودة للرئيسية</Link>

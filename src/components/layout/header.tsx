@@ -26,7 +26,7 @@ import { avatarUrl, cn } from "@/lib/utils";
 
 export function Header() {
   const router = useRouter();
-  const { currentUserId, setCurrentUserId, logout } = useSession();
+  const { currentUserId, logout } = useSession();
   const [query, setQuery] = useState("");
   const [mobileSearchOpen, setMobileSearchOpen] = useState(false);
   const [scrolled, setScrolled] = useState(false);
@@ -52,21 +52,15 @@ export function Header() {
     () => (currentUserId ? Object.values(unreadBy).some((ids) => ids.includes(currentUserId)) : false),
     [unreadBy, currentUserId]
   );
-  const demoUsers = useMemo(
-    () =>
-      [
-        db.users.find((u) => u.role === "owner"),
-        db.users.find((u) => u.role === "super_administrator"),
-        db.users.find((u) => u.role === "editor"),
-        db.users.find((u) => u.role === "moderator"),
-        db.users.find((u) => u.role === "reader"),
-      ].filter(Boolean),
-    [db]
-  );
-
   function submitSearch(e: React.FormEvent) {
     e.preventDefault();
     router.push(`/search${query ? `?q=${encodeURIComponent(query)}` : ""}`);
+  }
+
+  async function handleLogout() {
+    await logout();
+    router.push("/");
+    router.refresh();
   }
 
   return (
@@ -168,16 +162,7 @@ export function Header() {
                     </DropdownMenuItem>
                   )}
                   <DropdownMenuSeparator />
-                  <DropdownMenuLabel className="text-[10px] text-lunex-gray">
-                    تجربة الأدوار (Demo RBAC)
-                  </DropdownMenuLabel>
-                  {demoUsers.map((u) => (
-                    <DropdownMenuItem key={u!.id} onClick={() => setCurrentUserId(u!.id)}>
-                      {GLOBAL_ROLE_LABELS[u!.role]} — {u!.displayName}
-                    </DropdownMenuItem>
-                  ))}
-                  <DropdownMenuSeparator />
-                  <DropdownMenuItem onClick={() => logout()} className="text-red-400 focus:bg-red-500/10">
+                  <DropdownMenuItem onClick={handleLogout} className="text-red-400 focus:bg-red-500/10">
                     <LogOut className="h-4 w-4" /> تسجيل الخروج
                   </DropdownMenuItem>
                 </>
