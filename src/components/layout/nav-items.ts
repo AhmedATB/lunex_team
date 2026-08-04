@@ -24,6 +24,7 @@ export interface NavItem {
 export const SIDEBAR_NAV: NavItem[] = [
   { href: "/", label: "الرئيسية", icon: Home },
   { href: "/series", label: "استكشاف", icon: Compass },
+  { href: "/store", label: "المتجر", icon: Coins },
   { href: "/search?sort=views", label: "الأكثر رواجاً", icon: Flame },
   { href: "/bookmarks", label: "مفضلتي", icon: Bookmark },
   { href: "/teams", label: "الفرق", icon: Users },
@@ -33,6 +34,7 @@ export const BOTTOM_NAV: NavItem[] = [
   { href: "/", label: "الرئيسية", icon: Home },
   { href: "/series", label: "استكشاف", icon: Compass },
   { href: "/search", label: "بحث", icon: Search },
+  { href: "/store", label: "المتجر", icon: Coins },
   { href: "/bookmarks", label: "مفضلتي", icon: Bookmark },
   { href: "/profile", label: "حسابي", icon: User },
 ];

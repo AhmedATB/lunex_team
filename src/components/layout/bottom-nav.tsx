@@ -10,7 +10,7 @@ export function BottomNav() {
 
   return (
     <nav className="fixed inset-x-0 bottom-0 z-40 border-t border-white/10 bg-[#09090B]/95 backdrop-blur-md lg:hidden">
-      <div className="grid grid-cols-5">
+      <div className="grid grid-cols-6">
         {BOTTOM_NAV.map((item) => {
           const active = pathname === item.href.split("?")[0];
           const Icon = item.icon;
