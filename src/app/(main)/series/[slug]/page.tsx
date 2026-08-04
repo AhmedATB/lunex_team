@@ -105,8 +105,13 @@ export default function SeriesDetailPage() {
       <div className="container -mt-24 space-y-8 sm:-mt-28">
         <FadeIn>
           <div className="flex flex-col gap-6 sm:flex-row">
-            <div className="art-glow shine relative aspect-[3/4.2] w-40 shrink-0 overflow-hidden rounded-2xl border border-white/10 shadow-2xl shadow-black/60 sm:w-52">
-              <SeriesCoverImage seriesId={series.id} initialCover={series.cover} alt={series.titleAr} sizes="208px" className="object-cover" />
+            <div className="art-glow shine w-40 shrink-0 sm:w-52">
+              <SeriesCoverImage
+                seriesId={series.id}
+                initialCover={series.cover}
+                alt={series.titleAr}
+                className="h-auto max-h-[480px] w-full rounded-2xl border border-white/10 object-contain shadow-2xl shadow-black/60"
+              />
             </div>
 
             <div className="flex-1 space-y-3 pt-2">

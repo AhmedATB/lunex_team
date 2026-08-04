@@ -282,22 +282,27 @@ export function SeriesSynopsis({ seriesId, initialSynopsis }: { seriesId: string
   return <>{override?.synopsis ?? initialSynopsis}</>;
 }
 
+/**
+ * Plain <img>, not next/image with `fill` — covers come in every aspect ratio
+ * (tall portrait, square, landscape), and a fixed-ratio `fill` box would force
+ * every one of them into the same crop. This lets each cover keep its own
+ * proportions at a capped width.
+ */
 export function SeriesCoverImage({
   seriesId,
   initialCover,
   alt,
   className,
-  sizes,
 }: {
   seriesId: string;
   initialCover: string;
   alt: string;
   className?: string;
-  sizes?: string;
 }) {
   const override = useTeamManagement((s) => s.seriesInfoOverrides[seriesId]);
   const cover = override?.cover ?? initialCover;
-  return <Image src={cover} alt={alt} fill sizes={sizes} className={className} unoptimized={Boolean(override?.cover)} />;
+  // eslint-disable-next-line @next/next/no-img-element
+  return <img src={cover} alt={alt} className={className} />;
 }
 
 export function SeriesBannerImage({
