@@ -97,3 +97,41 @@ model AuditLog {
 
   @@map("audit_log")
 }
+
+/// One row per stored page image. `storageKey` is opaque to everything except
+/// StorageService — swapping local disk for S3/R2 later only touches that one
+/// class, never this table or the image pipeline around it.
+model ImageAsset {
+  id         String   @id @default(uuid())
+  storageKey String   @unique
+  checksum   String
+  createdAt  DateTime @default(now())
+
+  @@map("image_assets")
+}
+
+/// Leak-tracing ledger: every issued access token AND every actual byte
+/// stream is logged with who requested it. If a page ends up on a piracy
+/// site, this table (cross-referenced with the watermark baked into the
+/// pixels — see ImagesService.watermark()) is how the leaking session gets
+/// identified after the fact, not just blocked in advance.
+///
+/// `assetId` is deliberately a plain string, NOT a foreign key to
+/// ImageAsset: rejected requests (asset_mismatch, a probed/enumerated id
+/// that was never real) must still be logged, since that's exactly the
+/// signal that flags an enumeration attack — a FK constraint would make
+/// logging the attempt fail on the very requests most worth recording.
+model ImageAccessLog {
+  id                String   @id @default(uuid())
+  assetId           String
+  userId            String
+  deviceFingerprint String
+  ip                String
+  event             String // "token_issued" | "stream_served" | "token_rejected"
+  reason            String?
+  at                DateTime @default(now())
+
+  @@index([assetId, at])
+  @@index([userId, at])
+  @@map("image_access_log")
+}

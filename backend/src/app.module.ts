@@ -6,6 +6,7 @@ import { AllExceptionsFilter } from "./common/filters/http-exception.filter";
 import { JwtAuthGuard } from "./common/guards/jwt-auth.guard";
 import { RequestContextMiddleware } from "./common/middleware/request-context.middleware";
 import { AuthModule } from "./modules/auth/auth.module";
+import { ImagesModule } from "./modules/images/images.module";
 import { PrismaModule } from "./prisma/prisma.module";
 
 @Module({
@@ -18,6 +19,7 @@ import { PrismaModule } from "./prisma/prisma.module";
     ThrottlerModule.forRoot([{ ttl: 60_000, limit: 120 }]),
     PrismaModule,
     AuthModule,
+    ImagesModule,
   ],
   providers: [
     // Auth by default (opt out per-route with @Public()) — see JwtAuthGuard.

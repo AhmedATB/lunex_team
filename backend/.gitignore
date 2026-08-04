@@ -5,3 +5,4 @@ coverage/
 .env
 backend/prisma/dev.db
 prisma/dev.db
+storage/
