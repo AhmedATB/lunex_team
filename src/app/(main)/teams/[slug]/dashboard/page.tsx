@@ -11,6 +11,7 @@ import {
 import { getMockDatabase } from "@/lib/mock/generate";
 import { useSession } from "@/store/session";
 import { useTeamManagement, applyTeamOverride } from "@/store/team-management";
+import { getTeamAuthRoles, getEffectiveCustomRoles } from "@/lib/team-auth";
 import { useProfile, effectiveAvatarSeed } from "@/store/profile";
 import {
   TEAM_ROLE_LABELS,
@@ -100,11 +101,7 @@ export default function TeamDashboardPage() {
     return <div className="container py-16 text-center text-lunex-gray">الفريق غير موجود.</div>;
   }
 
-  const isMember = currentUser?.teamId === team.id;
-  const isGlobalAdmin = currentUser?.role === "owner" || currentUser?.role === "super_administrator";
-  const isLeader = currentUser?.id === team.leaderId;
-  const effectiveTeamRole = currentUser ? store.memberRoleOverrides[currentUser.id]?.teamRole ?? currentUser.teamRole : undefined;
-  const isAssistantLeader = isMember && effectiveTeamRole === "assistant_leader";
+  const { isGlobalAdmin, isLeader, isAssistantLeader } = getTeamAuthRoles(team, currentUser, store.memberRoleOverrides);
   const canAccessDashboard = isLeader || isAssistantLeader || isGlobalAdmin;
 
   // Dashboard access is intentionally narrower than "team member": only the team
@@ -133,13 +130,9 @@ export default function TeamDashboardPage() {
       return { ...u!, teamRole: override?.teamRole ?? u!.teamRole, customRoleId: override?.customRoleId ?? u!.customRoleId };
     });
 
-  const removedRoleIds = new Set(store.removedCustomRoleIds);
-  const customRoles: CustomRole[] = [
-    ...db.customRoles.filter((r) => r.teamId === team.id),
-    ...store.addedCustomRoles.filter((r) => r.teamId === team.id),
-  ]
-    .filter((r) => !removedRoleIds.has(r.id))
-    .map((r) => ({ ...r, ...store.customRoleOverrides[r.id] }));
+  const customRoles: CustomRole[] = getEffectiveCustomRoles(
+    team.id, db.customRoles, store.addedCustomRoles, store.customRoleOverrides, store.removedCustomRoleIds
+  );
 
   const allSeriesPool = [...db.series, ...store.addedSeries];
   const ownSeries = allSeriesPool.filter((s) => s.teamId === team.id);
@@ -471,7 +464,7 @@ export default function TeamDashboardPage() {
           </Card>
 
           <div className="space-y-3">
-            {db.recruitmentApplications.filter((a) => a.teamId === team.id).map((application) => {
+            {[...db.recruitmentApplications, ...store.addedApplications].filter((a) => a.teamId === team.id).map((application) => {
               const applicant = db.users.find((u) => u.id === application.userId);
               const status = store.applicationOverrides[application.id] ?? application.status;
               if (!applicant) return null;
@@ -505,7 +498,7 @@ export default function TeamDashboardPage() {
                 </Card>
               );
             })}
-            {db.recruitmentApplications.filter((a) => a.teamId === team.id).length === 0 && (
+            {[...db.recruitmentApplications, ...store.addedApplications].filter((a) => a.teamId === team.id).length === 0 && (
               <div className="panel p-10 text-center text-lunex-gray">لا توجد طلبات انضمام بعد.</div>
             )}
           </div>

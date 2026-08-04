@@ -12,6 +12,8 @@ import { useReadingProgress } from "@/store/reader-settings";
 import { useRewards, isChapterLocked } from "@/store/rewards";
 import { useSession } from "@/store/session";
 import { useTeamManagement, applyTeamOverride } from "@/store/team-management";
+import { getTeamAuthRoles, getEffectiveCustomRoles } from "@/lib/team-auth";
+import { canInTeam } from "@/lib/rbac";
 import { getMockDatabase } from "@/lib/mock/generate";
 import { ChapterAdminMenu } from "@/components/series/chapter-admin-menu";
 
@@ -33,11 +35,21 @@ export function ChapterList({ seriesSlug, chapters, teamId }: { seriesSlug: stri
   const [ready, setReady] = useState(false);
   useEffect(() => setReady(true), []);
 
-  const isGlobalAdmin = currentUser?.role === "owner" || currentUser?.role === "super_administrator";
-  const effectiveTeamRole = currentUser ? store.memberRoleOverrides[currentUser.id]?.teamRole ?? currentUser.teamRole : undefined;
-  const isLeader = Boolean(team && currentUser?.id === team.leaderId);
-  const isAssistant = Boolean(team && currentUser?.teamId === team.id && effectiveTeamRole === "assistant_leader");
-  const canManage = ready && Boolean(currentUser) && (isGlobalAdmin || isLeader || isAssistant);
+  const { isGlobalAdmin, isLeader, isAssistantLeader } = getTeamAuthRoles(team, currentUser, store.memberRoleOverrides);
+  const customRoles = getEffectiveCustomRoles(
+    teamId, db.customRoles, store.addedCustomRoles, store.customRoleOverrides, store.removedCustomRoleIds
+  );
+  const currentUserOverride = currentUser ? store.memberRoleOverrides[currentUser.id] : undefined;
+  const effectiveCurrentUser = currentUser
+    ? { ...currentUser, customRoleId: currentUserOverride?.customRoleId ?? currentUser.customRoleId }
+    : undefined;
+  const hasCustomChapterPermission = Boolean(
+    effectiveCurrentUser &&
+      (canInTeam(effectiveCurrentUser, "upload_chapter", customRoles) ||
+        canInTeam(effectiveCurrentUser, "edit_chapter", customRoles) ||
+        canInTeam(effectiveCurrentUser, "delete_chapter", customRoles))
+  );
+  const canManage = ready && Boolean(currentUser) && (isGlobalAdmin || isLeader || isAssistantLeader || hasCustomChapterPermission);
 
   const removedIds = new Set(store.removedChapterIds);
   const effectiveChapters = chapters

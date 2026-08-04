@@ -1,8 +1,11 @@
+"use client";
+
 import Image from "next/image";
 import Link from "next/link";
 import { MessageCircle } from "lucide-react";
 import type { Comment, Series, User } from "@/lib/types";
 import { avatarUrl, timeAgo } from "@/lib/utils";
+import { useProfile, effectiveAvatarSeed } from "@/store/profile";
 
 export function LatestComments({
   comments,
@@ -13,6 +16,7 @@ export function LatestComments({
   users: User[];
   seriesMap: Map<string, Series>;
 }) {
+  const avatarOverrides = useProfile((s) => s.avatarOverrides);
   const userMap = new Map(users.map((u) => [u.id, u]));
 
   return (
@@ -32,7 +36,7 @@ export function LatestComments({
               className="panel panel-hover flex gap-3 p-4 transition-colors hover:border-primary-400/30"
             >
               <div className="relative h-9 w-9 shrink-0 overflow-hidden rounded-full ring-2 ring-white/10">
-                <Image src={avatarUrl(user.avatarSeed)} alt={user.displayName} fill className="object-cover" />
+                <Image src={avatarUrl(effectiveAvatarSeed(user, avatarOverrides))} alt={user.displayName} fill className="object-cover" />
               </div>
               <div className="min-w-0">
                 <p className="text-sm">

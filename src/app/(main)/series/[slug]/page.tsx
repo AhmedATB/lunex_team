@@ -1,15 +1,11 @@
-import { notFound } from "next/navigation";
+"use client";
+
+import { useEffect, useMemo, useState } from "react";
+import { useParams, notFound } from "next/navigation";
 import Link from "next/link";
-import type { Metadata } from "next";
 import { Star, Eye, Bookmark, Heart, BookOpen, Calendar, User as UserIcon } from "lucide-react";
-import {
-  getSeriesBySlug,
-  getChaptersBySeries,
-  getCommentsForSeries,
-  getGenres,
-  getSeriesList,
-} from "@/lib/mock/repo";
 import { getMockDatabase } from "@/lib/mock/generate";
+import { useTeamManagement } from "@/store/team-management";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { BookmarkButton, ShareButton } from "@/components/series/bookmark-button";
@@ -30,31 +26,40 @@ const TYPE_LABEL: Record<string, string> = {
   novel: "رواية",
 };
 
-export async function generateMetadata({ params }: { params: Promise<{ slug: string }> }): Promise<Metadata> {
-  const { slug } = await params;
-  const series = await getSeriesBySlug(safeDecodeURIComponent(slug));
-  if (!series) return { title: "غير موجود" };
-  return {
-    title: series.titleAr,
-    description: series.synopsis,
-    openGraph: { title: series.titleAr, description: series.synopsis, images: [series.cover] },
-  };
-}
+export default function SeriesDetailPage() {
+  const params = useParams<{ slug: string }>();
+  const slug = safeDecodeURIComponent(params.slug);
 
-export default async function SeriesDetailPage({ params }: { params: Promise<{ slug: string }> }) {
-  const { slug } = await params;
-  const series = await getSeriesBySlug(safeDecodeURIComponent(slug));
-  if (!series) notFound();
+  const db = useMemo(() => getMockDatabase(), []);
+  const store = useTeamManagement();
 
-  const [chapters, comments, genres] = await Promise.all([
-    getChaptersBySeries(series.id),
-    getCommentsForSeries(series.id),
-    getGenres(),
-  ]);
-  const db = getMockDatabase();
-  const team = db.teams.find((t) => t.id === series.teamId);
-  const seriesGenres = genres.filter((g) => series.genreIds.includes(g.id));
-  const { items: related } = await getSeriesList({ genre: series.genreIds[0], pageSize: 6 });
+  // Persisted stores rehydrate after mount (see StoreHydration), so client-created
+  // series/chapters are still missing on the very first render after a hard reload.
+  // Wait one tick before trusting a "not found" result.
+  const [ready, setReady] = useState(false);
+  useEffect(() => setReady(true), []);
+
+  const allSeries = [...db.series, ...store.addedSeries];
+  const series = allSeries.find((s) => s.slug === slug);
+
+  useEffect(() => {
+    document.title = series ? `${series.titleAr} | LUNEX TEAM` : "غير موجود | LUNEX TEAM";
+  }, [series]);
+
+  if (!ready) return null;
+  if (!series) {
+    notFound();
+  }
+
+  const allChapters = [...db.chapters, ...store.addedChapters].filter((c) => c.seriesId === series.id);
+  const chapters = [...allChapters].sort((a, b) => b.number - a.number);
+  const comments = db.comments.filter((c) => c.seriesId === series.id);
+  const team = [...db.teams, ...store.createdTeams].find((t) => t.id === series.teamId);
+  const seriesGenres = db.genres.filter((g) => series.genreIds.includes(g.id));
+  const related = allSeries
+    .filter((s) => s.id !== series.id && s.genreIds.includes(series.genreIds[0]))
+    .sort((a, b) => b.bookmarks - a.bookmarks)
+    .slice(0, 6);
 
   const jsonLd = {
     "@context": "https://schema.org",
@@ -204,7 +209,7 @@ export default async function SeriesDetailPage({ params }: { params: Promise<{ s
           <>
             <div className="magic-divider" />
             <FadeIn>
-              <SeriesRow title="أعمال مشابهة" series={related.filter((s) => s.id !== series.id).slice(0, 6)} />
+              <SeriesRow title="أعمال مشابهة" series={related} />
             </FadeIn>
           </>
         )}

@@ -19,8 +19,13 @@ import type {
   Chapter,
 } from "@/lib/types";
 
+// `\w` only matches ASCII, which silently strips Arabic titles entirely — leaving a
+// slug like "--mseu8d79" instead of the actual (Arabic-preserving) title. `\p{L}`/`\p{N}`
+// (with the `u` flag) match letters/numbers from any script, so Arabic text survives.
 function slugify(s: string) {
-  return s.trim().toLowerCase().replace(/[^\w\s-]/g, "").replace(/\s+/g, "-") || `team-${Date.now()}`;
+  return (
+    s.trim().toLowerCase().replace(/[^\p{L}\p{N}\s-]/gu, "").replace(/\s+/g, "-") || `team-${Date.now()}`
+  );
 }
 
 /** Merges any admin/leader-edited fields on top of a base team (seeded or created), by team id. */
@@ -34,6 +39,7 @@ interface TeamManagementState {
   createdTeams: Team[];
   addedCustomRoles: CustomRole[];
   applicationOverrides: Record<string, RecruitmentApplication["status"]>;
+  addedApplications: RecruitmentApplication[];
   collaborationOverrides: Record<string, CollaborationRequest["status"]>;
   addedActivity: TeamActivityLogEntry[];
   memberRoleOverrides: Record<string, { teamRole?: TeamRole; customRoleId?: string }>;
@@ -55,6 +61,7 @@ interface TeamManagementState {
   chapterOverrides: Record<string, Partial<Pick<Chapter, "title" | "isPublished" | "scheduledFor">>>;
   chapterLockOverrides: Record<string, boolean>;
   removedChapterIds: string[];
+  addedChapters: Chapter[];
   seriesCollaboratorTeamIds: Record<string, string[]>;
 
   submitTeamRequest: (req: Omit<TeamCreationRequest, "id" | "status" | "createdAt">) => void;
@@ -65,6 +72,9 @@ interface TeamManagementState {
     note?: string
   ) => void;
   reviewApplication: (applicationId: string, teamId: string, status: RecruitmentApplication["status"]) => void;
+  submitApplication: (
+    application: Pick<RecruitmentApplication, "teamId" | "positionId" | "userId" | "preferredRole" | "experience" | "portfolioUrl" | "languages" | "availability">
+  ) => void;
   createCustomRole: (role: Omit<CustomRole, "id" | "createdAt" | "isDefault">) => void;
   respondToCollaboration: (request: CollaborationRequest, teamId: string, status: CollaborationRequest["status"]) => void;
   setMemberRole: (userId: string, teamId: string, patch: { teamRole?: TeamRole; customRoleId?: string }, actorId: string, actionLabel: string) => void;
@@ -120,6 +130,10 @@ interface TeamManagementState {
   ) => void;
   setChapterLock: (chapterId: string, locked: boolean | undefined, teamId: string, actorId: string) => void;
   removeChapter: (chapterId: string, teamId: string, actorId: string) => void;
+  createChapter: (
+    chapter: Pick<Chapter, "seriesId" | "teamId" | "number" | "title" | "pages">,
+    actorId: string
+  ) => void;
 }
 
 export const useTeamManagement = create<TeamManagementState>()(
@@ -130,6 +144,7 @@ export const useTeamManagement = create<TeamManagementState>()(
       createdTeams: [],
       addedCustomRoles: [],
       applicationOverrides: {},
+      addedApplications: [],
       collaborationOverrides: {},
       addedActivity: [],
       memberRoleOverrides: {},
@@ -151,6 +166,7 @@ export const useTeamManagement = create<TeamManagementState>()(
       chapterOverrides: {},
       chapterLockOverrides: {},
       removedChapterIds: [],
+      addedChapters: [],
       seriesCollaboratorTeamIds: {},
 
       submitTeamRequest: (req) => {
@@ -230,6 +246,17 @@ export const useTeamManagement = create<TeamManagementState>()(
                   ? "طلب إجراء مقابلة مع متقدم"
                   : "وضع متقدماً في قائمة الانتظار",
         });
+      },
+
+      submitApplication: (application) => {
+        const newApplication: RecruitmentApplication = {
+          ...application,
+          id: `application-added-${Date.now()}`,
+          status: "pending",
+          appliedAt: new Date().toISOString(),
+        };
+        set((s) => ({ addedApplications: [...s.addedApplications, newApplication] }));
+        get().logActivity({ teamId: application.teamId, userId: application.userId, action: "تقدّم بطلب انضمام للفريق" });
       },
 
       createCustomRole: (role) => {
@@ -432,6 +459,18 @@ export const useTeamManagement = create<TeamManagementState>()(
       removeChapter: (chapterId, teamId, actorId) => {
         set((s) => ({ removedChapterIds: [...s.removedChapterIds, chapterId] }));
         get().logActivity({ teamId, userId: actorId, action: "حذف فصلاً" });
+      },
+
+      createChapter: (chapter, actorId) => {
+        const newChapter: Chapter = {
+          ...chapter,
+          id: `chapter-added-${Date.now()}`,
+          releasedAt: new Date().toISOString(),
+          views: 0,
+          isPublished: true,
+        };
+        set((s) => ({ addedChapters: [...s.addedChapters, newChapter] }));
+        get().logActivity({ teamId: chapter.teamId, userId: actorId, action: `رفع الفصل ${chapter.number} — "${chapter.title}"` });
       },
     }),
     { name: "lunex-team-management", skipHydration: true }

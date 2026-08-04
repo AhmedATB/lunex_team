@@ -1,13 +1,22 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
-import { UploadCloud, FileArchive, Trash2, Search } from "lucide-react";
+import { UploadCloud, FileArchive, Trash2, Search, Plus } from "lucide-react";
 import { getMockDatabase } from "@/lib/mock/generate";
+import { useSession } from "@/store/session";
+import { useTeamManagement } from "@/store/team-management";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Button } from "@/components/ui/button";
+import { Label } from "@/components/ui/label";
+import {
+  Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
+} from "@/components/ui/select";
+import {
+  Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger,
+} from "@/components/ui/dialog";
 import { timeAgo } from "@/lib/utils";
 
 export default function AdminChaptersPage() {
@@ -16,17 +25,25 @@ export default function AdminChaptersPage() {
   }, []);
   const [query, setQuery] = useState("");
   const [dragging, setDragging] = useState(false);
+  const [droppedCount, setDroppedCount] = useState<number | undefined>();
   const [selected, setSelected] = useState<Set<string>>(new Set());
   const db = useMemo(() => getMockDatabase(), []);
-  const seriesMap = useMemo(() => new Map(db.series.map((s) => [s.id, s])), [db.series]);
+  const currentUserId = useSession((s) => s.currentUserId);
+  const store = useTeamManagement();
+  const seriesMap = useMemo(() => new Map([...db.series, ...store.addedSeries].map((s) => [s.id, s])), [db.series, store.addedSeries]);
+
+  const removedIds = new Set(store.removedChapterIds);
+  const allChapters = [...db.chapters, ...store.addedChapters]
+    .filter((c) => !removedIds.has(c.id))
+    .map((c) => ({ ...c, ...store.chapterOverrides[c.id] }));
 
   const chapters = useMemo(
     () =>
-      [...db.chapters]
+      [...allChapters]
         .sort((a, b) => +new Date(b.releasedAt) - +new Date(a.releasedAt))
         .filter((c) => !query || seriesMap.get(c.seriesId)?.titleAr.includes(query))
         .slice(0, 40),
-    [db.chapters, query, seriesMap]
+    [allChapters, query, seriesMap]
   );
 
   function toggle(id: string) {
@@ -41,6 +58,15 @@ export default function AdminChaptersPage() {
     });
   }
 
+  function deleteSelected() {
+    if (!currentUserId) return;
+    for (const id of selected) {
+      const chapter = allChapters.find((c) => c.id === id);
+      if (chapter) store.removeChapter(chapter.id, chapter.teamId, currentUserId);
+    }
+    setSelected(new Set());
+  }
+
   return (
     <div className="space-y-4">
       <h1 className="font-display text-2xl font-bold text-white">إدارة الفصول</h1>
@@ -51,7 +77,11 @@ export default function AdminChaptersPage() {
           <div
             onDragOver={(e) => { e.preventDefault(); setDragging(true); }}
             onDragLeave={() => setDragging(false)}
-            onDrop={(e) => { e.preventDefault(); setDragging(false); }}
+            onDrop={(e) => {
+              e.preventDefault();
+              setDragging(false);
+              setDroppedCount(e.dataTransfer.files.length || undefined);
+            }}
             className={`flex flex-col items-center justify-center gap-2 rounded-2xl border-2 border-dashed p-10 text-center transition-colors ${
               dragging ? "border-primary-400 bg-primary-500/10" : "border-white/15 bg-white/[0.02]"
             }`}
@@ -59,10 +89,24 @@ export default function AdminChaptersPage() {
             <UploadCloud className="h-10 w-10 text-primary-300" />
             <p className="text-sm text-white">اسحب وأفلت ملفات الصور أو ZIP هنا</p>
             <p className="text-xs text-lunex-gray">يدعم JPG, PNG, WebP وملفات ZIP (حد أقصى 200 ميجابايت)</p>
-            <div className="flex gap-2 pt-2">
-              <Button size="sm" variant="secondary"><FileArchive className="h-4 w-4" /> اختر ملف ZIP</Button>
-              <Button size="sm">اختر صوراً</Button>
-            </div>
+            {currentUserId && (
+              <div className="flex gap-2 pt-2">
+                <CreateChapterDialog
+                  series={[...db.series, ...store.addedSeries]}
+                  defaultPages={droppedCount}
+                  onCreate={(c) => store.createChapter(c, currentUserId)}
+                  trigger={
+                    <Button size="sm" variant="secondary"><FileArchive className="h-4 w-4" /> اختر ملف ZIP</Button>
+                  }
+                />
+                <CreateChapterDialog
+                  series={[...db.series, ...store.addedSeries]}
+                  defaultPages={droppedCount}
+                  onCreate={(c) => store.createChapter(c, currentUserId)}
+                  trigger={<Button size="sm"><Plus className="h-4 w-4" /> اختر صوراً</Button>}
+                />
+              </div>
+            )}
           </div>
         </CardContent>
       </Card>
@@ -73,7 +117,7 @@ export default function AdminChaptersPage() {
           <Input value={query} onChange={(e) => setQuery(e.target.value)} placeholder="ابحث بالسلسلة..." className="ps-9" />
         </div>
         {selected.size > 0 && (
-          <Button variant="destructive" size="sm">
+          <Button variant="destructive" size="sm" onClick={deleteSelected}>
             <Trash2 className="h-4 w-4" /> حذف المحدد ({selected.size})
           </Button>
         )}
@@ -103,14 +147,77 @@ export default function AdminChaptersPage() {
                   </td>
                   <td className="p-3 text-lunex-gray">{c.title}</td>
                   <td className="p-3 text-lunex-gray">{c.pages}</td>
-                  <td className="p-3"><Badge variant="success">منشور</Badge></td>
+                  <td className="p-3"><Badge variant={c.isPublished ? "success" : "secondary"}>{c.isPublished ? "منشور" : "مسودة"}</Badge></td>
                   <td className="p-3 text-lunex-gray">{timeAgo(c.releasedAt)}</td>
                 </tr>
               ))}
+              {chapters.length === 0 && (
+                <tr><td colSpan={6} className="p-8 text-center text-lunex-gray">لا توجد فصول مطابقة.</td></tr>
+              )}
             </tbody>
           </table>
         </CardContent>
       </Card>
     </div>
+  );
+}
+
+function CreateChapterDialog({
+  series,
+  defaultPages,
+  onCreate,
+  trigger,
+}: {
+  series: { id: string; titleAr: string; teamId: string }[];
+  defaultPages?: number;
+  onCreate: (chapter: { seriesId: string; teamId: string; number: number; title: string; pages: number }) => void;
+  trigger: React.ReactNode;
+}) {
+  const [open, setOpen] = useState(false);
+  const [seriesId, setSeriesId] = useState(series[0]?.id ?? "");
+  const [number, setNumber] = useState(1);
+  const [title, setTitle] = useState("");
+  const [pages, setPages] = useState(defaultPages ?? 20);
+
+  function submit() {
+    const s = series.find((x) => x.id === seriesId);
+    if (!s || !title.trim() || number < 1 || pages < 1) return;
+    onCreate({ seriesId: s.id, teamId: s.teamId, number, title: title.trim(), pages });
+    setTitle(""); setNumber(1); setPages(defaultPages ?? 20); setOpen(false);
+  }
+
+  return (
+    <Dialog open={open} onOpenChange={setOpen}>
+      <DialogTrigger asChild>{trigger}</DialogTrigger>
+      <DialogContent>
+        <DialogHeader><DialogTitle>رفع فصل جديد</DialogTitle></DialogHeader>
+        <div className="space-y-3 pt-2">
+          <div className="space-y-1.5">
+            <Label>السلسلة</Label>
+            <Select value={seriesId} onValueChange={setSeriesId}>
+              <SelectTrigger><SelectValue placeholder="اختر سلسلة" /></SelectTrigger>
+              <SelectContent>
+                {series.map((s) => <SelectItem key={s.id} value={s.id}>{s.titleAr}</SelectItem>)}
+              </SelectContent>
+            </Select>
+          </div>
+          <div className="grid gap-3 sm:grid-cols-2">
+            <div className="space-y-1.5">
+              <Label>رقم الفصل</Label>
+              <Input type="number" min={1} value={number} onChange={(e) => setNumber(Number(e.target.value))} />
+            </div>
+            <div className="space-y-1.5">
+              <Label>عدد الصفحات</Label>
+              <Input type="number" min={1} value={pages} onChange={(e) => setPages(Number(e.target.value))} />
+            </div>
+          </div>
+          <div className="space-y-1.5">
+            <Label>عنوان الفصل</Label>
+            <Input value={title} onChange={(e) => setTitle(e.target.value)} placeholder="مثال: الفصل الأول" />
+          </div>
+          <Button onClick={submit} className="w-full">رفع الفصل</Button>
+        </div>
+      </DialogContent>
+    </Dialog>
   );
 }

@@ -5,6 +5,7 @@ import { useSearchParams } from "next/navigation";
 import { Search as SearchIcon, SlidersHorizontal, X } from "lucide-react";
 import type { Genre, Series } from "@/lib/types";
 import { getMockDatabase } from "@/lib/mock/generate";
+import { useTeamManagement } from "@/store/team-management";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -79,7 +80,17 @@ export function SeriesExplorer({ genres, title }: { genres: Genre[]; title: stri
 
   useEffect(() => setPage(1), [filters]);
 
-  const allSeries = useMemo(() => getMockDatabase().series, []);
+  const db = useMemo(() => getMockDatabase(), []);
+  const addedSeries = useTeamManagement((s) => s.addedSeries);
+  const seriesInfoOverrides = useTeamManagement((s) => s.seriesInfoOverrides);
+  const removedSeriesIds = useTeamManagement((s) => s.removedSeriesIds);
+
+  const allSeries = useMemo(() => {
+    const removed = new Set(removedSeriesIds);
+    return [...db.series, ...addedSeries]
+      .filter((s) => !removed.has(s.id))
+      .map((s) => ({ ...s, ...seriesInfoOverrides[s.id] }));
+  }, [db, addedSeries, seriesInfoOverrides, removedSeriesIds]);
 
   const filtered = useMemo(() => {
     let items = [...allSeries];

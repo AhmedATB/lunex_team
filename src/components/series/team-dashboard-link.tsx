@@ -4,6 +4,7 @@ import Link from "next/link";
 import { LayoutDashboard } from "lucide-react";
 import { useSession } from "@/store/session";
 import { useTeamManagement } from "@/store/team-management";
+import { getTeamAuthRoles } from "@/lib/team-auth";
 import { getMockDatabase } from "@/lib/mock/generate";
 import { Button } from "@/components/ui/button";
 
@@ -11,10 +12,7 @@ export function TeamDashboardLink({ teamId, teamSlug, leaderId }: { teamId: stri
   const currentUserId = useSession((s) => s.currentUserId);
   const memberRoleOverrides = useTeamManagement((s) => s.memberRoleOverrides);
   const user = getMockDatabase().users.find((u) => u.id === currentUserId);
-  const isGlobalAdmin = user?.role === "owner" || user?.role === "super_administrator";
-  const isLeader = user?.id === leaderId;
-  const effectiveTeamRole = user ? memberRoleOverrides[user.id]?.teamRole ?? user.teamRole : undefined;
-  const isAssistantLeader = user?.teamId === teamId && effectiveTeamRole === "assistant_leader";
+  const { isGlobalAdmin, isLeader, isAssistantLeader } = getTeamAuthRoles({ id: teamId, leaderId }, user, memberRoleOverrides);
 
   // Dashboard access is restricted to the team leader, their assistant leader, and
   // platform admins — mirrors the access gate in the dashboard page itself.

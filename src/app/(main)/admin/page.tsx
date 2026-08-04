@@ -4,9 +4,9 @@ import { getMockDatabase } from "@/lib/mock/generate";
 import { getPlatformStats } from "@/lib/mock/repo";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { ChaptersOverTimeChart, StatusPieChart, TeamActivityBarChart } from "@/components/admin/charts";
-import { formatNumber, timeAgo, avatarUrl } from "@/lib/utils";
+import { formatNumber, timeAgo } from "@/lib/utils";
 import { GLOBAL_ROLE_LABELS } from "@/lib/rbac";
-import Image from "next/image";
+import { UserAvatar } from "@/components/shared/user-avatar";
 
 export const metadata: Metadata = { title: "لوحة التحكم" };
 
@@ -134,7 +134,7 @@ export default async function AdminDashboardPage() {
             .map((u) => (
               <div key={u.id} className="panel flex items-center gap-2 px-3 py-2">
                 <div className="relative h-7 w-7 overflow-hidden rounded-full ring-2 ring-white/10">
-                  <Image src={avatarUrl(u.avatarSeed)} alt={u.displayName} fill className="object-cover" />
+                  <UserAvatar user={u} alt={u.displayName} sizes="28px" />
                 </div>
                 <div>
                   <p className="text-xs font-semibold text-white">{u.displayName}</p>

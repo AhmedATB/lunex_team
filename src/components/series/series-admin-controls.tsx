@@ -8,6 +8,8 @@ import { Settings2, Trash2, ShieldCheck, ImagePlus } from "lucide-react";
 import { getMockDatabase } from "@/lib/mock/generate";
 import { useSession } from "@/store/session";
 import { useTeamManagement, applyTeamOverride } from "@/store/team-management";
+import { getTeamAuthRoles, getEffectiveCustomRoles } from "@/lib/team-auth";
+import { canInTeam } from "@/lib/rbac";
 import type { SeriesStatus } from "@/lib/types";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
@@ -58,13 +60,19 @@ export function SeriesAdminControls({
   const rawTeam = [...db.teams, ...store.createdTeams].find((t) => t.id === teamId);
   const team = rawTeam ? applyTeamOverride(rawTeam, store.teamInfoOverrides) : undefined;
 
-  const isGlobalAdmin = currentUser?.role === "owner" || currentUser?.role === "super_administrator";
-  const effectiveTeamRole = currentUser
-    ? store.memberRoleOverrides[currentUser.id]?.teamRole ?? currentUser.teamRole
+  const { isGlobalAdmin, isLeader, isAssistantLeader } = getTeamAuthRoles(team, currentUser, store.memberRoleOverrides);
+  const customRoles = getEffectiveCustomRoles(
+    teamId, db.customRoles, store.addedCustomRoles, store.customRoleOverrides, store.removedCustomRoleIds
+  );
+  const currentUserOverride = currentUser ? store.memberRoleOverrides[currentUser.id] : undefined;
+  const effectiveCurrentUser = currentUser
+    ? { ...currentUser, customRoleId: currentUserOverride?.customRoleId ?? currentUser.customRoleId }
     : undefined;
-  const isLeader = Boolean(team && currentUser?.id === team.leaderId);
-  const isAssistant = Boolean(team && currentUser?.teamId === team.id && effectiveTeamRole === "assistant_leader");
-  const canManage = isGlobalAdmin || isLeader || isAssistant;
+  const hasCustomEditPermission = Boolean(
+    effectiveCurrentUser &&
+      (canInTeam(effectiveCurrentUser, "edit_series", customRoles) || canInTeam(effectiveCurrentUser, "archive_series", customRoles))
+  );
+  const canManage = isGlobalAdmin || isLeader || isAssistantLeader || hasCustomEditPermission;
 
   const override = store.seriesInfoOverrides[seriesId];
   const status = override?.status ?? initialStatus;

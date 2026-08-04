@@ -8,12 +8,14 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { avatarUrl, timeAgo } from "@/lib/utils";
+import { useProfile, effectiveAvatarSeed } from "@/store/profile";
 
 export default function AdminCommentsPage() {
   useEffect(() => {
     document.title = "إدارة التعليقات | LUNEX TEAM";
   }, []);
   const db = useMemo(() => getMockDatabase(), []);
+  const avatarOverrides = useProfile((s) => s.avatarOverrides);
   const userMap = new Map(db.users.map((u) => [u.id, u]));
   const seriesMap = new Map(db.series.map((s) => [s.id, s]));
   const [removed, setRemoved] = useState<Set<string>>(new Set());
@@ -35,7 +37,7 @@ export default function AdminCommentsPage() {
             <Card key={c.id}>
               <CardContent className="flex items-start gap-3 p-4">
                 <div className="relative h-9 w-9 shrink-0 overflow-hidden rounded-full ring-2 ring-white/10">
-                  <Image src={avatarUrl(user.avatarSeed)} alt={user.displayName} fill className="object-cover" />
+                  <Image src={avatarUrl(effectiveAvatarSeed(user, avatarOverrides))} alt={user.displayName} fill className="object-cover" />
                 </div>
                 <div className="min-w-0 flex-1">
                   <div className="flex flex-wrap items-center gap-2">

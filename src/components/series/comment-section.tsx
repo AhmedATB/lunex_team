@@ -9,6 +9,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { Badge } from "@/components/ui/badge";
 import { avatarUrl, timeAgo } from "@/lib/utils";
 import { useSession } from "@/store/session";
+import { useProfile, effectiveAvatarSeed } from "@/store/profile";
 import { getMockDatabase } from "@/lib/mock/generate";
 
 export function CommentSection({
@@ -25,6 +26,7 @@ export function CommentSection({
   const [reactions, setReactions] = useState<Record<string, "like" | "dislike" | undefined>>({});
   const currentUserId = useSession((s) => s.currentUserId);
   const currentUser = getMockDatabase().users.find((u) => u.id === currentUserId);
+  const avatarOverrides = useProfile((s) => s.avatarOverrides);
   const userMap = new Map(users.map((u) => [u.id, u]));
 
   function post() {
@@ -53,7 +55,7 @@ export function CommentSection({
       {currentUser && (
         <div className="flex gap-3">
           <div className="relative h-10 w-10 shrink-0 overflow-hidden rounded-full ring-2 ring-primary-500/40 shadow-[0_0_14px_rgba(168,85,247,0.35)]">
-            <Image src={avatarUrl(currentUser.avatarSeed)} alt={currentUser.displayName} fill className="object-cover" />
+            <Image src={avatarUrl(effectiveAvatarSeed(currentUser, avatarOverrides))} alt={currentUser.displayName} fill className="object-cover" />
           </div>
           <div className="flex-1 space-y-2">
             <Textarea
@@ -81,7 +83,7 @@ export function CommentSection({
           return (
             <div key={c.id} className="panel panel-hover flex gap-3 p-4">
               <div className="relative h-9 w-9 shrink-0 overflow-hidden rounded-full ring-2 ring-white/10">
-                <Image src={avatarUrl(user.avatarSeed)} alt={user.displayName} fill className="object-cover" />
+                <Image src={avatarUrl(effectiveAvatarSeed(user, avatarOverrides))} alt={user.displayName} fill className="object-cover" />
               </div>
               <div className="min-w-0 flex-1">
                 <div className="flex items-center gap-2">
