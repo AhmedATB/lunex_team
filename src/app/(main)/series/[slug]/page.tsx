@@ -6,9 +6,11 @@ import Link from "next/link";
 import { Star, Eye, Bookmark, Heart, BookOpen, Calendar, User as UserIcon } from "lucide-react";
 import { getMockDatabase } from "@/lib/mock/generate";
 import { useTeamManagement } from "@/store/team-management";
+import { useRatings, getEffectiveRating } from "@/store/ratings";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { BookmarkButton, ShareButton } from "@/components/series/bookmark-button";
+import { RatingWidget } from "@/components/series/rating-widget";
 import {
   SeriesAdminControls, SeriesStatusBadge, SeriesRemovedGuard,
   SeriesTitleAr, SeriesSynopsis, SeriesCoverImage, SeriesBannerImage, SeriesCollaboratorTeams,
@@ -41,6 +43,7 @@ export default function SeriesDetailPage() {
 
   const allSeries = [...db.series, ...store.addedSeries];
   const series = allSeries.find((s) => s.slug === slug);
+  const seriesRatings = useRatings((s) => s.ratings[series?.id ?? ""]);
 
   useEffect(() => {
     document.title = series ? `${series.titleAr} | LUNEX TEAM` : "غير موجود | LUNEX TEAM";
@@ -56,6 +59,10 @@ export default function SeriesDetailPage() {
   const comments = db.comments.filter((c) => c.seriesId === series.id);
   const team = [...db.teams, ...store.createdTeams].find((t) => t.id === series.teamId);
   const seriesGenres = db.genres.filter((g) => series.genreIds.includes(g.id));
+  const { rating: effectiveRating, ratingCount: effectiveRatingCount } = getEffectiveRating(
+    { rating: series.rating, ratingCount: series.ratingCount },
+    seriesRatings
+  );
   const related = allSeries
     .filter((s) => s.id !== series.id && s.genreIds.includes(series.genreIds[0]))
     .sort((a, b) => b.bookmarks - a.bookmarks)
@@ -70,8 +77,8 @@ export default function SeriesDetailPage() {
     image: series.cover,
     aggregateRating: {
       "@type": "AggregateRating",
-      ratingValue: series.rating,
-      ratingCount: series.ratingCount,
+      ratingValue: effectiveRating,
+      ratingCount: effectiveRatingCount,
     },
   };
 
@@ -117,7 +124,7 @@ export default function SeriesDetailPage() {
 
               <div className="flex flex-wrap items-center gap-4 text-sm text-lunex-gray">
                 <span className="flex items-center gap-1 font-semibold text-amber-300">
-                  <Star className="h-4 w-4 fill-amber-300" /> {series.rating} ({formatNumber(series.ratingCount)})
+                  <Star className="h-4 w-4 fill-amber-300" /> {effectiveRating} ({formatNumber(effectiveRatingCount)})
                 </span>
                 <span className="flex items-center gap-1"><Eye className="h-4 w-4" /> {formatNumber(series.views)}</span>
                 <span className="flex items-center gap-1"><Bookmark className="h-4 w-4" /> {formatNumber(series.bookmarks)}</span>
@@ -193,6 +200,8 @@ export default function SeriesDetailPage() {
           </FadeIn>
 
           <FadeIn className="space-y-4">
+            <RatingWidget seriesId={series.id} baseRating={series.rating} baseRatingCount={series.ratingCount} />
+
             <div className="panel panel-hover p-4">
               <h3 className="section-title mb-4 font-display text-sm font-bold text-white">معلومات إضافية</h3>
               <dl className="space-y-2 text-sm">

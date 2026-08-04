@@ -5,6 +5,7 @@ import { useSession } from "@/store/session";
 import { useReaderSettings, useReadingProgress, useBookmarks } from "@/store/reader-settings";
 import { useTeamManagement } from "@/store/team-management";
 import { useProfile } from "@/store/profile";
+import { useRatings } from "@/store/ratings";
 import { useRewards } from "@/store/rewards";
 import { useMessages } from "@/store/messages";
 
@@ -24,6 +25,7 @@ export function StoreHydration() {
     useProfile.persist.rehydrate();
     useRewards.persist.rehydrate();
     useMessages.persist.rehydrate();
+    useRatings.persist.rehydrate();
   }, []);
 
   return null;

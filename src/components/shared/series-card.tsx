@@ -8,6 +8,7 @@ import type { Series } from "@/lib/types";
 import { Badge } from "@/components/ui/badge";
 import { cn, formatNumber } from "@/lib/utils";
 import { genreLabelsFor, GENRE_CHIP_STYLES } from "@/lib/genre-helpers";
+import { useRatings, getEffectiveRating } from "@/store/ratings";
 
 const STATUS_LABEL: Record<Series["status"], string> = {
   ongoing: "مستمر",
@@ -25,6 +26,8 @@ const STATUS_VARIANT: Record<Series["status"], "success" | "secondary" | "warnin
 
 export function SeriesCard({ series, priority = false }: { series: Series; priority?: boolean }) {
   const genreLabels = genreLabelsFor(series.genreIds);
+  const seriesRatings = useRatings((s) => s.ratings[series.id]);
+  const { rating } = getEffectiveRating({ rating: series.rating, ratingCount: series.ratingCount }, seriesRatings);
   const ref = useRef<HTMLAnchorElement>(null);
 
   function onMouseMove(e: React.MouseEvent<HTMLAnchorElement>) {
@@ -91,7 +94,7 @@ export function SeriesCard({ series, priority = false }: { series: Series; prior
         </Badge>
         <div className="ease-bounce absolute end-2 top-2 flex rotate-3 items-center gap-1 rounded-full bg-black/60 px-2 py-0.5 text-xs font-bold text-amber-300 shadow-[0_0_12px_rgba(252,211,77,0.3)] backdrop-blur-sm transition-transform duration-300 group-hover:rotate-[-6deg] group-hover:scale-110 group-active:rotate-[-6deg] group-active:scale-110">
           <Star className="h-3 w-3 fill-amber-300" />
-          {series.rating}
+          {rating}
         </div>
 
         {/* Sparkle burst — hidden until hover/tap, three staggered points that pop in like fairy dust. */}

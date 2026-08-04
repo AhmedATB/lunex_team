@@ -43,6 +43,7 @@ import {
 import {
   Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger,
 } from "@/components/ui/dialog";
+import { ChaptersOverTimeChart, StatusPieChart } from "@/components/admin/charts";
 
 const PROMOTION_LADDER: TeamRole[] = ["trainee", "member", "team_administrator", "assistant_leader"];
 function promote(role: TeamRole): TeamRole {
@@ -179,6 +180,30 @@ export default function TeamDashboardPage() {
     ...store.addedActivity.filter((a) => a.teamId === team.id),
   ].sort((a, b) => +new Date(b.at) - +new Date(a.at));
 
+  const removedChapterIdSet = new Set(store.removedChapterIds);
+  const teamChapters = [...db.chapters, ...store.addedChapters].filter(
+    (c) => c.teamId === team.id && !removedChapterIdSet.has(c.id)
+  );
+  const now = Date.now();
+  const chapterWeeklyData = Array.from({ length: 8 }).map((_, i) => {
+    const weeksAgo = 7 - i;
+    const start = now - (weeksAgo + 1) * 7 * 86400000;
+    const end = now - weeksAgo * 7 * 86400000;
+    const count = teamChapters.filter((c) => {
+      const t = +new Date(c.releasedAt);
+      return t >= start && t < end;
+    }).length;
+    return { label: `أ${8 - weeksAgo}`, chapters: count };
+  });
+  const seriesStatusCounts = ownSeries.reduce<Record<string, number>>((acc, s) => {
+    acc[s.status] = (acc[s.status] ?? 0) + 1;
+    return acc;
+  }, {});
+  const seriesStatusData = Object.entries(seriesStatusCounts).map(([name, value]) => ({
+    name: SERIES_STATUS_LABELS[name as SeriesStatus] ?? name,
+    value,
+  }));
+
   return (
     <div className="container space-y-6 py-6">
       <div className="flex flex-wrap items-center gap-3">
@@ -220,6 +245,29 @@ export default function TeamDashboardPage() {
             <StatCard icon={BookOpen} label="الفصول المنشورة" value={teamSeries.reduce((s, x) => s + x.chapterCount, 0)} />
             <StatCard icon={Star} label="متوسط التقييم" value={Number((teamSeries.reduce((s, x) => s + x.rating, 0) / (teamSeries.length || 1)).toFixed(1))} />
           </div>
+
+          {ownSeries.length > 0 && (
+            <div className="grid gap-4 lg:grid-cols-3">
+              <Card className="lg:col-span-2">
+                <CardHeader><CardTitle>الفصول المنشورة أسبوعياً</CardTitle></CardHeader>
+                <CardContent><ChaptersOverTimeChart data={chapterWeeklyData} /></CardContent>
+              </Card>
+              <Card>
+                <CardHeader><CardTitle>حالة سلاسل الفريق</CardTitle></CardHeader>
+                <CardContent>
+                  <StatusPieChart data={seriesStatusData} />
+                  <div className="mt-2 grid grid-cols-2 gap-1 text-xs text-lunex-gray">
+                    {seriesStatusData.map((s) => (
+                      <div key={s.name} className="flex items-center justify-between">
+                        <span>{s.name}</span>
+                        <span className="text-white">{s.value}</span>
+                      </div>
+                    ))}
+                  </div>
+                </CardContent>
+              </Card>
+            </div>
+          )}
 
           <Card>
             <CardHeader className="flex-row items-center justify-between">
