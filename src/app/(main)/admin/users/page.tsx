@@ -2,12 +2,14 @@
 
 import { useEffect, useMemo, useState } from "react";
 import Image from "next/image";
-import { Search, MoreVertical, Ban, ShieldCheck } from "lucide-react";
-import { getMockDatabase } from "@/lib/mock/generate";
+import { Search, MoreVertical, Ban, ShieldCheck, Loader2 } from "lucide-react";
+import { getMockDatabase, mergeRealUsers } from "@/lib/mock/generate";
 import { GLOBAL_ROLE_LABELS } from "@/lib/rbac";
-import type { GlobalRole } from "@/lib/types";
+import type { GlobalRole, User } from "@/lib/types";
+import { useRealUsers } from "@/store/real-users";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import {
   Select,
@@ -16,6 +18,13 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogTrigger,
+} from "@/components/ui/dialog";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -31,7 +40,8 @@ export default function AdminUsersPage() {
   }, []);
   const [query, setQuery] = useState("");
   const [role, setRole] = useState<GlobalRole | "all">("all");
-  const users = useMemo(() => getMockDatabase().users, []);
+  const [users, setUsers] = useState<User[]>(() => getMockDatabase().users);
+  const realProfiles = useRealUsers((s) => s.profiles);
   const avatarOverrides = useProfile((s) => s.avatarOverrides);
 
   const filtered = useMemo(() => {
@@ -41,6 +51,16 @@ export default function AdminUsersPage() {
       return true;
     });
   }, [users, query, role]);
+
+  function applyRoleChange(userId: string, newRole: GlobalRole) {
+    setUsers((prev) => prev.map((u) => (u.id === userId ? { ...u, role: newRole } : u)));
+    const existing = realProfiles[userId];
+    if (existing) {
+      const updated = { ...existing, role: newRole };
+      useRealUsers.getState().upsertProfile(updated);
+      mergeRealUsers({ [userId]: updated });
+    }
+  }
 
   return (
     <div className="space-y-4">
@@ -100,7 +120,13 @@ export default function AdminUsersPage() {
                         </button>
                       </DropdownMenuTrigger>
                       <DropdownMenuContent align="end">
-                        <DropdownMenuItem><ShieldCheck className="h-4 w-4" /> تغيير الدور</DropdownMenuItem>
+                        {realProfiles[u.id] ? (
+                          <ChangeRoleDialog user={u} onChanged={(newRole) => applyRoleChange(u.id, newRole)} />
+                        ) : (
+                          <DropdownMenuItem disabled title="حساب تجريبي غير مرتبط بحساب حقيقي">
+                            <ShieldCheck className="h-4 w-4" /> تغيير الدور (حساب تجريبي)
+                          </DropdownMenuItem>
+                        )}
                         <DropdownMenuItem className="text-red-400 focus:bg-red-500/10">
                           <Ban className="h-4 w-4" /> حظر المستخدم
                         </DropdownMenuItem>
@@ -114,5 +140,65 @@ export default function AdminUsersPage() {
         </CardContent>
       </Card>
     </div>
+  );
+}
+
+function ChangeRoleDialog({ user, onChanged }: { user: User; onChanged: (role: GlobalRole) => void }) {
+  const [open, setOpen] = useState(false);
+  const [role, setRole] = useState<GlobalRole>(user.role);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState("");
+
+  async function submit() {
+    setError("");
+    setLoading(true);
+    try {
+      const res = await fetch(`/api/admin/users/${user.id}/role`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ role }),
+      });
+      const body = await res.json();
+      if (!res.ok) {
+        setError(body?.message ?? "تعذر تغيير الدور.");
+        return;
+      }
+      onChanged(role);
+      setOpen(false);
+    } catch {
+      setError("تعذر الاتصال بالخادم.");
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  return (
+    <Dialog open={open} onOpenChange={setOpen}>
+      <DialogTrigger asChild>
+        <DropdownMenuItem onSelect={(e) => e.preventDefault()}>
+          <ShieldCheck className="h-4 w-4" /> تغيير الدور
+        </DropdownMenuItem>
+      </DialogTrigger>
+      <DialogContent>
+        <DialogHeader>
+          <DialogTitle>تغيير دور {user.displayName}</DialogTitle>
+        </DialogHeader>
+        <div className="space-y-3 pt-2">
+          <Select value={role} onValueChange={(v) => setRole(v as GlobalRole)}>
+            <SelectTrigger><SelectValue /></SelectTrigger>
+            <SelectContent>
+              {Object.entries(GLOBAL_ROLE_LABELS).map(([v, l]) => (
+                <SelectItem key={v} value={v}>{l}</SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+          {error && <p className="text-sm text-red-400">{error}</p>}
+          <Button onClick={submit} disabled={loading} className="w-full">
+            {loading && <Loader2 className="h-4 w-4 animate-spin" />}
+            حفظ
+          </Button>
+        </div>
+      </DialogContent>
+    </Dialog>
   );
 }
