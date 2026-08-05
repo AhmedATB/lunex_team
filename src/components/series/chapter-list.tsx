@@ -2,7 +2,7 @@
 
 import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
-import { ArrowDownUp, Eye, Search, Lock } from "lucide-react";
+import { ArrowDownUp, Eye, Search, Lock, CheckCircle2 } from "lucide-react";
 import type { Chapter } from "@/lib/types";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
@@ -100,6 +100,9 @@ export function ChapterList({ seriesSlug, chapters, teamId }: { seriesSlug: stri
               <div className="pointer-events-none min-w-0">
                 <p className="flex items-center gap-1.5 truncate font-medium text-white">
                   {locked && <Lock className="h-3.5 w-3.5 shrink-0 text-amber-300" aria-label="فصل مقفل" />}
+                  {lastRead !== undefined && c.number <= lastRead && (
+                    <CheckCircle2 className="h-3.5 w-3.5 shrink-0 text-primary-400" aria-label="مقروء" />
+                  )}
                   {c.title}
                   {!c.isPublished && <Badge variant="secondary" className="text-[10px]">مسودة</Badge>}
                   {lastRead === c.number && (

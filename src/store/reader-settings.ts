@@ -51,8 +51,12 @@ export const useReadingProgress = create<ReadingProgressState>()(
   persist(
     (set, get) => ({
       progress: {},
+      // Only ever advances — re-reading an earlier chapter (going back to
+      // re-check something) must not regress "continue reading" backward.
       setProgress: (seriesId, chapterNumber) =>
-        set((s) => ({ progress: { ...s.progress, [seriesId]: chapterNumber } })),
+        set((s) => ({
+          progress: { ...s.progress, [seriesId]: Math.max(s.progress[seriesId] ?? 0, chapterNumber) },
+        })),
       getProgress: (seriesId) => get().progress[seriesId],
     }),
     { name: "lunex-reading-progress", skipHydration: true }

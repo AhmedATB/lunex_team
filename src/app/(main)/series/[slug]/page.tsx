@@ -6,6 +6,7 @@ import Link from "next/link";
 import { Star, Eye, Bookmark, Heart, BookOpen, Calendar, User as UserIcon } from "lucide-react";
 import { getMockDatabase } from "@/lib/mock/generate";
 import { useTeamManagement } from "@/store/team-management";
+import { useReadingProgress } from "@/store/reader-settings";
 import { useRatings, getEffectiveRating } from "@/store/ratings";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -44,6 +45,7 @@ export default function SeriesDetailPage() {
   const allSeries = [...db.series, ...store.addedSeries];
   const series = allSeries.find((s) => s.slug === slug);
   const seriesRatings = useRatings((s) => s.ratings[series?.id ?? ""]);
+  const lastRead = useReadingProgress((s) => s.getProgress(series?.id ?? ""));
 
   useEffect(() => {
     document.title = series ? `${series.titleAr} | LUNEX TEAM` : "غير موجود | LUNEX TEAM";
@@ -56,6 +58,11 @@ export default function SeriesDetailPage() {
 
   const allChapters = [...db.chapters, ...store.addedChapters].filter((c) => c.seriesId === series.id);
   const chapters = [...allChapters].sort((a, b) => b.number - a.number);
+  // Smallest chapter number not yet read — undefined means either no progress
+  // at all (start from the beginning) or every chapter is already read.
+  const nextUnreadChapter = [...chapters]
+    .sort((a, b) => a.number - b.number)
+    .find((c) => lastRead === undefined || c.number > lastRead);
   const comments = db.comments.filter((c) => c.seriesId === series.id);
   const team = [...db.teams, ...store.createdTeams].find((t) => t.id === series.teamId);
   const seriesGenres = db.genres.filter((g) => series.genreIds.includes(g.id));
@@ -143,13 +150,16 @@ export default function SeriesDetailPage() {
               </p>
 
               <div className="flex flex-wrap items-center gap-2 pt-2">
-                <Button size="lg" asChild>
-                  <a href={`/series/${series.slug}/${chapters[chapters.length - 1]?.number ?? 1}`}>
-                    <BookOpen className="h-4 w-4" /> ابدأ من الفصل الأول
-                  </a>
-                </Button>
+                {nextUnreadChapter && (
+                  <Button size="lg" asChild>
+                    <a href={`/series/${series.slug}/${nextUnreadChapter.number}`}>
+                      <BookOpen className="h-4 w-4" />
+                      {lastRead === undefined ? "ابدأ من الفصل الأول" : `أكمل من الفصل ${nextUnreadChapter.number}`}
+                    </a>
+                  </Button>
+                )}
                 {chapters[0] && (
-                  <Button size="lg" variant="secondary" asChild>
+                  <Button size="lg" variant={nextUnreadChapter ? "secondary" : "default"} asChild>
                     <a href={`/series/${series.slug}/${chapters[0].number}`}>
                       أحدث فصل ({chapters[0].number})
                     </a>
