@@ -32,9 +32,9 @@ export function ThemeApplier() {
       return;
     }
     for (const shade of ACCENT_VAR_NAMES) root.setProperty(`--primary-${shade}`, preset.shades[shade]);
-    root.setProperty("--lunex-purple", preset.shades[600]);
-    root.setProperty("--lunex-violet", preset.shades[400]);
-    root.setProperty("--lunex-lilac", preset.shades[300]);
+    root.setProperty("--lunex-purple", preset.lunexPurple);
+    root.setProperty("--lunex-violet", preset.lunexViolet);
+    root.setProperty("--lunex-lilac", preset.lunexLilac);
   }, [accent]);
 
   return null;

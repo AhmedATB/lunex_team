@@ -4,7 +4,7 @@ import Link from "next/link";
 import Image from "next/image";
 import { useRouter } from "next/navigation";
 import { useEffect, useMemo, useState } from "react";
-import { Search, Bell, Menu, LogOut, Settings, User as UserIcon, ShieldCheck, Coins, MessageCircle } from "lucide-react";
+import { Search, Bell, Menu, LogOut, Settings, User as UserIcon, ShieldCheck, Coins, MessageCircle, Palette } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Avatar, AvatarImage, AvatarFallback } from "@/components/ui/avatar";
@@ -16,6 +16,8 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import { ThemePicker } from "@/components/settings/theme-picker";
 import { useSession } from "@/store/session";
 import { useProfile, effectiveAvatarSeed } from "@/store/profile";
 import { useRewards } from "@/store/rewards";
@@ -127,6 +129,18 @@ export function Header() {
             <Bell className="h-5 w-5" />
             <span className="absolute end-1.5 top-1.5 h-2 w-2 rounded-full border border-black bg-amber-400" />
           </Button>
+
+          {/* Available to everyone, no account needed — style is a device/browser preference, not tied to a profile. */}
+          <Popover>
+            <PopoverTrigger asChild>
+              <Button variant="ghost" size="icon" aria-label="المظهر">
+                <Palette className="h-5 w-5" />
+              </Button>
+            </PopoverTrigger>
+            <PopoverContent align="end" className="max-h-[70vh] overflow-y-auto">
+              <ThemePicker />
+            </PopoverContent>
+          </Popover>
 
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
