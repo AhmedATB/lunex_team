@@ -10,6 +10,7 @@ import { useSession } from "@/store/session";
 import { useTeamManagement, applyTeamOverride } from "@/store/team-management";
 import { getTeamAuthRoles, getEffectiveCustomRoles } from "@/lib/team-auth";
 import { canInTeam } from "@/lib/rbac";
+import { resizeImageToDataUrl } from "@/lib/resize-image";
 import type { SeriesStatus } from "@/lib/types";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
@@ -110,7 +111,14 @@ export function SeriesAdminControls({
   );
 }
 
-/** Picks an image from the device (gallery/studio on mobile, file browser on desktop) and reads it as a data URL — no server upload in this mock app. */
+/**
+ * Picks an image from the device (gallery/studio on mobile, file browser on
+ * desktop), downscales/re-encodes it client-side (resizeImageToDataUrl),
+ * and stores the result as a data URL — no server upload in this mock app.
+ * The resize step is not optional: a raw phone photo stored uncompressed
+ * both risks blowing the localStorage quota and gets re-embedded in full on
+ * every render of the series page, which is what made the site feel heavy.
+ */
 function ImageUploadField({
   label,
   value,
@@ -123,16 +131,19 @@ function ImageUploadField({
   previewClassName: string;
 }) {
   const inputRef = useRef<HTMLInputElement>(null);
+  const [error, setError] = useState("");
 
-  function onFileSelected(e: React.ChangeEvent<HTMLInputElement>) {
+  async function onFileSelected(e: React.ChangeEvent<HTMLInputElement>) {
     const file = e.target.files?.[0];
-    if (!file) return;
-    const reader = new FileReader();
-    reader.onload = () => {
-      if (typeof reader.result === "string") onChange(reader.result);
-    };
-    reader.readAsDataURL(file);
     e.target.value = "";
+    if (!file) return;
+    setError("");
+    try {
+      const dataUrl = await resizeImageToDataUrl(file);
+      onChange(dataUrl);
+    } catch {
+      setError("تعذر معالجة الصورة، جرّب صورة أخرى.");
+    }
   }
 
   return (
@@ -145,6 +156,7 @@ function ImageUploadField({
       <Button type="button" size="sm" variant="secondary" className="w-full" onClick={() => inputRef.current?.click()}>
         <ImagePlus className="h-3.5 w-3.5" /> اختر من الجهاز
       </Button>
+      {error && <p className="text-xs text-red-400">{error}</p>}
     </div>
   );
 }
