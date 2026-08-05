@@ -11,6 +11,7 @@ import { useRealUsers, synthesizeProfile } from "@/store/real-users";
 import { useRewards } from "@/store/rewards";
 import { useMessages } from "@/store/messages";
 import { useSession } from "@/store/session";
+import { useTheme } from "@/store/theme";
 
 /**
  * All persisted stores use `skipHydration: true` so the first client render
@@ -34,6 +35,7 @@ export function StoreHydration({ initialUser }: { initialUser: BackendPublicUser
     useRewards.persist.rehydrate();
     useMessages.persist.rehydrate();
     useRatings.persist.rehydrate();
+    useTheme.persist.rehydrate();
 
     // rehydrate() resolves asynchronously — upserting the current login's
     // profile (and merging into the mock DB) must wait for that to finish,

@@ -3,6 +3,7 @@ import { Cairo, Tajawal, Baloo_Bhaijaan_2 } from "next/font/google";
 import "./globals.css";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { StoreHydration } from "@/components/store-hydration";
+import { ThemeApplier } from "@/components/theme-applier";
 import { getServerSession } from "@/lib/server-session";
 
 const cairo = Cairo({
@@ -53,6 +54,7 @@ export default async function RootLayout({ children }: { children: React.ReactNo
     <html lang="ar" dir="rtl" className={`${cairo.variable} ${tajawal.variable} ${baloo.variable}`} suppressHydrationWarning>
       <body className="font-sans">
         <StoreHydration initialUser={initialUser} />
+        <ThemeApplier />
         <TooltipProvider delayDuration={200}>{children}</TooltipProvider>
       </body>
     </html>

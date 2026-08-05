@@ -20,6 +20,7 @@ import { getMockDatabase } from "@/lib/mock/generate";
 import { GLOBAL_ROLE_LABELS, TEAM_ROLE_LABELS } from "@/lib/rbac";
 import { AVATAR_PRESET_SEEDS } from "@/lib/avatar-presets";
 import { avatarUrl, cn, formatNumber } from "@/lib/utils";
+import { ThemePicker } from "@/components/settings/theme-picker";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -163,10 +164,16 @@ export default function ProfilePage() {
           <Card>
             <CardContent className="space-y-4 p-5">
               <h3 className="flex items-center gap-2 font-display text-sm font-bold text-white">
+                <Moon className="h-4 w-4" /> المظهر
+              </h3>
+              <ThemePicker />
+            </CardContent>
+          </Card>
+          <Card>
+            <CardContent className="space-y-4 p-5">
+              <h3 className="flex items-center gap-2 font-display text-sm font-bold text-white">
                 <Settings className="h-4 w-4" /> تفضيلات عامة
               </h3>
-              <SettingRow icon={Moon} label="الوضع الداكن" defaultChecked />
-              <Separator />
               <SettingRow icon={Bell} label="إشعارات الفصول الجديدة" defaultChecked />
               <Separator />
               <SettingRow icon={Shield} label="المصادقة الثنائية (2FA)" />

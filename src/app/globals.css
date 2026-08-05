@@ -20,6 +20,124 @@
     --radius: 0.9rem;
     --ease-premium: cubic-bezier(0.16, 1, 0.3, 1);
     --ease-bounce: cubic-bezier(0.34, 1.56, 0.64, 1);
+
+    /* Brand palette — "R G B" triples (Tailwind's rgb(var(--x) / <alpha-value>) pattern), so `bg-primary-400/50`-style opacity modifiers keep working under every style below. This is style #1 "البنفسجي الليلي" — the site's original look, unchanged. */
+    --primary-50: 243 232 255;
+    --primary-100: 233 213 255;
+    --primary-200: 216 180 254;
+    --primary-300: 192 132 252;
+    --primary-400: 168 85 247;
+    --primary-500: 139 49 232;
+    --primary-600: 109 40 217;
+    --primary-700: 91 33 182;
+    --primary-800: 76 29 149;
+    --primary-900: 59 10 112;
+    --primary-950: 36 6 70;
+    --lunex-bg: 9 9 11;
+    --lunex-purple: 109 40 217;
+    --lunex-violet: 168 85 247;
+    --lunex-lilac: 192 132 252;
+    --lunex-gray: 161 161 170;
+  }
+
+  /* ===== الأنماط البديلة (Style presets) — swap the whole token set, background family included, so a light style like "حبر وورق" genuinely flips light/dark, not just the accent. Applied via data-style on <html>; see store/theme.ts + components/theme-applier.tsx. ===== */
+
+  /* نيون سايبر — cyan/magenta neon on a near-black cyan-tinted ground. */
+  [data-style="neon-cyber"] {
+    --background: 200 40% 3%;
+    --card: 200 45% 7%;
+    --popover: 200 45% 6%;
+    --muted: 200 25% 13%;
+    --muted-foreground: 200 10% 65%;
+    --border: 195 60% 22%;
+    --input: 195 60% 22%;
+    --ring: 187 85% 55%;
+    --primary-50: 236 254 255; --primary-100: 207 250 254; --primary-200: 165 243 252;
+    --primary-300: 103 232 249; --primary-400: 34 211 238; --primary-500: 6 182 212;
+    --primary-600: 8 145 178; --primary-700: 14 116 144; --primary-800: 21 94 117;
+    --primary-900: 22 78 99; --primary-950: 8 51 68;
+    --lunex-bg: 5 8 12; --lunex-purple: 217 70 239; --lunex-violet: 34 211 238;
+    --lunex-lilac: 103 232 249; --lunex-gray: 148 163 184;
+  }
+
+  /*
+    حبر وورق — warm sepia "paper" tone rather than a stark white light mode:
+    deep warm brown/sepia background with cream text keeps every hardcoded
+    `text-white` heading across the site (a pre-existing convention, ~140
+    occurrences) legible without needing a separate site-wide text-color
+    migration — the same reasoning e-readers use "sepia" instead of pure
+    white for a warmer, paper-like reading surface, not a limitation dressed
+    up as a feature.
+  */
+  [data-style="ink-paper"] {
+    --background: 30 28% 10%;
+    --card: 30 26% 14%;
+    --popover: 30 28% 12%;
+    --muted: 30 20% 18%;
+    --muted-foreground: 30 12% 65%;
+    --border: 30 25% 24%;
+    --input: 30 25% 24%;
+    --ring: 8 70% 50%;
+    --primary-50: 254 242 242; --primary-100: 254 226 226; --primary-200: 254 202 202;
+    --primary-300: 252 165 165; --primary-400: 248 113 113; --primary-500: 239 68 68;
+    --primary-600: 220 38 38; --primary-700: 185 28 28; --primary-800: 153 27 27;
+    --primary-900: 127 29 29; --primary-950: 69 10 10;
+    --lunex-bg: 26 22 15; --lunex-purple: 220 38 38; --lunex-violet: 185 28 28;
+    --lunex-lilac: 248 113 113; --lunex-gray: 168 155 138;
+  }
+
+  /* غروب الأبطال — warm amber/orange on a dark warm-brown ground. */
+  [data-style="hero-sunset"] {
+    --background: 20 35% 5%;
+    --card: 20 35% 10%;
+    --popover: 20 35% 8%;
+    --muted: 20 20% 16%;
+    --muted-foreground: 30 10% 65%;
+    --border: 25 40% 24%;
+    --input: 25 40% 24%;
+    --ring: 25 90% 55%;
+    --primary-50: 255 247 237; --primary-100: 255 237 213; --primary-200: 254 215 170;
+    --primary-300: 253 186 116; --primary-400: 251 146 60; --primary-500: 249 115 22;
+    --primary-600: 234 88 12; --primary-700: 194 65 12; --primary-800: 154 52 18;
+    --primary-900: 124 45 18; --primary-950: 67 20 7;
+    --lunex-bg: 12 7 5; --lunex-purple: 220 38 38; --lunex-violet: 249 115 22;
+    --lunex-lilac: 253 186 116; --lunex-gray: 168 162 158;
+  }
+
+  /* قمر أزرق — cool indigo/blue, calm and quiet. */
+  [data-style="blue-moon"] {
+    --background: 222 45% 5%;
+    --card: 222 42% 10%;
+    --popover: 222 42% 8%;
+    --muted: 222 25% 16%;
+    --muted-foreground: 215 15% 65%;
+    --border: 222 40% 24%;
+    --input: 222 40% 24%;
+    --ring: 217 91% 60%;
+    --primary-50: 239 246 255; --primary-100: 219 234 254; --primary-200: 191 219 254;
+    --primary-300: 147 197 253; --primary-400: 96 165 250; --primary-500: 59 130 246;
+    --primary-600: 37 99 235; --primary-700: 29 78 216; --primary-800: 30 64 175;
+    --primary-900: 30 58 138; --primary-950: 23 37 84;
+    --lunex-bg: 5 7 13; --lunex-purple: 37 99 235; --lunex-violet: 96 165 250;
+    --lunex-lilac: 147 197 253; --lunex-gray: 148 163 184;
+  }
+
+  /* دم قرمزي — sharp crimson on black, for the action/battle mood. */
+  [data-style="crimson-blood"] {
+    --background: 0 30% 4%;
+    --card: 0 35% 8%;
+    --popover: 0 38% 6%;
+    --muted: 0 20% 14%;
+    --muted-foreground: 0 5% 65%;
+    --border: 0 45% 22%;
+    --input: 0 45% 22%;
+    --ring: 0 84% 55%;
+    --primary-50: 254 242 242; --primary-100: 254 226 226; --primary-200: 254 202 202;
+    --primary-300: 252 165 165; --primary-400: 248 113 113; --primary-500: 239 68 68;
+    --primary-600: 220 38 38; --primary-700: 185 28 28; --primary-800: 153 27 27;
+    --primary-900: 127 29 29; --primary-950: 69 10 10;
+    --lunex-bg: 10 5 5; --lunex-purple: 220 38 38; --lunex-violet: 239 68 68;
+    --lunex-lilac: 248 113 113; --lunex-gray: 161 161 170;
   }
 
   * {
@@ -47,9 +165,9 @@
     background: transparent;
   }
   ::-webkit-scrollbar-thumb {
-    background: #a855f7;
+    background: rgb(var(--primary-400));
     border-radius: 999px;
-    border: 2px solid #09090b;
+    border: 2px solid hsl(var(--background));
   }
 }
 
@@ -57,7 +175,7 @@
   /* Clean solid surface: subtle border + soft shadow, rounded. Replaces both the old
      translucent glass and the hard-edged brutalist panel. */
   .panel {
-    @apply rounded-2xl border border-white/10 bg-[#120a1f];
+    @apply rounded-2xl border border-border bg-card;
     box-shadow: 0 8px 24px -8px rgba(0, 0, 0, 0.5);
   }
 

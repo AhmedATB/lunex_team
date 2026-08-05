@@ -10,7 +10,7 @@ export function Sidebar() {
   const pathname = usePathname();
 
   return (
-    <aside className="sticky top-16 hidden h-[calc(100vh-4rem)] w-60 shrink-0 flex-col gap-1 overflow-y-auto border-e border-white/10 bg-[#0c0715] p-4 lg:flex">
+    <aside className="sticky top-16 hidden h-[calc(100vh-4rem)] w-60 shrink-0 flex-col gap-1 overflow-y-auto border-e border-border bg-background p-4 lg:flex">
       <nav className="flex flex-col gap-1">
         {SIDEBAR_NAV.map((item) => {
           const active = pathname === item.href.split("?")[0];
