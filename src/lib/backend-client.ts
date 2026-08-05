@@ -40,13 +40,23 @@ export async function callBackend<T>(
   }
   if (init.authToken) headers.Authorization = `Bearer ${init.authToken}`;
 
-  const res = await fetch(`${BACKEND_URL}${path}`, {
-    method: init.method ?? "GET",
-    headers,
-    body: init.body !== undefined ? JSON.stringify(init.body) : undefined,
-    cache: "no-store",
-  });
+  try {
+    const res = await fetch(`${BACKEND_URL}${path}`, {
+      method: init.method ?? "GET",
+      headers,
+      body: init.body !== undefined ? JSON.stringify(init.body) : undefined,
+      cache: "no-store",
+    });
 
-  const body = (await res.json().catch(() => null)) as T;
-  return { status: res.status, ok: res.ok, body };
+    const body = (await res.json().catch(() => null)) as T;
+    return { status: res.status, ok: res.ok, body };
+  } catch {
+    // The backend being unreachable (down for a restart/deploy, network
+    // blip) must never crash the caller — getServerSession() runs from the
+    // ROOT layout on every single page, so an uncaught rejection here would
+    // have broken the entire site, not just whatever feature happened to be
+    // fetching. Callers already treat `ok: false` as "couldn't verify" and
+    // degrade to logged-out/empty state, which is the right behavior here too.
+    return { status: 503, ok: false, body: null as T };
+  }
 }
