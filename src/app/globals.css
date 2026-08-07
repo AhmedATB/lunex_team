@@ -184,12 +184,23 @@
   }
   .panel-hover:hover {
     transform: translateY(-4px) scale(1.015);
-    border-color: rgba(168, 85, 247, 0.4);
-    box-shadow: 0 16px 32px -12px rgba(109, 40, 217, 0.45);
+    border-color: rgb(var(--primary-400) / 0.4);
+    box-shadow: 0 16px 32px -12px rgb(var(--primary-600) / 0.45);
+  }
+
+  /* Neon Cyber: every panel gets a faint animated border-glow pulse — the "everything hums" feel, not just isolated accents. */
+  [data-style="neon-cyber"] .panel {
+    animation: neon-panel-pulse 4s ease-in-out infinite;
   }
 
   .text-gradient {
     @apply bg-lunex-gradient bg-clip-text text-transparent;
+  }
+
+  /* Neon sign lettering — only lit under Neon Cyber; a plain, unaffected class under every other style. */
+  [data-style="neon-cyber"] .neon-text {
+    color: rgb(var(--primary-300));
+    animation: neon-text-glow 2.4s ease-in-out infinite;
   }
 
   /* Soft drifting glow blobs — the ambient "aura" behind content. */
@@ -211,7 +222,7 @@
     inset: -2px;
     z-index: -1;
     border-radius: inherit;
-    background: linear-gradient(135deg, #6d28d9, #c084fc, #a855f7);
+    background: linear-gradient(135deg, rgb(var(--primary-600)), rgb(var(--primary-300)), rgb(var(--primary-400)));
     opacity: 0;
     filter: blur(18px);
     transition: opacity 0.4s var(--ease-premium);
@@ -220,6 +231,18 @@
   .art-glow:active::before,
   .art-glow:focus-visible::before {
     opacity: 0.6;
+  }
+
+  /* Neon Cyber: art-glow runs constantly (not just on hover) and dual-tones cyan + magenta, like a lit sign rather than a soft aura. */
+  [data-style="neon-cyber"] .art-glow::before {
+    background: linear-gradient(135deg, rgb(var(--primary-400)), rgb(var(--lunex-purple)));
+    opacity: 0.45;
+    animation: neon-flicker 3s ease-in-out infinite;
+  }
+  [data-style="neon-cyber"] .art-glow:hover::before,
+  [data-style="neon-cyber"] .art-glow:active::before,
+  [data-style="neon-cyber"] .art-glow:focus-visible::before {
+    opacity: 0.85;
   }
 
   /* A single light sweep across the card on hover — cheap, tasteful "shine". */
@@ -428,6 +451,28 @@
   50% { opacity: 0.9; }
 }
 
+@keyframes neon-panel-pulse {
+  0%, 100% { border-color: rgb(var(--primary-400) / 0.15); box-shadow: 0 8px 24px -8px rgba(0, 0, 0, 0.5); }
+  50% { border-color: rgb(var(--primary-400) / 0.55); box-shadow: 0 8px 24px -8px rgba(0, 0, 0, 0.5), 0 0 16px -4px rgb(var(--primary-400) / 0.4); }
+}
+
+/* A real neon sign flickers irregularly, not a smooth sine wave — this staggers two quick dips into one cycle instead of a single symmetric pulse. */
+@keyframes neon-flicker {
+  0%, 19%, 21%, 100% { opacity: 0.45; }
+  20% { opacity: 0.2; }
+  55%, 57% { opacity: 0.85; }
+  56% { opacity: 0.3; }
+}
+
+@keyframes neon-text-glow {
+  0%, 100% {
+    text-shadow: 0 0 8px rgb(var(--primary-400) / 0.8), 0 0 18px rgb(var(--primary-400) / 0.5), 0 0 32px rgb(var(--lunex-purple) / 0.4);
+  }
+  50% {
+    text-shadow: 0 0 4px rgb(var(--primary-400) / 0.6), 0 0 10px rgb(var(--primary-400) / 0.35), 0 0 20px rgb(var(--lunex-purple) / 0.25);
+  }
+}
+
 @keyframes cursor-sparkle-fade {
   0% { opacity: 1; transform: translate(-50%, -50%) scale(1); }
   100% { opacity: 0; transform: translate(-50%, -50%) scale(0.2) translateY(-16px); }
@@ -460,7 +505,10 @@
   .sparkle-star,
   .magic-border::before,
   .section-title::after,
-  .magic-divider::before {
+  .magic-divider::before,
+  [data-style="neon-cyber"] .panel,
+  [data-style="neon-cyber"] .art-glow::before,
+  .neon-text {
     animation: none;
   }
 }

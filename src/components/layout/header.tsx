@@ -83,7 +83,7 @@ export function Header() {
             height={34}
             className="rounded-full"
           />
-          <span className="hidden font-display text-lg font-bold text-white sm:inline">
+          <span className="neon-text hidden font-display text-lg font-bold text-white sm:inline">
             LUNEX <span className="text-primary-400">TEAM</span>
           </span>
         </Link>

@@ -4,6 +4,7 @@ import "./globals.css";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { StoreHydration } from "@/components/store-hydration";
 import { ThemeApplier } from "@/components/theme-applier";
+import { NeonBackdrop } from "@/components/neon-backdrop";
 import { getServerSession } from "@/lib/server-session";
 
 const cairo = Cairo({
@@ -55,6 +56,7 @@ export default async function RootLayout({ children }: { children: React.ReactNo
       <body className="font-sans">
         <StoreHydration initialUser={initialUser} />
         <ThemeApplier />
+        <NeonBackdrop />
         <TooltipProvider delayDuration={200}>{children}</TooltipProvider>
       </body>
     </html>
