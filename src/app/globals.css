@@ -4,60 +4,60 @@
 
 @layer base {
   :root {
-    --background: 260 30% 4%;
+    --background: 200 40% 3%;
     --foreground: 0 0% 100%;
-    --card: 265 38% 9%;
+    --card: 200 45% 7%;
     --card-foreground: 0 0% 100%;
-    --popover: 265 40% 7%;
+    --popover: 200 45% 6%;
     --popover-foreground: 0 0% 100%;
-    --muted: 265 20% 15%;
-    --muted-foreground: 240 5% 65%;
-    --border: 267 45% 24%;
-    --input: 267 45% 24%;
-    --ring: 271 81% 56%;
+    --muted: 200 25% 13%;
+    --muted-foreground: 200 10% 65%;
+    --border: 195 60% 22%;
+    --input: 195 60% 22%;
+    --ring: 187 85% 55%;
     --destructive: 0 72% 51%;
     --destructive-foreground: 0 0% 100%;
     --radius: 0.9rem;
     --ease-premium: cubic-bezier(0.16, 1, 0.3, 1);
     --ease-bounce: cubic-bezier(0.34, 1.56, 0.64, 1);
 
-    /* Brand palette — "R G B" triples (Tailwind's rgb(var(--x) / <alpha-value>) pattern), so `bg-primary-400/50`-style opacity modifiers keep working under every style below. This is style #1 "البنفسجي الليلي" — the site's original look, unchanged. */
-    --primary-50: 243 232 255;
-    --primary-100: 233 213 255;
-    --primary-200: 216 180 254;
-    --primary-300: 192 132 252;
-    --primary-400: 168 85 247;
-    --primary-500: 139 49 232;
-    --primary-600: 109 40 217;
-    --primary-700: 91 33 182;
-    --primary-800: 76 29 149;
-    --primary-900: 59 10 112;
-    --primary-950: 36 6 70;
-    --lunex-bg: 9 9 11;
-    --lunex-purple: 109 40 217;
-    --lunex-violet: 168 85 247;
-    --lunex-lilac: 192 132 252;
-    --lunex-gray: 161 161 170;
+    /* Brand palette — "R G B" triples (Tailwind's rgb(var(--x) / <alpha-value>) pattern), so `bg-primary-400/50`-style opacity modifiers keep working under every style below. This is style "نيون سايبر" — the current default (lib/theme-presets.ts DEFAULT_STYLE). Living directly in :root rather than behind a [data-style] selector means the default paints on the very first server-rendered frame with no flash while the client-side choice is still loading. */
+    --primary-50: 236 254 255;
+    --primary-100: 207 250 254;
+    --primary-200: 165 243 252;
+    --primary-300: 103 232 249;
+    --primary-400: 34 211 238;
+    --primary-500: 6 182 212;
+    --primary-600: 8 145 178;
+    --primary-700: 14 116 144;
+    --primary-800: 21 94 117;
+    --primary-900: 22 78 99;
+    --primary-950: 8 51 68;
+    --lunex-bg: 5 8 12;
+    --lunex-purple: 217 70 239;
+    --lunex-violet: 34 211 238;
+    --lunex-lilac: 103 232 249;
+    --lunex-gray: 148 163 184;
   }
 
   /* ===== الأنماط البديلة (Style presets) — swap the whole token set, background family included, so a light style like "حبر وورق" genuinely flips light/dark, not just the accent. Applied via data-style on <html>; see store/theme.ts + components/theme-applier.tsx. ===== */
 
-  /* نيون سايبر — cyan/magenta neon on a near-black cyan-tinted ground. */
-  [data-style="neon-cyber"] {
-    --background: 200 40% 3%;
-    --card: 200 45% 7%;
-    --popover: 200 45% 6%;
-    --muted: 200 25% 13%;
-    --muted-foreground: 200 10% 65%;
-    --border: 195 60% 22%;
-    --input: 195 60% 22%;
-    --ring: 187 85% 55%;
-    --primary-50: 236 254 255; --primary-100: 207 250 254; --primary-200: 165 243 252;
-    --primary-300: 103 232 249; --primary-400: 34 211 238; --primary-500: 6 182 212;
-    --primary-600: 8 145 178; --primary-700: 14 116 144; --primary-800: 21 94 117;
-    --primary-900: 22 78 99; --primary-950: 8 51 68;
-    --lunex-bg: 5 8 12; --lunex-purple: 217 70 239; --lunex-violet: 34 211 238;
-    --lunex-lilac: 103 232 249; --lunex-gray: 148 163 184;
+  /* البنفسجي الليلي — the site's original look, now an override rather than the base (see the :root comment above for why). */
+  [data-style="violet-night"] {
+    --background: 260 30% 4%;
+    --card: 265 38% 9%;
+    --popover: 265 40% 7%;
+    --muted: 265 20% 15%;
+    --muted-foreground: 240 5% 65%;
+    --border: 267 45% 24%;
+    --input: 267 45% 24%;
+    --ring: 271 81% 56%;
+    --primary-50: 243 232 255; --primary-100: 233 213 255; --primary-200: 216 180 254;
+    --primary-300: 192 132 252; --primary-400: 168 85 247; --primary-500: 139 49 232;
+    --primary-600: 109 40 217; --primary-700: 91 33 182; --primary-800: 76 29 149;
+    --primary-900: 59 10 112; --primary-950: 36 6 70;
+    --lunex-bg: 9 9 11; --lunex-purple: 109 40 217; --lunex-violet: 168 85 247;
+    --lunex-lilac: 192 132 252; --lunex-gray: 161 161 170;
   }
 
   /*
