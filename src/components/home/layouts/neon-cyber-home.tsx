@@ -5,15 +5,17 @@ import { TopReaders } from "@/components/home/top-readers";
 import { LatestComments } from "@/components/home/latest-comments";
 import { ContinueReading } from "@/components/home/continue-reading";
 import { LatestChaptersGrid } from "@/components/home/latest-chapters-grid";
-import { TrendingRankGrid } from "@/components/home/trending-rank-grid";
-import { SeriesRow } from "@/components/shared/series-card";
+import { CyberCard } from "@/components/shared/series-cards/cyber-card";
+import { SeriesShowcase } from "@/components/shared/series-showcase";
 import { FadeIn } from "@/components/motion/fade-in";
 import type { HomeLayoutData } from "./types";
 
 /**
  * "الشبكة" (Grid Wall) — no hero slider: opens straight onto a dense ranked
- * grid, like a wall of screens. Denser, faster-scanning, less cinematic —
- * matches the neon-cyber mood better than a slow rotating spotlight would.
+ * grid, like a wall of screens. Every series display in this layout uses
+ * CyberCard (sharp corners, HUD brackets, info burned onto the image), not
+ * just the trending section — the card design itself is the differentiator
+ * here, not just section order.
  */
 export function NeonCyberHome(data: HomeLayoutData) {
   return (
@@ -23,7 +25,11 @@ export function NeonCyberHome(data: HomeLayoutData) {
       </FadeIn>
 
       <FadeIn>
-        <TrendingRankGrid series={data.trending} title="الأكثر رواجاً الآن" />
+        <SeriesShowcase
+          title="الأكثر رواجاً الآن"
+          series={data.trending}
+          renderCard={(s, i) => <CyberCard key={s.id} series={s} rank={i + 1} />}
+        />
       </FadeIn>
 
       <FadeIn>
@@ -42,17 +48,37 @@ export function NeonCyberHome(data: HomeLayoutData) {
       </FadeIn>
 
       <FadeIn>
-        <SeriesRow title="الأكثر شعبية اليوم" href="/search?sort=views" series={data.popular} />
+        <SeriesShowcase
+          title="الأكثر شعبية اليوم"
+          href="/search?sort=views"
+          series={data.popular}
+          renderCard={(s) => <CyberCard key={s.id} series={s} />}
+        />
       </FadeIn>
 
       <FadeIn>
-        <SeriesRow title="تحديثات حديثة" href="/search?sort=latest" series={data.recentlyUpdated} />
+        <SeriesShowcase
+          title="تحديثات حديثة"
+          href="/search?sort=latest"
+          series={data.recentlyUpdated}
+          renderCard={(s) => <CyberCard key={s.id} series={s} />}
+        />
       </FadeIn>
 
       <FadeIn>
         <div className="grid gap-4 sm:grid-cols-2">
-          <SeriesRow title="مستمرة" href="/search?status=ongoing" series={data.ongoing.slice(0, 6)} />
-          <SeriesRow title="ننصح لك بها" href="/search" series={data.recommended} />
+          <SeriesShowcase
+            title="مستمرة"
+            href="/search?status=ongoing"
+            series={data.ongoing.slice(0, 6)}
+            renderCard={(s) => <CyberCard key={s.id} series={s} />}
+          />
+          <SeriesShowcase
+            title="ننصح لك بها"
+            href="/search"
+            series={data.recommended}
+            renderCard={(s) => <CyberCard key={s.id} series={s} />}
+          />
         </div>
       </FadeIn>
 

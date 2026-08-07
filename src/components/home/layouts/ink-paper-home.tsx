@@ -5,14 +5,15 @@ import { TopReaders } from "@/components/home/top-readers";
 import { LatestComments } from "@/components/home/latest-comments";
 import { ContinueReading } from "@/components/home/continue-reading";
 import { LatestChaptersList } from "@/components/home/latest-chapters-list";
-import { SeriesRow } from "@/components/shared/series-card";
+import { PaperListItem } from "@/components/shared/series-cards/paper-list-item";
 import { FadeIn } from "@/components/motion/fade-in";
 import type { HomeLayoutData } from "./types";
 
 /**
- * "الفهرس" (Editorial Index) — text-forward and list-based rather than a
- * wall of cover art: no big hero, chapters read like a table of contents.
- * Matches the sepia/paper mood of a reading-focused, less flashy page.
+ * "الفهرس" (Editorial Index) — text-forward and list-based throughout, not
+ * just for chapters: every series display here uses PaperListItem (a
+ * reading-list row, no card/cover wall) so the whole page reads like a
+ * table of contents rather than a gallery.
  */
 export function InkPaperHome(data: HomeLayoutData) {
   return (
@@ -34,23 +35,38 @@ export function InkPaperHome(data: HomeLayoutData) {
         </FadeIn>
       </div>
 
-      <FadeIn>
-        <SeriesRow title="الأكثر شعبية اليوم" href="/search?sort=views" series={data.popular} />
-      </FadeIn>
+      <div className="grid gap-8 lg:grid-cols-2">
+        <FadeIn>
+          <section className="space-y-2">
+            <h2 className="section-title font-display text-xl font-bold text-white sm:text-2xl">الأكثر شعبية اليوم</h2>
+            <div className="panel divide-y divide-white/5 px-3">
+              {data.popular.map((s) => (
+                <PaperListItem key={s.id} series={s} />
+              ))}
+            </div>
+          </section>
+        </FadeIn>
+        <FadeIn>
+          <section className="space-y-2">
+            <h2 className="section-title font-display text-xl font-bold text-white sm:text-2xl">تحديثات حديثة</h2>
+            <div className="panel divide-y divide-white/5 px-3">
+              {data.recentlyUpdated.slice(0, 8).map((s) => (
+                <PaperListItem key={s.id} series={s} />
+              ))}
+            </div>
+          </section>
+        </FadeIn>
+      </div>
 
       <FadeIn>
-        <SeriesRow title="تحديثات حديثة" href="/search?sort=latest" series={data.recentlyUpdated} />
-      </FadeIn>
-
-      <FadeIn>
-        <div className="grid gap-4 sm:grid-cols-2">
-          <SeriesRow title="مستمرة" href="/search?status=ongoing" series={data.ongoing.slice(0, 6)} />
-          <SeriesRow title="مكتملة" href="/search?status=completed" series={data.completed} />
-        </div>
-      </FadeIn>
-
-      <FadeIn>
-        <SeriesRow title="ننصح لك بها" href="/search" series={data.recommended} />
+        <section className="space-y-2">
+          <h2 className="section-title font-display text-xl font-bold text-white sm:text-2xl">ننصح لك بها</h2>
+          <div className="panel divide-y divide-white/5 px-3">
+            {data.recommended.map((s) => (
+              <PaperListItem key={s.id} series={s} />
+            ))}
+          </div>
+        </section>
       </FadeIn>
 
       <div className="magic-divider" />

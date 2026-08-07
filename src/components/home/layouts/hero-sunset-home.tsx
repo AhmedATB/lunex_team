@@ -7,17 +7,18 @@ import { TopReaders } from "@/components/home/top-readers";
 import { LatestComments } from "@/components/home/latest-comments";
 import { ContinueReading } from "@/components/home/continue-reading";
 import { LatestChaptersGrid } from "@/components/home/latest-chapters-grid";
-import { TrendingCarousel } from "@/components/home/trending-carousel";
-import { SeriesRow, SeriesCard } from "@/components/shared/series-card";
+import { SunsetCard } from "@/components/shared/series-cards/sunset-card";
+import { SeriesShowcase } from "@/components/shared/series-showcase";
+import { SeriesCard } from "@/components/shared/series-card";
 import { FadeIn } from "@/components/motion/fade-in";
 import { Badge } from "@/components/ui/badge";
 import type { HomeLayoutData } from "./types";
 
 /**
- * "بؤرة البطل" (Hero Spotlight) — cinematic and dramatic: the hero leads,
- * and a single hand-picked spotlight follows immediately after instead of
- * being buried near the bottom, echoing the "one hero, one duel" framing
- * the sunset mood calls for.
+ * "بؤرة البطل" (Hero Spotlight) — cinematic: every series display uses
+ * SunsetCard, a tall poster-style card with the title burned onto the
+ * image, so the whole page reads like a wall of movie posters rather than
+ * a catalog grid.
  */
 export function HeroSunsetHome(data: HomeLayoutData) {
   return (
@@ -51,7 +52,12 @@ export function HeroSunsetHome(data: HomeLayoutData) {
       </FadeIn>
 
       <FadeIn>
-        <TrendingCarousel series={data.trending} />
+        <SeriesShowcase
+          title="الرائجة"
+          href="/search?sort=views"
+          series={data.trending}
+          renderCard={(s) => <SunsetCard key={s.id} series={s} />}
+        />
       </FadeIn>
 
       <FadeIn>
@@ -59,15 +65,30 @@ export function HeroSunsetHome(data: HomeLayoutData) {
       </FadeIn>
 
       <FadeIn>
-        <SeriesRow title="الأكثر شعبية اليوم" href="/search?sort=views" series={data.popular} />
+        <SeriesShowcase
+          title="الأكثر شعبية اليوم"
+          href="/search?sort=views"
+          series={data.popular}
+          renderCard={(s) => <SunsetCard key={s.id} series={s} />}
+        />
       </FadeIn>
 
       <FadeIn>
-        <SeriesRow title="إصدارات جديدة" href="/search?sort=latest" series={data.newReleases} />
+        <SeriesShowcase
+          title="إصدارات جديدة"
+          href="/search?sort=latest"
+          series={data.newReleases}
+          renderCard={(s) => <SunsetCard key={s.id} series={s} />}
+        />
       </FadeIn>
 
       <FadeIn>
-        <SeriesRow title="ننصح لك بها" href="/search" series={data.recommended} />
+        <SeriesShowcase
+          title="ننصح لك بها"
+          href="/search"
+          series={data.recommended}
+          renderCard={(s) => <SunsetCard key={s.id} series={s} />}
+        />
       </FadeIn>
 
       <div className="magic-divider" />

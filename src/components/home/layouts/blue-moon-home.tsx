@@ -5,16 +5,15 @@ import { NewsSection } from "@/components/home/news-section";
 import { TopReaders } from "@/components/home/top-readers";
 import { LatestComments } from "@/components/home/latest-comments";
 import { ContinueReading } from "@/components/home/continue-reading";
-import { SeriesRow } from "@/components/shared/series-card";
+import { MoonCard } from "@/components/shared/series-cards/moon-card";
+import { SeriesShowcase } from "@/components/shared/series-showcase";
 import { FadeIn } from "@/components/motion/fade-in";
 import type { HomeLayoutData } from "./types";
 
 /**
- * "الهادئ" (Calm) — deliberately spacious: wider gaps between sections,
- * one curated row at a time rather than a wall of dense grids, genre
- * browsing offered early as a quiet way to explore rather than being
- * buried under a dozen ranked lists. Matches the calm, quiet mood blue-moon
- * is meant to evoke.
+ * "الهادئ" (Calm) — every series display uses MoonCard: a soft gallery
+ * card with no heavy gradient burned onto the image and info sitting
+ * calmly below, plus deliberately spacious gaps between sections.
  */
 export function BlueMoonHome(data: HomeLayoutData) {
   return (
@@ -32,7 +31,12 @@ export function BlueMoonHome(data: HomeLayoutData) {
       </FadeIn>
 
       <FadeIn>
-        <SeriesRow title="ننصح لك بها" href="/search" series={data.recommended} />
+        <SeriesShowcase
+          title="ننصح لك بها"
+          href="/search"
+          series={data.recommended}
+          renderCard={(s) => <MoonCard key={s.id} series={s} />}
+        />
       </FadeIn>
 
       <FadeIn>
@@ -43,11 +47,21 @@ export function BlueMoonHome(data: HomeLayoutData) {
       </FadeIn>
 
       <FadeIn>
-        <SeriesRow title="تحديثات حديثة" href="/search?sort=latest" series={data.recentlyUpdated} />
+        <SeriesShowcase
+          title="تحديثات حديثة"
+          href="/search?sort=latest"
+          series={data.recentlyUpdated}
+          renderCard={(s) => <MoonCard key={s.id} series={s} />}
+        />
       </FadeIn>
 
       <FadeIn>
-        <SeriesRow title="مكتملة" href="/search?status=completed" series={data.completed} />
+        <SeriesShowcase
+          title="مكتملة"
+          href="/search?status=completed"
+          series={data.completed}
+          renderCard={(s) => <MoonCard key={s.id} series={s} />}
+        />
       </FadeIn>
 
       <div className="magic-divider" />

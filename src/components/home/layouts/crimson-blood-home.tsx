@@ -5,22 +5,26 @@ import { TopReaders } from "@/components/home/top-readers";
 import { LatestComments } from "@/components/home/latest-comments";
 import { ContinueReading } from "@/components/home/continue-reading";
 import { LatestChaptersGrid } from "@/components/home/latest-chapters-grid";
-import { TrendingRankGrid } from "@/components/home/trending-rank-grid";
-import { SeriesRow } from "@/components/shared/series-card";
+import { BloodCard } from "@/components/shared/series-cards/blood-card";
+import { SeriesShowcase } from "@/components/shared/series-showcase";
 import { FadeIn } from "@/components/motion/fade-in";
 import type { HomeLayoutData } from "./types";
 
 /**
- * "ساحة المعركة" (Battle Wall) — opens directly on the ranked leaderboard,
- * no hero, no warm-up: aggressive and competitive, matching the crimson
- * mood. Popular-today and trending both get the dense ranked treatment
- * back to back before anything calmer appears.
+ * "ساحة المعركة" (Battle Wall) — opens directly on a ranked roster, no
+ * hero, no warm-up. Every series display uses BloodCard (clipped corner,
+ * thick border, stamped rank badge) for a consistent "combatant card" feel
+ * throughout, not just the leaderboard section.
  */
 export function CrimsonBloodHome(data: HomeLayoutData) {
   return (
     <div className="container relative space-y-12 py-6">
       <FadeIn>
-        <TrendingRankGrid series={data.trending} title="الأقوى الآن" />
+        <SeriesShowcase
+          title="الأقوى الآن"
+          series={data.trending}
+          renderCard={(s, i) => <BloodCard key={s.id} series={s} rank={i + 1} />}
+        />
       </FadeIn>
 
       <FadeIn delay={0.05}>
@@ -28,7 +32,12 @@ export function CrimsonBloodHome(data: HomeLayoutData) {
       </FadeIn>
 
       <FadeIn>
-        <TrendingRankGrid series={data.popular} title="الأكثر شعبية اليوم" href="/search?sort=views" />
+        <SeriesShowcase
+          title="الأكثر شعبية اليوم"
+          href="/search?sort=views"
+          series={data.popular}
+          renderCard={(s, i) => <BloodCard key={s.id} series={s} rank={i + 1} />}
+        />
       </FadeIn>
 
       <FadeIn>
@@ -40,15 +49,30 @@ export function CrimsonBloodHome(data: HomeLayoutData) {
       </FadeIn>
 
       <FadeIn>
-        <SeriesRow title="تحديثات حديثة" href="/search?sort=latest" series={data.recentlyUpdated} />
+        <SeriesShowcase
+          title="تحديثات حديثة"
+          href="/search?sort=latest"
+          series={data.recentlyUpdated}
+          renderCard={(s) => <BloodCard key={s.id} series={s} />}
+        />
       </FadeIn>
 
       <FadeIn>
-        <SeriesRow title="إصدارات جديدة" href="/search?sort=latest" series={data.newReleases} />
+        <SeriesShowcase
+          title="إصدارات جديدة"
+          href="/search?sort=latest"
+          series={data.newReleases}
+          renderCard={(s) => <BloodCard key={s.id} series={s} />}
+        />
       </FadeIn>
 
       <FadeIn>
-        <SeriesRow title="ننصح لك بها" href="/search" series={data.recommended} />
+        <SeriesShowcase
+          title="ننصح لك بها"
+          href="/search"
+          series={data.recommended}
+          renderCard={(s) => <BloodCard key={s.id} series={s} />}
+        />
       </FadeIn>
 
       <div className="magic-divider" />
