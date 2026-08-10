@@ -3,6 +3,9 @@
   "version": "0.1.0",
   "description": "LUNEX TEAM backend — auth core (see /docs/security-architecture for the full design).",
   "private": true,
+  "engines": {
+    "node": ">=20.9.0"
+  },
   "scripts": {
     "postinstall": "prisma generate",
     "build": "nest build",
