@@ -5,4 +5,5 @@ coverage/
 .env
 backend/prisma/dev.db
 prisma/dev.db
+*.db-journal
 storage/

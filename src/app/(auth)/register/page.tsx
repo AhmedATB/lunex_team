@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { Mail, Lock, User, Loader2, Check } from "lucide-react";
@@ -23,6 +23,12 @@ export default function RegisterPage() {
   const [agree, setAgree] = useState(false);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
+
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    if (params.get("error") === "oauth_failed") setError("تعذر إنشاء الحساب عبر هذا المزود، حاول مرة أخرى.");
+    else if (params.get("error") === "oauth_unavailable") setError("التسجيل عبر هذا المزود غير متاح حاليًا.");
+  }, []);
 
   const passwordStrength = Math.min(4, Math.floor(form.password.length / 3));
 
@@ -154,8 +160,12 @@ export default function RegisterPage() {
         </div>
 
         <div className="grid grid-cols-2 gap-3">
-          <Button variant="secondary" type="button">Google</Button>
-          <Button variant="secondary" type="button">Discord</Button>
+          <Button variant="secondary" type="button" asChild>
+            <a href="/api/auth/oauth/google/start">Google</a>
+          </Button>
+          <Button variant="secondary" type="button" asChild>
+            <a href="/api/auth/oauth/discord/start">Discord</a>
+          </Button>
         </div>
 
         <p className="text-center text-sm text-lunex-gray">

@@ -22,16 +22,36 @@ model User {
   id           String   @id @default(uuid())
   email        String   @unique
   username     String   @unique
-  passwordHash String
+  /// Optional — an account created via Discord/Google OAuth never sets one.
+  /// login() must therefore reject (not crash on) a password attempt when
+  /// this is null, rather than assuming every user has one.
+  passwordHash String?
   role         String   @default("reader")
   createdAt    DateTime @default(now())
   updatedAt    DateTime @updatedAt
 
-  sessions    Session[]
-  devices     Device[]
-  loginEvents LoginEvent[]
+  sessions      Session[]
+  devices       Device[]
+  loginEvents   LoginEvent[]
+  oauthAccounts OAuthAccount[]
 
   @@map("users")
+}
+
+/// One row per linked external identity. Deliberately its own table rather
+/// than columns on User (discordId/googleId) — a user can link both
+/// providers to one account, and adding a third provider later never
+/// touches this schema again.
+model OAuthAccount {
+  id                String   @id @default(uuid())
+  userId            String
+  user              User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  provider          String // "discord" | "google"
+  providerAccountId String
+  createdAt         DateTime @default(now())
+
+  @@unique([provider, providerAccountId])
+  @@map("oauth_accounts")
 }
 
 model Device {

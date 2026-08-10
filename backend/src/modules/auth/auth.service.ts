@@ -131,6 +131,15 @@ export class AuthService {
     return this.toPublicUser(user);
   }
 
+  /** Public wrapper around issueSession for OAuthService — OAuth logins get the exact same session/cookie contract as password logins, just via a different identity check upstream. */
+  async issueSessionForUser(userId: string, role: string, ctx: RequestContext): Promise<SessionTokens> {
+    return this.issueSession(userId, role, ctx);
+  }
+
+  toPublicUserFrom(user: PrismaUser): PublicUser {
+    return this.toPublicUser(user);
+  }
+
   /**
    * Revokes exactly the ONE session this refresh token belongs to — unlike
    * refresh()'s reuse-detection, a normal logout is not an attack signal, so

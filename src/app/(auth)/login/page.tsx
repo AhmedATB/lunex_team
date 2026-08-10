@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { Mail, Lock, Loader2 } from "lucide-react";
@@ -22,6 +22,12 @@ export default function LoginPage() {
   const [password, setPassword] = useState("");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
+
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    if (params.get("error") === "oauth_failed") setError("تعذر تسجيل الدخول عبر هذا الحساب، حاول مرة أخرى.");
+    else if (params.get("error") === "oauth_unavailable") setError("تسجيل الدخول عبر هذا المزود غير متاح حاليًا.");
+  }, []);
 
   async function submit(e: React.FormEvent) {
     e.preventDefault();
@@ -116,8 +122,12 @@ export default function LoginPage() {
         </div>
 
         <div className="grid grid-cols-2 gap-3">
-          <Button variant="secondary" type="button">Google</Button>
-          <Button variant="secondary" type="button">Discord</Button>
+          <Button variant="secondary" type="button" asChild>
+            <a href="/api/auth/oauth/google/start">Google</a>
+          </Button>
+          <Button variant="secondary" type="button" asChild>
+            <a href="/api/auth/oauth/discord/start">Discord</a>
+          </Button>
         </div>
 
         <p className="text-center text-sm text-lunex-gray">
