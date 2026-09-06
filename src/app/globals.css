@@ -188,9 +188,19 @@
     box-shadow: 0 16px 32px -12px rgb(var(--primary-600) / 0.45);
   }
 
-  /* Neon Cyber: every panel gets a faint animated border-glow pulse — the "everything hums" feel, not just isolated accents. */
+  /*
+    Neon Cyber: every panel gets a neon-tinted border glow. This used to
+    animate box-shadow/border-color continuously on every .panel — but
+    .panel is the base card style used site-wide (chapter lists, grids,
+    dozens of rows at once), and box-shadow/border-color are paint-
+    triggering properties, so N panels animating forever meant N full
+    repaints every frame, indefinitely. The ambient backdrop blobs
+    already carry the "living neon" feel via cheap transform/opacity-only
+    animation, so panels just get a static (paint-once) glow instead.
+  */
   [data-style="neon-cyber"] .panel {
-    animation: neon-panel-pulse 4s ease-in-out infinite;
+    border-color: rgb(var(--primary-400) / 0.35);
+    box-shadow: 0 8px 24px -8px rgba(0, 0, 0, 0.5), 0 0 14px -6px rgb(var(--primary-400) / 0.35);
   }
 
   .text-gradient {
@@ -451,11 +461,6 @@
   50% { opacity: 0.9; }
 }
 
-@keyframes neon-panel-pulse {
-  0%, 100% { border-color: rgb(var(--primary-400) / 0.15); box-shadow: 0 8px 24px -8px rgba(0, 0, 0, 0.5); }
-  50% { border-color: rgb(var(--primary-400) / 0.55); box-shadow: 0 8px 24px -8px rgba(0, 0, 0, 0.5), 0 0 16px -4px rgb(var(--primary-400) / 0.4); }
-}
-
 /* A real neon sign flickers irregularly, not a smooth sine wave — this staggers two quick dips into one cycle instead of a single symmetric pulse. */
 @keyframes neon-flicker {
   0%, 19%, 21%, 100% { opacity: 0.45; }
@@ -506,7 +511,6 @@
   .magic-border::before,
   .section-title::after,
   .magic-divider::before,
-  [data-style="neon-cyber"] .panel,
   [data-style="neon-cyber"] .art-glow::before,
   .neon-text {
     animation: none;
