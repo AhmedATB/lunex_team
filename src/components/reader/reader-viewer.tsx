@@ -115,7 +115,7 @@ export function ReaderViewer({
 
   return (
     <div className="relative flex flex-col">
-      <div className="fixed inset-x-0 top-16 z-30 h-1 bg-white/5">
+      <div className="fixed inset-x-0 top-0 z-30 h-1 bg-white/5">
         <div
           className="h-full bg-lunex-gradient transition-all duration-200"
           style={{ width: `${progress * 100}%` }}

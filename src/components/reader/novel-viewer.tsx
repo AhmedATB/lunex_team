@@ -71,7 +71,7 @@ export function NovelViewer({
 
   return (
     <div className={cn("min-h-screen transition-colors duration-300", THEME_CLASSES[theme])}>
-      <div className="fixed inset-x-0 top-16 z-30 h-1 bg-black/10">
+      <div className="fixed inset-x-0 top-0 z-30 h-1 bg-black/10">
         <div
           className="h-full bg-lunex-gradient transition-all duration-200"
           style={{ width: `${scrollProgress * 100}%` }}
