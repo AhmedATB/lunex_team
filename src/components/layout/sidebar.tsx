@@ -1,19 +1,27 @@
 "use client";
 
 import Link from "next/link";
-import { usePathname } from "next/navigation";
+import { usePathname, useSearchParams } from "next/navigation";
 import { cn } from "@/lib/utils";
 import { SIDEBAR_NAV } from "./nav-items";
 import { Sparkles } from "lucide-react";
 
 export function Sidebar() {
   const pathname = usePathname();
+  const searchParams = useSearchParams();
 
   return (
     <aside className="sticky top-16 hidden h-[calc(100vh-4rem)] w-60 shrink-0 flex-col gap-1 overflow-y-auto border-e border-border bg-background p-4 lg:flex">
       <nav className="flex flex-col gap-1">
         {SIDEBAR_NAV.map((item) => {
-          const active = pathname === item.href.split("?")[0];
+          // Some nav items share a pathname but differ only by query (e.g. /series
+          // vs /series?type=novel) — comparing pathname alone would light up both
+          // at once, so an item with a query string must match that query exactly,
+          // and a plain item must match only when there's no query at all.
+          const [hrefPath, hrefQuery] = item.href.split("?");
+          const active = hrefQuery
+            ? pathname === hrefPath && searchParams.toString() === hrefQuery
+            : pathname === hrefPath && searchParams.toString() === "";
           const Icon = item.icon;
           return (
             <Link

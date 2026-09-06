@@ -6,9 +6,11 @@ import { getMockDatabase } from "@/lib/mock/generate";
 import { useTeamManagement } from "@/store/team-management";
 import { ReaderToolbar } from "@/components/reader/reader-toolbar";
 import { ReaderViewer } from "@/components/reader/reader-viewer";
+import { NovelToolbar } from "@/components/reader/novel-toolbar";
+import { NovelViewer } from "@/components/reader/novel-viewer";
 import { ChapterGate } from "@/components/reader/chapter-gate";
 import { CommentSection } from "@/components/series/comment-section";
-import { safeDecodeURIComponent } from "@/lib/utils";
+import { safeDecodeURIComponent, cn } from "@/lib/utils";
 
 export default function ReaderPage() {
   const params = useParams<{ slug: string; chapter: string }>();
@@ -49,17 +51,29 @@ export default function ReaderPage() {
   const nextChapter = idx < sorted.length - 1 ? sorted[idx + 1].number : undefined;
 
   const comments = db.comments.filter((c) => c.seriesId === series.id);
+  const isNovel = series.type === "novel";
 
   return (
-    <div className="min-h-screen bg-black">
-      <ReaderToolbar
-        seriesSlug={series.slug}
-        seriesTitle={series.titleAr}
-        chapter={chapter}
-        chapters={sorted}
-        prevChapter={prevChapter}
-        nextChapter={nextChapter}
-      />
+    <div className={cn("min-h-screen", isNovel ? "bg-background" : "bg-black")}>
+      {isNovel ? (
+        <NovelToolbar
+          seriesSlug={series.slug}
+          seriesTitle={series.titleAr}
+          chapter={chapter}
+          chapters={sorted}
+          prevChapter={prevChapter}
+          nextChapter={nextChapter}
+        />
+      ) : (
+        <ReaderToolbar
+          seriesSlug={series.slug}
+          seriesTitle={series.titleAr}
+          chapter={chapter}
+          chapters={sorted}
+          prevChapter={prevChapter}
+          nextChapter={nextChapter}
+        />
+      )}
       <ChapterGate
         seriesId={series.id}
         seriesSlug={series.slug}
@@ -68,16 +82,28 @@ export default function ReaderPage() {
         chapterNumber={chapter.number}
         latestChapterNumber={sorted[sorted.length - 1]?.number ?? chapter.number}
       >
-        <ReaderViewer
-          seriesSlug={series.slug}
-          seriesId={series.id}
-          chapter={chapter}
-          prevChapter={prevChapter}
-          nextChapter={nextChapter}
-        />
+        {isNovel ? (
+          <NovelViewer
+            seriesSlug={series.slug}
+            seriesId={series.id}
+            chapter={chapter}
+            prevChapter={prevChapter}
+            nextChapter={nextChapter}
+          />
+        ) : (
+          <ReaderViewer
+            seriesSlug={series.slug}
+            seriesId={series.id}
+            chapter={chapter}
+            prevChapter={prevChapter}
+            nextChapter={nextChapter}
+          />
+        )}
       </ChapterGate>
       <div className="container max-w-3xl space-y-4 py-8">
-        <h2 className="font-display text-lg font-bold text-white">التعليقات على الفصل</h2>
+        <h2 className={cn("font-display text-lg font-bold", isNovel ? "text-foreground" : "text-white")}>
+          التعليقات على الفصل
+        </h2>
         <CommentSection seriesId={series.id} initialComments={comments} users={db.users} />
       </div>
     </div>

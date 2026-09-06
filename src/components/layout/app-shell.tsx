@@ -1,4 +1,4 @@
-import type { ReactNode } from "react";
+import { Suspense, type ReactNode } from "react";
 import { Header } from "./header";
 import { Sidebar } from "./sidebar";
 import { BottomNav } from "./bottom-nav";
@@ -36,7 +36,9 @@ export function AppShell({ children }: { children: ReactNode }) {
       <Header />
       <Ticker />
       <div className="flex flex-1">
-        <Sidebar />
+        <Suspense fallback={null}>
+          <Sidebar />
+        </Suspense>
         <main className="min-w-0 flex-1 pb-20 lg:pb-0">{children}</main>
       </div>
       <Footer />

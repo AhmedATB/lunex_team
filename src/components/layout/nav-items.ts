@@ -10,6 +10,7 @@ import {
   LayoutDashboard,
   Layers,
   BookOpen,
+  BookText,
   MessageSquare,
   ClipboardList,
   Coins,
@@ -24,6 +25,7 @@ export interface NavItem {
 export const SIDEBAR_NAV: NavItem[] = [
   { href: "/", label: "الرئيسية", icon: Home },
   { href: "/series", label: "استكشاف", icon: Compass },
+  { href: "/series?type=novel", label: "الروايات", icon: BookText },
   { href: "/store", label: "المتجر", icon: Coins },
   { href: "/search?sort=views", label: "الأكثر رواجاً", icon: Flame },
   { href: "/bookmarks", label: "مفضلتي", icon: Bookmark },

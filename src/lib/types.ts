@@ -249,6 +249,8 @@ export interface Chapter {
   number: number;
   title: string;
   pages: number;
+  /** Novel-type series only — the chapter's full Arabic text, paragraphs separated by blank lines. Image-type series never set this. */
+  content?: string;
   releasedAt: string;
   views: number;
   isPublished: boolean;

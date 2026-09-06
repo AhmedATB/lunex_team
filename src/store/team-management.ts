@@ -131,7 +131,7 @@ interface TeamManagementState {
   setChapterLock: (chapterId: string, locked: boolean | undefined, teamId: string, actorId: string) => void;
   removeChapter: (chapterId: string, teamId: string, actorId: string) => void;
   createChapter: (
-    chapter: Pick<Chapter, "seriesId" | "teamId" | "number" | "title" | "pages">,
+    chapter: Pick<Chapter, "seriesId" | "teamId" | "number" | "title"> & Partial<Pick<Chapter, "pages" | "content">>,
     actorId: string
   ) => void;
 }
@@ -464,6 +464,7 @@ export const useTeamManagement = create<TeamManagementState>()(
       createChapter: (chapter, actorId) => {
         const newChapter: Chapter = {
           ...chapter,
+          pages: chapter.pages ?? 0,
           id: `chapter-added-${Date.now()}`,
           releasedAt: new Date().toISOString(),
           views: 0,

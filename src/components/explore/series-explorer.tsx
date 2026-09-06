@@ -139,11 +139,19 @@ export function SeriesExplorer({ genres, title }: { genres: Genre[]; title: stri
   }
 
   const activeCount = [filters.genre, filters.status, filters.type, filters.country].filter(Boolean).length;
+  const novelsView = filters.type === "novel";
 
   return (
     <div className="container space-y-6 py-6">
       <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-        <h1 className="font-display text-2xl font-bold text-white sm:text-3xl">{title}</h1>
+        <div>
+          <h1 className="font-display text-2xl font-bold text-white sm:text-3xl">
+            {novelsView ? "الروايات" : title}
+          </h1>
+          {novelsView && (
+            <p className="mt-1 text-sm text-lunex-gray">مجموعة الروايات النصية المترجمة على المنصة.</p>
+          )}
+        </div>
         <div className="relative w-full sm:w-80">
           <SearchIcon className="pointer-events-none absolute start-3 top-1/2 h-4 w-4 -translate-y-1/2 text-lunex-gray" />
           <Input

@@ -1,12 +1,13 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
-import { UploadCloud, FileArchive, Trash2, Search, Plus } from "lucide-react";
+import { UploadCloud, Trash2, Search, Plus, BookText } from "lucide-react";
 import { getMockDatabase } from "@/lib/mock/generate";
 import { useSession } from "@/store/session";
 import { useTeamManagement } from "@/store/team-management";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
+import { Textarea } from "@/components/ui/textarea";
 import { Badge } from "@/components/ui/badge";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Button } from "@/components/ui/button";
@@ -17,7 +18,8 @@ import {
 import {
   Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger,
 } from "@/components/ui/dialog";
-import { timeAgo } from "@/lib/utils";
+import { timeAgo, cn } from "@/lib/utils";
+import type { SeriesType } from "@/lib/types";
 
 export default function AdminChaptersPage() {
   useEffect(() => {
@@ -87,23 +89,15 @@ export default function AdminChaptersPage() {
             }`}
           >
             <UploadCloud className="h-10 w-10 text-primary-300" />
-            <p className="text-sm text-white">اسحب وأفلت ملفات الصور أو ZIP هنا</p>
-            <p className="text-xs text-lunex-gray">يدعم JPG, PNG, WebP وملفات ZIP (حد أقصى 200 ميجابايت)</p>
+            <p className="text-sm text-white">اسحب وأفلت ملفات الصور أو ZIP هنا لسلاسل المانهوا</p>
+            <p className="text-xs text-lunex-gray">يدعم JPG, PNG, WebP وملفات ZIP (حد أقصى 200 ميجابايت) — أو أنشئ فصلاً نصياً لسلسلة رواية من الزر أدناه</p>
             {currentUserId && (
               <div className="flex gap-2 pt-2">
                 <CreateChapterDialog
-                  series={[...db.series, ...store.addedSeries]}
+                  series={[...db.series, ...store.addedSeries].map((s) => ({ id: s.id, titleAr: s.titleAr, teamId: s.teamId, type: s.type }))}
                   defaultPages={droppedCount}
                   onCreate={(c) => store.createChapter(c, currentUserId)}
-                  trigger={
-                    <Button size="sm" variant="secondary"><FileArchive className="h-4 w-4" /> اختر ملف ZIP</Button>
-                  }
-                />
-                <CreateChapterDialog
-                  series={[...db.series, ...store.addedSeries]}
-                  defaultPages={droppedCount}
-                  onCreate={(c) => store.createChapter(c, currentUserId)}
-                  trigger={<Button size="sm"><Plus className="h-4 w-4" /> اختر صوراً</Button>}
+                  trigger={<Button size="sm"><Plus className="h-4 w-4" /> فصل جديد</Button>}
                 />
               </div>
             )}
@@ -131,7 +125,7 @@ export default function AdminChaptersPage() {
                 <th className="w-10 p-3"></th>
                 <th className="p-3 text-start font-medium">السلسلة</th>
                 <th className="p-3 text-start font-medium">الفصل</th>
-                <th className="p-3 text-start font-medium">الصفحات</th>
+                <th className="p-3 text-start font-medium">المحتوى</th>
                 <th className="p-3 text-start font-medium">الحالة</th>
                 <th className="p-3 text-start font-medium">تاريخ النشر</th>
               </tr>
@@ -146,7 +140,15 @@ export default function AdminChaptersPage() {
                     {seriesMap.get(c.seriesId)?.titleAr}
                   </td>
                   <td className="p-3 text-lunex-gray">{c.title}</td>
-                  <td className="p-3 text-lunex-gray">{c.pages}</td>
+                  <td className="p-3 text-lunex-gray">
+                    {c.content ? (
+                      <span className="flex items-center gap-1.5">
+                        <BookText className="h-3.5 w-3.5" /> {c.content.trim().split(/\s+/).length} كلمة
+                      </span>
+                    ) : (
+                      `${c.pages} صفحة`
+                    )}
+                  </td>
                   <td className="p-3"><Badge variant={c.isPublished ? "success" : "secondary"}>{c.isPublished ? "منشور" : "مسودة"}</Badge></td>
                   <td className="p-3 text-lunex-gray">{timeAgo(c.releasedAt)}</td>
                 </tr>
@@ -168,9 +170,9 @@ function CreateChapterDialog({
   onCreate,
   trigger,
 }: {
-  series: { id: string; titleAr: string; teamId: string }[];
+  series: { id: string; titleAr: string; teamId: string; type: SeriesType }[];
   defaultPages?: number;
-  onCreate: (chapter: { seriesId: string; teamId: string; number: number; title: string; pages: number }) => void;
+  onCreate: (chapter: { seriesId: string; teamId: string; number: number; title: string; pages?: number; content?: string }) => void;
   trigger: React.ReactNode;
 }) {
   const [open, setOpen] = useState(false);
@@ -178,44 +180,74 @@ function CreateChapterDialog({
   const [number, setNumber] = useState(1);
   const [title, setTitle] = useState("");
   const [pages, setPages] = useState(defaultPages ?? 20);
+  const [content, setContent] = useState("");
+
+  const selected = series.find((x) => x.id === seriesId);
+  const isNovel = selected?.type === "novel";
 
   function submit() {
     const s = series.find((x) => x.id === seriesId);
-    if (!s || !title.trim() || number < 1 || pages < 1) return;
-    onCreate({ seriesId: s.id, teamId: s.teamId, number, title: title.trim(), pages });
-    setTitle(""); setNumber(1); setPages(defaultPages ?? 20); setOpen(false);
+    if (!s || !title.trim() || number < 1) return;
+    if (isNovel) {
+      if (!content.trim()) return;
+      onCreate({ seriesId: s.id, teamId: s.teamId, number, title: title.trim(), content: content.trim() });
+    } else {
+      if (pages < 1) return;
+      onCreate({ seriesId: s.id, teamId: s.teamId, number, title: title.trim(), pages });
+    }
+    setTitle(""); setNumber(1); setPages(defaultPages ?? 20); setContent(""); setOpen(false);
   }
 
   return (
     <Dialog open={open} onOpenChange={setOpen}>
       <DialogTrigger asChild>{trigger}</DialogTrigger>
       <DialogContent>
-        <DialogHeader><DialogTitle>رفع فصل جديد</DialogTitle></DialogHeader>
+        <DialogHeader><DialogTitle>{isNovel ? "إضافة فصل رواية جديد" : "رفع فصل جديد"}</DialogTitle></DialogHeader>
         <div className="space-y-3 pt-2">
           <div className="space-y-1.5">
             <Label>السلسلة</Label>
             <Select value={seriesId} onValueChange={setSeriesId}>
               <SelectTrigger><SelectValue placeholder="اختر سلسلة" /></SelectTrigger>
               <SelectContent>
-                {series.map((s) => <SelectItem key={s.id} value={s.id}>{s.titleAr}</SelectItem>)}
+                {series.map((s) => (
+                  <SelectItem key={s.id} value={s.id}>
+                    {s.titleAr} {s.type === "novel" && "— رواية"}
+                  </SelectItem>
+                ))}
               </SelectContent>
             </Select>
           </div>
-          <div className="grid gap-3 sm:grid-cols-2">
+          <div className={cn("grid gap-3", !isNovel && "sm:grid-cols-2")}>
             <div className="space-y-1.5">
               <Label>رقم الفصل</Label>
               <Input type="number" min={1} value={number} onChange={(e) => setNumber(Number(e.target.value))} />
             </div>
-            <div className="space-y-1.5">
-              <Label>عدد الصفحات</Label>
-              <Input type="number" min={1} value={pages} onChange={(e) => setPages(Number(e.target.value))} />
-            </div>
+            {!isNovel && (
+              <div className="space-y-1.5">
+                <Label>عدد الصفحات</Label>
+                <Input type="number" min={1} value={pages} onChange={(e) => setPages(Number(e.target.value))} />
+              </div>
+            )}
           </div>
           <div className="space-y-1.5">
             <Label>عنوان الفصل</Label>
             <Input value={title} onChange={(e) => setTitle(e.target.value)} placeholder="مثال: الفصل الأول" />
           </div>
-          <Button onClick={submit} className="w-full">رفع الفصل</Button>
+          {isNovel && (
+            <div className="space-y-1.5">
+              <Label>نص الفصل (بالعربية)</Label>
+              <Textarea
+                dir="rtl"
+                rows={12}
+                value={content}
+                onChange={(e) => setContent(e.target.value)}
+                placeholder="الصق أو اكتب نص الفصل هنا. افصل بين الفقرات بسطر فارغ."
+                className="resize-y"
+              />
+              <p className="text-xs text-lunex-gray">{content.trim() ? content.trim().split(/\s+/).length : 0} كلمة</p>
+            </div>
+          )}
+          <Button onClick={submit} className="w-full">{isNovel ? "نشر الفصل" : "رفع الفصل"}</Button>
         </div>
       </DialogContent>
     </Dialog>

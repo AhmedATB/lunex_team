@@ -3,7 +3,7 @@
 import { useEffect } from "react";
 import type { BackendPublicUser } from "@/lib/auth-types";
 import { mergeRealUsers } from "@/lib/mock/generate";
-import { useReaderSettings, useReadingProgress, useBookmarks } from "@/store/reader-settings";
+import { useReaderSettings, useReadingProgress, useBookmarks, useNovelReaderSettings } from "@/store/reader-settings";
 import { useTeamManagement } from "@/store/team-management";
 import { useProfile } from "@/store/profile";
 import { useRatings } from "@/store/ratings";
@@ -28,6 +28,7 @@ export function StoreHydration({ initialUser }: { initialUser: BackendPublicUser
     useSession.getState().setUser(initialUser);
 
     useReaderSettings.persist.rehydrate();
+    useNovelReaderSettings.persist.rehydrate();
     useReadingProgress.persist.rehydrate();
     useBookmarks.persist.rehydrate();
     useTeamManagement.persist.rehydrate();

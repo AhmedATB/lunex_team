@@ -63,6 +63,27 @@ export const useReadingProgress = create<ReadingProgressState>()(
   )
 );
 
+export type NovelReadingTheme = "sepia" | "light" | "dark";
+
+interface NovelReaderSettingsState {
+  fontSize: number;
+  theme: NovelReadingTheme;
+  setFontSize: (v: number) => void;
+  setTheme: (v: NovelReadingTheme) => void;
+}
+
+export const useNovelReaderSettings = create<NovelReaderSettingsState>()(
+  persist(
+    (set) => ({
+      fontSize: 19,
+      theme: "sepia",
+      setFontSize: (fontSize) => set({ fontSize }),
+      setTheme: (theme) => set({ theme }),
+    }),
+    { name: "lunex-novel-reader-settings", skipHydration: true }
+  )
+);
+
 interface BookmarksState {
   bookmarks: string[];
   toggleBookmark: (seriesId: string) => void;
