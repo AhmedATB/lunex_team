@@ -9,10 +9,10 @@ import type { Series } from "@/lib/types";
 import { Button } from "@/components/ui/button";
 import { cn, formatNumber } from "@/lib/utils";
 
-const SLOT_SIZE = [
-  { w: 220, h: 300 },
-  { w: 148, h: 202 },
-  { w: 96, h: 132 },
+const SLOT_SIZE_CLASS = [
+  "w-[128px] h-[176px] sm:w-[168px] sm:h-[230px] lg:w-[220px] lg:h-[300px]",
+  "w-[66px] h-[92px] sm:w-[100px] sm:h-[136px] lg:w-[148px] lg:h-[202px]",
+  "hidden sm:block sm:w-[64px] sm:h-[88px] lg:w-[96px] lg:h-[132px]",
 ];
 
 export function HeroSlider({ series }: { series: Series[] }) {
@@ -52,7 +52,7 @@ export function HeroSlider({ series }: { series: Series[] }) {
       <div className="flex items-end justify-center gap-2 py-2 sm:gap-4">
         {slots.map(({ offset, series: s }) => {
           const dist = Math.abs(offset);
-          const size = SLOT_SIZE[dist];
+          const sizeClass = SLOT_SIZE_CLASS[dist];
 
           const cover = (
             <>
@@ -96,8 +96,10 @@ export function HeroSlider({ series }: { series: Series[] }) {
             return (
               <div
                 key={offset}
-                className="relative z-10 shrink-0 overflow-hidden rounded-2xl shadow-2xl shadow-primary-950/60 ring-1 ring-white/15"
-                style={{ width: size.w, height: size.h }}
+                className={cn(
+                  "relative z-10 shrink-0 overflow-hidden rounded-2xl shadow-2xl shadow-primary-950/60 ring-1 ring-white/15",
+                  sizeClass
+                )}
               >
                 {cover}
               </div>
@@ -110,8 +112,10 @@ export function HeroSlider({ series }: { series: Series[] }) {
               type="button"
               onClick={() => goTo(offset)}
               aria-label={`اذهب إلى ${s.titleAr}`}
-              className="relative shrink-0 cursor-pointer overflow-hidden rounded-2xl opacity-80 transition-all duration-500 hover:opacity-100 hover:brightness-110"
-              style={{ width: size.w, height: size.h }}
+              className={cn(
+                "relative shrink-0 cursor-pointer overflow-hidden rounded-2xl opacity-80 transition-all duration-500 hover:opacity-100 hover:brightness-110",
+                sizeClass
+              )}
             >
               {cover}
             </button>
