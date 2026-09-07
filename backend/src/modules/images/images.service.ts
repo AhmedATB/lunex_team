@@ -4,7 +4,7 @@ import sharp from "sharp";
 import { ScrapingVelocityTracker } from "./anti-scraping/scraping-velocity.tracker";
 import { ImageTokenSigner, NonceCache } from "./crypto/image-token.util";
 import { ImagesRepository } from "./images.repository";
-import { StorageService } from "./storage/local-storage.service";
+import { StorageService } from "./storage/storage.interface";
 import type { RequestContext } from "../../common/middleware/request-context.middleware";
 
 export interface IssuedImageToken {

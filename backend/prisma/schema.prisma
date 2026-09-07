@@ -1,13 +1,12 @@
-// LUNEX TEAM backend — Prisma schema (auth core).
-// Local/dev uses SQLite so this runs with zero external infra (no Docker/Postgres
-// required to verify the code). Swap the datasource below to postgresql for
-// staging/production — every model here is provider-agnostic Prisma, no
-// SQLite-specific types are used, so the migration is a one-line change plus
-// `prisma migrate dev` against a real Postgres instance.
+// LUNEX TEAM backend — Prisma schema.
+// Every model here is provider-agnostic Prisma (no Postgres-only column
+// types), so pointing DATABASE_URL at a different Postgres instance never
+// needs a schema rewrite — see backend/docs/security-architecture.md §5.
 //
-// See /docs/security-architecture.md §7 for the full target schema (chapters,
-// image tokens, watermark ledger) — only the auth-relevant tables are modeled
-// here because that's the module actually being built right now.
+// Chapter/ChapterPage/ChapterUnlock (added alongside the image-protection
+// pipeline) are real; Series/Team/Comment are still frontend-mock-only —
+// see §4/§19 of the same doc before assuming anything content-related here
+// is the full picture.
 
 generator client {
   provider = "prisma-client-js"
@@ -38,11 +37,12 @@ model User {
   createdAt    DateTime @default(now())
   updatedAt    DateTime @updatedAt
 
-  sessions      Session[]
-  devices       Device[]
-  loginEvents   LoginEvent[]
-  oauthAccounts OAuthAccount[]
-  notifications Notification[]
+  sessions       Session[]
+  devices        Device[]
+  loginEvents    LoginEvent[]
+  oauthAccounts  OAuthAccount[]
+  notifications  Notification[]
+  chapterUnlocks ChapterUnlock[]
 
   @@map("users")
 }
@@ -131,13 +131,80 @@ model AuditLog {
 /// One row per stored page image. `storageKey` is opaque to everything except
 /// StorageService — swapping local disk for S3/R2 later only touches that one
 /// class, never this table or the image pipeline around it.
+///
+/// `width`/`height` are recorded at upload time (not recomputed per request)
+/// so ImagesService can pick an adaptive tile grid without re-decoding the
+/// full image just to read its dimensions.
 model ImageAsset {
   id         String   @id @default(uuid())
   storageKey String   @unique
   checksum   String
+  mimeType   String
+  width      Int
+  height     Int
   createdAt  DateTime @default(now())
 
+  chapterPage ChapterPage?
+
   @@map("image_assets")
+}
+
+/// A published chapter's metadata. `seriesId`/`teamId` reference the
+/// frontend's mock Series/Team ids — deliberately NOT a foreign key, the
+/// same convention ImageAccessLog.assetId already uses, since Series/Team
+/// aren't real tables yet (architecture doc §4/§19). Only chapter+page
+/// content moved server-side for the image-protection work; the catalog
+/// metadata around it stays mock until that's tackled separately.
+model Chapter {
+  id           String    @id @default(uuid())
+  seriesId     String
+  teamId       String
+  number       Float
+  title        String
+  isPublished  Boolean   @default(false)
+  scheduledFor DateTime?
+  /// true = force-locked, false = force-open, null = automatic (sliding free-chapter window) — mirrors the frontend's isChapterLocked() manual override.
+  manualLock   Boolean?
+  createdAt    DateTime  @default(now())
+  updatedAt    DateTime  @updatedAt
+
+  pages   ChapterPage[]
+  unlocks ChapterUnlock[]
+
+  @@unique([seriesId, number])
+  @@index([seriesId])
+  @@map("chapters")
+}
+
+/// pageNumber is an explicit column, not an array index — the admin upload
+/// flow and reader both need unambiguous "page 1/2/3..." ordering that
+/// survives re-fetching in any order.
+model ChapterPage {
+  id         String     @id @default(uuid())
+  chapterId  String
+  chapter    Chapter    @relation(fields: [chapterId], references: [id], onDelete: Cascade)
+  pageNumber Int
+  assetId    String     @unique
+  asset      ImageAsset @relation(fields: [assetId], references: [id])
+
+  @@unique([chapterId, pageNumber])
+  @@map("chapter_pages")
+}
+
+/// A real, server-verified purchase/unlock — this is what issueToken()
+/// actually checks before handing out a page token, replacing the
+/// client-only `unlockedChapters` localStorage flag that a user could
+/// otherwise just edit to grant themselves access.
+model ChapterUnlock {
+  id         String   @id @default(uuid())
+  userId     String
+  user       User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  chapterId  String
+  chapter    Chapter  @relation(fields: [chapterId], references: [id], onDelete: Cascade)
+  unlockedAt DateTime @default(now())
+
+  @@unique([userId, chapterId])
+  @@map("chapter_unlocks")
 }
 
 /// Leak-tracing ledger: every issued access token AND every actual byte
@@ -164,6 +231,20 @@ model ImageAccessLog {
   @@index([assetId, at])
   @@index([userId, at])
   @@map("image_access_log")
+}
+
+/// Interim StorageService backend, used until a real object store (S3/R2) is
+/// configured — see architecture doc §16/§19. Keyed the same opaque way
+/// local disk would be (ImageAsset.storageKey); nothing outside
+/// PrismaBlobStorageService ever reads this table directly. NOT meant to be
+/// the permanent home for chapter-image bytes at scale — swapping to S3/R2
+/// later only touches that one class, per the StorageService interface.
+model ImageBlob {
+  storageKey String   @id
+  data       Bytes
+  createdAt  DateTime @default(now())
+
+  @@map("image_blobs")
 }
 
 /// Real, server-persisted notifications — distinct from the client-only mock

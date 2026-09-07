@@ -3,15 +3,17 @@ import { ConfigService } from "@nestjs/config";
 import { createHash } from "node:crypto";
 import { mkdir, readFile, writeFile } from "node:fs/promises";
 import { join, normalize, resolve, sep } from "node:path";
+import { StorageService } from "./storage.interface";
 
 /**
- * Local filesystem for dev — same pattern as SQLite for Prisma: zero external
- * infra to run and verify the code. `get`/`put` is the entire surface a
- * production S3/R2 implementation needs to satisfy; nothing above this class
- * knows or cares which one is backing it.
+ * Local filesystem — dev-only. Railway's disk is wiped on every deploy
+ * (architecture doc §16), so this must never back real chapter images in
+ * production; PrismaBlobStorageService is the current production default
+ * until a real object store (S3/R2) exists. Kept because it's still the
+ * easiest way to run/verify the image pipeline with zero external infra.
  */
 @Injectable()
-export class StorageService {
+export class LocalDiskStorageService implements StorageService {
   private readonly root: string;
 
   constructor(config: ConfigService) {

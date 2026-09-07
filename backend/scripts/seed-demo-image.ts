@@ -7,9 +7,14 @@ import sharp from "sharp";
 /**
  * Creates one synthetic placeholder page image + its ImageAsset row, purely
  * so the signed-URL/watermark pipeline (ImagesModule) has something real to
- * serve end-to-end. Real chapter art is uploaded by teams through an admin
- * flow that doesn't exist yet — this script exists only to unblock verifying
- * the pipeline itself.
+ * serve end-to-end.
+ *
+ * Writes straight to local disk, bypassing StorageService — only correct
+ * when running the backend with IMAGE_STORAGE_BACKEND=local. Against the
+ * default Postgres-backed storage (PrismaBlobStorageService) this seeds the
+ * ImageAsset row but not the actual bytes; streamAsset would 404. Superseded
+ * once the real chapter-upload endpoint (chapters.controller.ts) exists —
+ * kept only as a quick manual way to poke the pipeline in isolation.
  */
 async function main() {
   const storageDir = resolve(process.env.IMAGE_STORAGE_DIR ?? "./storage/images");
@@ -40,7 +45,7 @@ async function main() {
   const asset = await prisma.imageAsset.upsert({
     where: { storageKey: key },
     update: { checksum },
-    create: { storageKey: key, checksum },
+    create: { storageKey: key, checksum, mimeType: "image/png", width: 800, height: 1200 },
   });
   console.log("Seeded demo image asset:", asset.id);
   await prisma.$disconnect();

@@ -9,7 +9,7 @@ export class ImagesRepository {
     return this.prisma.imageAsset.findUnique({ where: { id } });
   }
 
-  createAsset(params: { storageKey: string; checksum: string }) {
+  createAsset(params: { storageKey: string; checksum: string; mimeType: string; width: number; height: number }) {
     return this.prisma.imageAsset.create({ data: params });
   }
 
