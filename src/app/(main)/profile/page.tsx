@@ -65,7 +65,7 @@ export default function ProfilePage() {
                 </Badge>
               )}
             </div>
-            <p className="text-sm text-lunex-gray">@{user.username}</p>
+            <p className="text-sm text-lunex-gray" dir="ltr">@{user.username}</p>
             {user.bio && <p className="mx-auto max-w-md text-sm text-lunex-gray sm:mx-0">{user.bio}</p>}
 
             <div className="mx-auto max-w-xs space-y-1 sm:mx-0">

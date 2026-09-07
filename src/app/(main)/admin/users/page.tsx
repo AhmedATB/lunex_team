@@ -105,7 +105,7 @@ export default function AdminUsersPage() {
                     </div>
                     <div className="min-w-0">
                       <p className="truncate font-medium text-white">{u.displayName}</p>
-                      <p className="truncate text-xs text-lunex-gray">@{u.username}</p>
+                      <p className="truncate text-xs text-lunex-gray" dir="ltr">@{u.username}</p>
                     </div>
                   </td>
                   <td className="p-3"><Badge variant="secondary">{GLOBAL_ROLE_LABELS[u.role]}</Badge></td>

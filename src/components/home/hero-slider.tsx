@@ -44,7 +44,7 @@ export function HeroSlider({ series }: { series: Series[] }) {
   }
 
   return (
-    <div className="relative">
+    <div className="relative overflow-hidden">
       <div className="pointer-events-none absolute -inset-6 -z-10 opacity-70 blur-3xl" aria-hidden="true">
         <div className="h-full w-full rounded-[3rem] bg-lunex-gradient" />
       </div>
