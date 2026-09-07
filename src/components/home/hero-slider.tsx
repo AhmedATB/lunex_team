@@ -10,9 +10,9 @@ import { Button } from "@/components/ui/button";
 import { cn, formatNumber } from "@/lib/utils";
 
 const SLOT_SIZE_CLASS = [
-  "w-[128px] h-[176px] sm:w-[168px] sm:h-[230px] lg:w-[220px] lg:h-[300px]",
-  "w-[66px] h-[92px] sm:w-[100px] sm:h-[136px] lg:w-[148px] lg:h-[202px]",
-  "hidden sm:block sm:w-[64px] sm:h-[88px] lg:w-[96px] lg:h-[132px]",
+  "w-[128px] h-[176px] sm:w-[168px] sm:h-[230px] lg:w-[220px] lg:h-[300px] xl:w-[280px] xl:h-[374px] 2xl:w-[320px] 2xl:h-[427px]",
+  "w-[66px] h-[92px] sm:w-[100px] sm:h-[136px] lg:w-[176px] lg:h-[235px] xl:w-[224px] xl:h-[299px] 2xl:w-[256px] 2xl:h-[341px]",
+  "hidden sm:block sm:w-[64px] sm:h-[88px] lg:w-[132px] lg:h-[176px] xl:w-[168px] xl:h-[224px] 2xl:w-[192px] 2xl:h-[256px]",
 ];
 
 export function HeroSlider({ series }: { series: Series[] }) {
@@ -56,7 +56,7 @@ export function HeroSlider({ series }: { series: Series[] }) {
 
           const cover = (
             <>
-              <AnimatePresence mode="popLayout" initial={false}>
+              <AnimatePresence initial={false}>
                 <motion.div
                   key={s.id}
                   initial={{ opacity: 0 }}
