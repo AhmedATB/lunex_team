@@ -22,7 +22,8 @@ export type TeamPermission =
   | "promote_members"
   | "demote_members"
   | "view_team_statistics"
-  | "view_member_performance";
+  | "view_member_performance"
+  | "moderate_comments";
 
 export interface Genre {
   id: string;
@@ -301,6 +302,8 @@ export interface Comment {
   dislikes: number;
   createdAt: string;
   isPinned: boolean;
+  isSpoiler: boolean;
+  editedAt?: string;
 }
 
 export interface NewsItem {

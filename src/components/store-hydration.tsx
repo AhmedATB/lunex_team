@@ -8,6 +8,7 @@ import { usePreferences } from "@/store/preferences";
 import { useTeamManagement } from "@/store/team-management";
 import { useProfile } from "@/store/profile";
 import { useRatings } from "@/store/ratings";
+import { useComments } from "@/store/comments";
 import { useRealUsers, synthesizeProfile } from "@/store/real-users";
 import { useRewards } from "@/store/rewards";
 import { useMessages } from "@/store/messages";
@@ -38,6 +39,7 @@ export function StoreHydration({ initialUser }: { initialUser: BackendPublicUser
     useRewards.persist.rehydrate();
     useMessages.persist.rehydrate();
     useRatings.persist.rehydrate();
+    useComments.persist.rehydrate();
     useTheme.persist.rehydrate();
 
     // rehydrate() resolves asynchronously — upserting the current login's

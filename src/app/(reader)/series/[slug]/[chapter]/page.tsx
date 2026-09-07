@@ -112,7 +112,7 @@ export default function ReaderPage() {
         <h2 className={cn("font-display text-lg font-bold", isNovel ? "text-foreground" : "text-white")}>
           التعليقات على الفصل
         </h2>
-        <CommentSection seriesId={series.id} initialComments={comments} users={db.users} />
+        <CommentSection seriesId={series.id} teamId={series.teamId} initialComments={comments} users={db.users} />
       </div>
     </div>
   );

@@ -2,10 +2,11 @@
 
 import Image from "next/image";
 import Link from "next/link";
-import { MessageCircle } from "lucide-react";
+import { MessageCircle, Lock } from "lucide-react";
 import type { Comment, Series, User } from "@/lib/types";
 import { avatarUrl, timeAgo } from "@/lib/utils";
 import { useProfile, effectiveAvatarSeed } from "@/store/profile";
+import { useComments, mergeComments } from "@/store/comments";
 
 export function LatestComments({
   comments,
@@ -17,7 +18,11 @@ export function LatestComments({
   seriesMap: Map<string, Series>;
 }) {
   const avatarOverrides = useProfile((s) => s.avatarOverrides);
+  const commentsStore = useComments();
   const userMap = new Map(users.map((u) => [u.id, u]));
+  const effectiveComments = mergeComments(comments, commentsStore).sort(
+    (a, b) => +new Date(b.createdAt) - +new Date(a.createdAt)
+  );
 
   return (
     <section className="space-y-4">
@@ -25,7 +30,7 @@ export function LatestComments({
         <MessageCircle className="h-5 w-5 text-primary-300" /> آخر التعليقات
       </h2>
       <div className="grid gap-3 sm:grid-cols-2">
-        {comments.slice(0, 6).map((c) => {
+        {effectiveComments.slice(0, 6).map((c) => {
           const user = userMap.get(c.userId);
           const series = seriesMap.get(c.seriesId);
           if (!user || !series) return null;
@@ -43,7 +48,13 @@ export function LatestComments({
                   <span className="font-semibold text-white">{user.displayName}</span>{" "}
                   <span className="text-lunex-gray">على {series.titleAr}</span>
                 </p>
-                <p className="mt-1 line-clamp-2 text-sm text-lunex-gray">{c.content}</p>
+                {c.isSpoiler ? (
+                  <p className="mt-1 flex items-center gap-1 text-sm text-lunex-gray">
+                    <Lock className="h-3 w-3 shrink-0 text-amber-400" /> يحتوي على حرق — افتح السلسلة لإظهاره
+                  </p>
+                ) : (
+                  <p className="mt-1 line-clamp-2 text-sm text-lunex-gray">{c.content}</p>
+                )}
                 <p className="mt-1 text-[11px] text-lunex-gray/70">{timeAgo(c.createdAt)}</p>
               </div>
             </Link>

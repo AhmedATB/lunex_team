@@ -288,6 +288,7 @@ function build(): MockDatabase {
       dislikes: rng.int(0, 20),
       createdAt: daysAgo(rng.int(0, 60)),
       isPinned: rng.bool(0.05),
+      isSpoiler: rng.bool(0.04),
     };
   });
 

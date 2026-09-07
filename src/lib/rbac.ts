@@ -218,6 +218,10 @@ export const TEAM_PERMISSION_GROUPS: { category: string; permissions: TeamPermis
     category: "الإحصائيات",
     permissions: ["view_team_statistics", "view_member_performance"],
   },
+  {
+    category: "التعليقات",
+    permissions: ["moderate_comments"],
+  },
 ];
 
 export const TEAM_PERMISSION_LABELS: Record<TeamPermission, string> = {
@@ -242,6 +246,7 @@ export const TEAM_PERMISSION_LABELS: Record<TeamPermission, string> = {
   demote_members: "تنزيل رتبة أعضاء",
   view_team_statistics: "عرض إحصائيات الفريق",
   view_member_performance: "عرض أداء الأعضاء",
+  moderate_comments: "إدارة التعليقات",
 };
 
 const DEFAULT_ROLE_TEAM_PERMISSIONS: Record<TeamRole, TeamPermission[]> = {
@@ -269,6 +274,7 @@ const DEFAULT_ROLE_TEAM_PERMISSIONS: Record<TeamRole, TeamPermission[]> = {
     "schedule_release",
     "view_team_statistics",
     "view_member_performance",
+    "moderate_comments",
   ],
   assistant_leader: [
     "edit_team_info",
@@ -288,6 +294,7 @@ const DEFAULT_ROLE_TEAM_PERMISSIONS: Record<TeamRole, TeamPermission[]> = {
     "schedule_release",
     "view_team_statistics",
     "view_member_performance",
+    "moderate_comments",
   ],
   team_leader: [
     "edit_team_info",
@@ -311,6 +318,7 @@ const DEFAULT_ROLE_TEAM_PERMISSIONS: Record<TeamRole, TeamPermission[]> = {
     "demote_members",
     "view_team_statistics",
     "view_member_performance",
+    "moderate_comments",
   ],
 };
 

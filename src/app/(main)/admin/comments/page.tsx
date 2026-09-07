@@ -1,9 +1,14 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo } from "react";
 import Image from "next/image";
-import { Pin, Trash2, ThumbsUp, ThumbsDown } from "lucide-react";
+import { Pin, PinOff, Trash2, EyeOff, ThumbsUp, ThumbsDown } from "lucide-react";
 import { getMockDatabase } from "@/lib/mock/generate";
+import { useSession } from "@/store/session";
+import { useTeamManagement, applyTeamOverride } from "@/store/team-management";
+import { useComments, mergeComments } from "@/store/comments";
+import { getTeamAuthRoles, getEffectiveCustomRoles } from "@/lib/team-auth";
+import { canInTeam } from "@/lib/rbac";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -16,14 +21,32 @@ export default function AdminCommentsPage() {
   }, []);
   const db = useMemo(() => getMockDatabase(), []);
   const avatarOverrides = useProfile((s) => s.avatarOverrides);
+  const currentUserId = useSession((s) => s.currentUserId);
+  const currentUser = db.users.find((u) => u.id === currentUserId);
+  const teamStore = useTeamManagement();
+  const commentsStore = useComments();
+
   const userMap = new Map(db.users.map((u) => [u.id, u]));
   const seriesMap = new Map(db.series.map((s) => [s.id, s]));
-  const [removed, setRemoved] = useState<Set<string>>(new Set());
 
-  const comments = [...db.comments]
+  const comments = mergeComments(db.comments, commentsStore)
     .sort((a, b) => +new Date(b.createdAt) - +new Date(a.createdAt))
-    .filter((c) => !removed.has(c.id))
     .slice(0, 30);
+
+  function canModerate(seriesTeamId: string) {
+    if (!currentUser) return false;
+    const rawTeam = [...db.teams, ...teamStore.createdTeams].find((t) => t.id === seriesTeamId);
+    const team = rawTeam ? applyTeamOverride(rawTeam, teamStore.teamInfoOverrides) : undefined;
+    const { isGlobalAdmin, isMember } = getTeamAuthRoles(team, currentUser, teamStore.memberRoleOverrides);
+    if (isGlobalAdmin) return true;
+    if (!isMember) return false;
+    const customRoles = getEffectiveCustomRoles(
+      seriesTeamId, db.customRoles, teamStore.addedCustomRoles, teamStore.customRoleOverrides, teamStore.removedCustomRoleIds
+    );
+    const override = teamStore.memberRoleOverrides[currentUser.id];
+    const effectiveUser = { ...currentUser, customRoleId: override?.customRoleId ?? currentUser.customRoleId };
+    return canInTeam(effectiveUser, "moderate_comments", customRoles);
+  }
 
   return (
     <div className="space-y-4">
@@ -33,6 +56,7 @@ export default function AdminCommentsPage() {
           const user = userMap.get(c.userId);
           const series = seriesMap.get(c.seriesId);
           if (!user || !series) return null;
+          const allowed = canModerate(series.teamId);
           return (
             <Card key={c.id}>
               <CardContent className="flex items-start gap-3 p-4">
@@ -44,7 +68,11 @@ export default function AdminCommentsPage() {
                     <p className="text-sm font-semibold text-white">{user.displayName}</p>
                     <span className="text-xs text-lunex-gray">على {series.titleAr}</span>
                     {c.isPinned && <Badge variant="outline" className="text-[10px]">مثبّت</Badge>}
-                    <span className="text-[11px] text-lunex-gray/70">{timeAgo(c.createdAt)}</span>
+                    {c.isSpoiler && <Badge variant="outline" className="text-[10px]">مشوّش (حرق)</Badge>}
+                    <span className="text-[11px] text-lunex-gray/70">
+                      {timeAgo(c.createdAt)}
+                      {c.editedAt && " · معدّل"}
+                    </span>
                   </div>
                   <p className="mt-1 text-sm text-lunex-gray">{c.content}</p>
                   <div className="mt-1 flex items-center gap-3 text-xs text-lunex-gray">
@@ -52,18 +80,35 @@ export default function AdminCommentsPage() {
                     <span className="flex items-center gap-1"><ThumbsDown className="h-3 w-3" /> {c.dislikes}</span>
                   </div>
                 </div>
-                <div className="flex shrink-0 gap-1">
-                  <Button variant="ghost" size="icon" aria-label="تثبيت"><Pin className="h-4 w-4" /></Button>
-                  <Button
-                    variant="ghost"
-                    size="icon"
-                    aria-label="حذف"
-                    className="text-red-400 hover:bg-red-500/10"
-                    onClick={() => setRemoved((s) => new Set(s).add(c.id))}
-                  >
-                    <Trash2 className="h-4 w-4" />
-                  </Button>
-                </div>
+                {allowed && (
+                  <div className="flex shrink-0 gap-1">
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      aria-label={c.isPinned ? "إلغاء التثبيت" : "تثبيت"}
+                      onClick={() => commentsStore.setPinned(c.id, !c.isPinned)}
+                    >
+                      {c.isPinned ? <PinOff className="h-4 w-4" /> : <Pin className="h-4 w-4" />}
+                    </Button>
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      aria-label={c.isSpoiler ? "إلغاء التشويش" : "تشويش (حرق)"}
+                      onClick={() => commentsStore.setSpoiler(c.id, !c.isSpoiler)}
+                    >
+                      <EyeOff className="h-4 w-4" />
+                    </Button>
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      aria-label="حذف"
+                      className="text-red-400 hover:bg-red-500/10"
+                      onClick={() => commentsStore.deleteComment(c.id)}
+                    >
+                      <Trash2 className="h-4 w-4" />
+                    </Button>
+                  </div>
+                )}
               </CardContent>
             </Card>
           );
