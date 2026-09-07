@@ -1,13 +1,19 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import Image from "next/image";
 import Link from "next/link";
 import { AnimatePresence, motion } from "framer-motion";
 import { Star, BookOpen, Play } from "lucide-react";
 import type { Series } from "@/lib/types";
 import { Button } from "@/components/ui/button";
-import { formatNumber } from "@/lib/utils";
+import { cn, formatNumber } from "@/lib/utils";
+
+const SLOT_SIZE = [
+  { w: 220, h: 300 },
+  { w: 148, h: 202 },
+  { w: 96, h: 132 },
+];
 
 export function HeroSlider({ series }: { series: Series[] }) {
   const [index, setIndex] = useState(0);
@@ -18,8 +24,24 @@ export function HeroSlider({ series }: { series: Series[] }) {
     return () => clearInterval(t);
   }, [series.length]);
 
+  const sideCount = series.length > 0 ? Math.min(2, Math.floor((series.length - 1) / 2)) : 0;
+
+  const slots = useMemo(() => {
+    const arr: { offset: number; series: Series }[] = [];
+    if (series.length === 0) return arr;
+    for (let o = -sideCount; o <= sideCount; o++) {
+      const i = (((index + o) % series.length) + series.length) % series.length;
+      arr.push({ offset: o, series: series[i] });
+    }
+    return arr;
+  }, [index, sideCount, series]);
+
   if (series.length === 0) return null;
   const current = series[index];
+
+  function goTo(offset: number) {
+    setIndex((prev) => (((prev + offset) % series.length) + series.length) % series.length);
+  }
 
   return (
     <div className="relative">
@@ -27,102 +49,132 @@ export function HeroSlider({ series }: { series: Series[] }) {
         <div className="h-full w-full rounded-[3rem] bg-lunex-gradient" />
       </div>
 
-      <div className="relative h-[420px] w-full overflow-hidden rounded-2xl border border-white/10 shadow-2xl shadow-primary-950/60 sm:h-[480px] lg:h-[540px]">
-      <div className="pointer-events-none absolute inset-0 z-20 overflow-hidden">
-        <span className="sparkle h-2 w-2" style={{ top: "18%", left: "12%", animationDelay: "0s" }} />
-        <span className="sparkle h-1.5 w-1.5" style={{ top: "30%", left: "78%", animationDelay: "1.1s" }} />
-        <span className="sparkle h-2.5 w-2.5" style={{ top: "62%", left: "88%", animationDelay: "2s" }} />
-        <span className="sparkle h-1.5 w-1.5" style={{ top: "72%", left: "8%", animationDelay: "0.6s" }} />
-        <Image
-          src="/brand/logo-white.png"
-          alt=""
-          width={140}
-          height={186}
-          className="float-slow absolute -end-4 top-4 opacity-[0.15] sm:top-8"
-          aria-hidden="true"
-        />
-      </div>
-      <AnimatePresence mode="wait">
-        <motion.div
-          key={current.id}
-          initial={{ opacity: 0, scale: 1.05 }}
-          animate={{ opacity: 1, scale: 1 }}
-          exit={{ opacity: 0 }}
-          transition={{ duration: 0.8, ease: [0.22, 1, 0.36, 1] }}
-          className="absolute inset-0"
-        >
-          <Image
-            src={current.banner}
-            alt={current.titleAr}
-            fill
-            priority
-            sizes="100vw"
-            className="object-cover"
-          />
-          <div className="absolute inset-0 bg-gradient-to-t from-[#09090B] via-[#09090B]/65 to-transparent" />
-          <div className="absolute inset-0 bg-gradient-to-r from-[#09090B]/85 via-transparent to-transparent" />
-          <div
-            className="absolute inset-0 opacity-25 mix-blend-overlay"
-            style={{
-              backgroundImage: "radial-gradient(rgba(255,255,255,0.9) 1px, transparent 1px)",
-              backgroundSize: "7px 7px",
-              maskImage: "linear-gradient(to top, black, transparent 70%)",
-            }}
-          />
-        </motion.div>
-      </AnimatePresence>
+      <div className="flex items-end justify-center gap-2 py-2 sm:gap-4">
+        {slots.map(({ offset, series: s }) => {
+          const dist = Math.abs(offset);
+          const size = SLOT_SIZE[dist];
 
-      <div className="absolute inset-x-0 bottom-0 flex flex-col gap-3 p-6 pb-10 sm:p-10 sm:pb-14">
-        <motion.div
-          key={`${current.id}-content`}
-          initial={{ opacity: 0, y: 20 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.6, delay: 0.15 }}
-          className="max-w-2xl space-y-3"
-        >
-          <div className="flex flex-wrap items-center gap-2">
-            <span className="rounded-full bg-lunex-gradient px-3 py-1 text-xs font-bold text-white">
-              حصري LUNEX
-            </span>
-            <span className="flex items-center gap-1 rounded-full bg-black/50 px-2.5 py-1 text-sm font-bold text-amber-300 shadow-[0_0_16px_rgba(252,211,77,0.35)] backdrop-blur-sm">
-              <Star className="h-4 w-4 fill-amber-300" /> {current.rating}
-            </span>
-            <span className="text-sm text-lunex-gray">{formatNumber(current.views)} مشاهدة</span>
-          </div>
-          <h1
-            className="font-display text-4xl font-black leading-[1.05] text-white sm:text-6xl"
-            style={{ textShadow: "0 2px 4px rgba(0,0,0,0.6), 0 0 40px rgba(168,85,247,0.5)" }}
-          >
-            {current.titleAr}
-          </h1>
-          <p className="line-clamp-2 max-w-xl text-sm text-lunex-gray sm:text-base">{current.synopsis}</p>
-          <div className="flex gap-3 pt-2">
-            <Button size="lg" asChild>
-              <Link href={`/series/${current.slug}`}>
-                <Play className="h-4 w-4" /> ابدأ القراءة
-              </Link>
-            </Button>
-            <Button size="lg" variant="secondary" asChild>
-              <Link href={`/series/${current.slug}`}>
-                <BookOpen className="h-4 w-4" /> التفاصيل
-              </Link>
-            </Button>
-          </div>
-        </motion.div>
+          const cover = (
+            <>
+              <AnimatePresence mode="popLayout" initial={false}>
+                <motion.div
+                  key={s.id}
+                  initial={{ opacity: 0 }}
+                  animate={{ opacity: 1 }}
+                  exit={{ opacity: 0 }}
+                  transition={{ duration: 0.5, ease: "easeOut" }}
+                  className="absolute inset-0"
+                >
+                  <Image
+                    src={s.cover}
+                    alt={s.titleAr}
+                    fill
+                    sizes="(max-width: 640px) 30vw, 220px"
+                    priority={dist === 0}
+                    className="object-cover"
+                  />
+                </motion.div>
+              </AnimatePresence>
 
-        <div className="flex gap-1.5 pt-2">
-          {series.map((s, i) => (
+              {dist === 0 ? (
+                <div className="absolute inset-0 bg-gradient-to-t from-black/90 via-black/10 to-transparent" />
+              ) : (
+                <div
+                  className="absolute inset-0"
+                  style={{
+                    background:
+                      offset < 0
+                        ? "linear-gradient(to left, transparent 35%, #09090B 100%)"
+                        : "linear-gradient(to right, transparent 35%, #09090B 100%)",
+                  }}
+                />
+              )}
+            </>
+          );
+
+          if (dist === 0) {
+            return (
+              <div
+                key={offset}
+                className="relative z-10 shrink-0 overflow-hidden rounded-2xl shadow-2xl shadow-primary-950/60 ring-1 ring-white/15"
+                style={{ width: size.w, height: size.h }}
+              >
+                {cover}
+              </div>
+            );
+          }
+
+          return (
             <button
-              key={s.id}
-              onClick={() => setIndex(i)}
+              key={offset}
+              type="button"
+              onClick={() => goTo(offset)}
               aria-label={`اذهب إلى ${s.titleAr}`}
-              className={`h-1.5 transition-all duration-300 ${
-                i === index ? "w-8 bg-lunex-gradient" : "w-3 bg-white/20 hover:bg-white/40"
-              }`}
-            />
-          ))}
-        </div>
+              className="relative shrink-0 cursor-pointer overflow-hidden rounded-2xl opacity-80 transition-all duration-500 hover:opacity-100 hover:brightness-110"
+              style={{ width: size.w, height: size.h }}
+            >
+              {cover}
+            </button>
+          );
+        })}
       </div>
+
+      <div className="mx-auto flex max-w-2xl flex-col items-center gap-3 px-4 pb-2 text-center">
+        <AnimatePresence mode="wait">
+          <motion.div
+            key={current.id}
+            initial={{ opacity: 0, y: 12 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0, y: -8 }}
+            transition={{ duration: 0.4 }}
+            className="space-y-3"
+          >
+            <div className="flex flex-wrap items-center justify-center gap-2">
+              <span className="rounded-full bg-lunex-gradient px-3 py-1 text-xs font-bold text-white">
+                حصري LUNEX
+              </span>
+              <span className="flex items-center gap-1 rounded-full bg-black/50 px-2.5 py-1 text-sm font-bold text-amber-300 shadow-[0_0_16px_rgba(252,211,77,0.35)] backdrop-blur-sm">
+                <Star className="h-4 w-4 fill-amber-300" /> {current.rating}
+              </span>
+              <span className="text-sm text-lunex-gray">{formatNumber(current.views)} مشاهدة</span>
+            </div>
+            <h1
+              className="font-display text-3xl font-black leading-[1.05] text-white sm:text-5xl"
+              style={{ textShadow: "0 2px 4px rgba(0,0,0,0.6), 0 0 40px rgba(168,85,247,0.5)" }}
+            >
+              {current.titleAr}
+            </h1>
+            <p className="line-clamp-2 text-sm text-lunex-gray sm:text-base">{current.synopsis}</p>
+            <div className="flex justify-center gap-3 pt-1">
+              <Button size="lg" asChild>
+                <Link href={`/series/${current.slug}`}>
+                  <Play className="h-4 w-4" /> ابدأ القراءة
+                </Link>
+              </Button>
+              <Button size="lg" variant="secondary" asChild>
+                <Link href={`/series/${current.slug}`}>
+                  <BookOpen className="h-4 w-4" /> التفاصيل
+                </Link>
+              </Button>
+            </div>
+          </motion.div>
+        </AnimatePresence>
+
+        {series.length > 1 && (
+          <div className="flex gap-1.5 pt-1">
+            {series.map((s, i) => (
+              <button
+                key={s.id}
+                onClick={() => setIndex(i)}
+                aria-label={`اذهب إلى ${s.titleAr}`}
+                className={cn(
+                  "h-1.5 transition-all duration-300",
+                  i === index ? "w-8 bg-lunex-gradient" : "w-3 bg-white/20 hover:bg-white/40"
+                )}
+              />
+            ))}
+          </div>
+        )}
       </div>
     </div>
   );
