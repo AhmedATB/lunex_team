@@ -1,18 +1,25 @@
 "use client";
 
 import Link from "next/link";
-import { usePathname } from "next/navigation";
+import { usePathname, useSearchParams } from "next/navigation";
 import { cn } from "@/lib/utils";
 import { BOTTOM_NAV } from "./nav-items";
 
 export function BottomNav() {
   const pathname = usePathname();
+  const searchParams = useSearchParams();
 
   return (
     <nav className="fixed inset-x-0 bottom-0 z-40 border-t border-border bg-background/95 backdrop-blur-md lg:hidden">
       <div className="grid grid-cols-6">
         {BOTTOM_NAV.map((item) => {
-          const active = pathname === item.href.split("?")[0];
+          // Explore (/series) and Novels (/series?type=novel) share a pathname
+          // and differ only by query — comparing pathname alone lights up both
+          // at once, same bug already fixed for the desktop sidebar.
+          const [hrefPath, hrefQuery] = item.href.split("?");
+          const active = hrefQuery
+            ? pathname === hrefPath && searchParams.toString() === hrefQuery
+            : pathname === hrefPath && searchParams.toString() === "";
           const Icon = item.icon;
           return (
             <Link

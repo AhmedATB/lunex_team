@@ -72,6 +72,22 @@ export function SeriesExplorer({ genres, title }: { genres: Genre[]; title: stri
     sort: (searchParams.get("sort") as Filters["sort"]) ?? "popular",
   });
 
+  // Explore (/series) and Novels (/series?type=novel) are the SAME route, just
+  // a different query — Next.js doesn't remount this component between them,
+  // so without this, `filters` (seeded once at mount) would keep showing
+  // novels-only after navigating away to the plain Explore link.
+  useEffect(() => {
+    setFilters({
+      q: searchParams.get("q") ?? "",
+      genre: searchParams.get("genre") ?? undefined,
+      status: (searchParams.get("status") as Series["status"]) ?? undefined,
+      type: (searchParams.get("type") as Series["type"]) ?? undefined,
+      country: (searchParams.get("country") as Series["country"]) ?? undefined,
+      sort: (searchParams.get("sort") as Filters["sort"]) ?? "popular",
+    });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [searchParams.toString()]);
+
   useEffect(() => {
     setLoading(true);
     const t = setTimeout(() => setLoading(false), 250);
