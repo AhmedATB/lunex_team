@@ -1,16 +1,16 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import Image from "next/image";
-import { ArrowRight, Check, Eye, EyeOff, Loader2, Pencil, User as UserIcon, Lock, Bell, AlertCircle } from "lucide-react";
+import { ArrowRight, Check, Eye, EyeOff, Loader2, Pencil, Upload, User as UserIcon, Lock, Bell, AlertCircle } from "lucide-react";
 import { useSession } from "@/store/session";
 import { useRealUsers, synthesizeProfile } from "@/store/real-users";
 import { useProfile, effectiveAvatarSeed } from "@/store/profile";
 import { usePreferences } from "@/store/preferences";
 import { mergeRealUsers } from "@/lib/mock/generate";
 import { AVATAR_PRESET_SEEDS } from "@/lib/avatar-presets";
-import { avatarUrl, cn } from "@/lib/utils";
+import { avatarUrl, resolveAvatarUrl, cn } from "@/lib/utils";
 import type { BackendPublicUser } from "@/lib/auth-types";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
@@ -85,8 +85,15 @@ function ProfileInfoCard({
   const avatarOverrides = useProfile((s) => s.avatarOverrides);
   const setAvatarSeed = useProfile((s) => s.setAvatarSeed);
   const currentSeed = effectiveAvatarSeed({ id: sessionUser.id, avatarSeed: sessionUser.id }, avatarOverrides);
+  const currentAvatarUrl = resolveAvatarUrl(sessionUser.id, sessionUser.avatarVersion, currentSeed);
 
   const usernameValid = /^[a-zA-Z0-9_]{3,24}$/.test(username);
+
+  function applyUpdatedUser(body: BackendPublicUser) {
+    onUpdated(body);
+    useRealUsers.getState().upsertProfile(synthesizeProfile(body));
+    mergeRealUsers(useRealUsers.getState().profiles);
+  }
 
   async function submit(e: React.FormEvent) {
     e.preventDefault();
@@ -112,9 +119,7 @@ function ProfileInfoCard({
         setError(body?.message ?? "تعذر حفظ التغييرات.");
         return;
       }
-      onUpdated(body);
-      useRealUsers.getState().upsertProfile(synthesizeProfile(body));
-      mergeRealUsers(useRealUsers.getState().profiles);
+      applyUpdatedUser(body);
       setSuccess(true);
     } catch {
       setError("تعذر الاتصال بالخادم، حاول مرة أخرى.");
@@ -135,11 +140,15 @@ function ProfileInfoCard({
           <div className="flex items-center gap-4">
             <div className="relative h-20 w-20 shrink-0">
               <div className="art-glow relative h-20 w-20 overflow-hidden rounded-full ring-4 ring-primary-500/30">
-                <Image src={avatarUrl(currentSeed)} alt={displayName} fill className="object-cover" />
+                <Image src={currentAvatarUrl} alt={displayName} fill className="object-cover" />
               </div>
-              <AvatarPickerDialog currentSeed={currentSeed} onSelect={(seed) => setAvatarSeed(sessionUser.id, seed)} />
+              <AvatarPickerDialog
+                currentSeed={currentSeed}
+                onSelect={(seed) => setAvatarSeed(sessionUser.id, seed)}
+                onUploaded={applyUpdatedUser}
+              />
             </div>
-            <p className="text-xs text-lunex-gray">اضغط على أيقونة القلم لتغيير صورتك الرمزية.</p>
+            <p className="text-xs text-lunex-gray">اضغط على أيقونة القلم لرفع صورة من جهازك أو اختيار صورة جاهزة.</p>
           </div>
 
           <div className="grid gap-3 sm:grid-cols-2">
@@ -336,12 +345,54 @@ function PreferencesCard() {
   );
 }
 
-function AvatarPickerDialog({ currentSeed, onSelect }: { currentSeed: string; onSelect: (seed: string) => void }) {
+const AVATAR_ACCEPT = "image/jpeg,image/png,image/webp,image/gif";
+const AVATAR_MAX_BYTES = 5 * 1024 * 1024;
+
+function AvatarPickerDialog({
+  currentSeed,
+  onSelect,
+  onUploaded,
+}: {
+  currentSeed: string;
+  onSelect: (seed: string) => void;
+  onUploaded: (user: BackendPublicUser) => void;
+}) {
   const [open, setOpen] = useState(false);
+  const [uploading, setUploading] = useState(false);
+  const [error, setError] = useState("");
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
   function pick(seed: string) {
     onSelect(seed);
     setOpen(false);
+  }
+
+  async function handleFile(e: React.ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0];
+    e.target.value = "";
+    if (!file) return;
+    setError("");
+    if (file.size > AVATAR_MAX_BYTES) {
+      setError("حجم الصورة يجب أن لا يتجاوز 5 ميغابايت.");
+      return;
+    }
+    setUploading(true);
+    try {
+      const formData = new FormData();
+      formData.append("file", file);
+      const res = await fetch("/api/users/me/avatar", { method: "POST", body: formData });
+      const body = await res.json();
+      if (!res.ok) {
+        setError(body?.message ?? "تعذر رفع الصورة.");
+        return;
+      }
+      onUploaded(body);
+      setOpen(false);
+    } catch {
+      setError("تعذر الاتصال بالخادم، حاول مرة أخرى.");
+    } finally {
+      setUploading(false);
+    }
   }
 
   return (
@@ -353,22 +404,42 @@ function AvatarPickerDialog({ currentSeed, onSelect }: { currentSeed: string; on
       </DialogTrigger>
       <DialogContent className="max-h-[80vh] overflow-y-auto">
         <DialogHeader>
-          <DialogTitle>اختر صورتك الرمزية</DialogTitle>
+          <DialogTitle>تغيير الصورة الرمزية</DialogTitle>
         </DialogHeader>
-        <div className="grid grid-cols-4 gap-3 pt-2 sm:grid-cols-6">
-          {AVATAR_PRESET_SEEDS.map((seed) => (
-            <button
-              key={seed}
-              type="button"
-              onClick={() => pick(seed)}
-              className={cn(
-                "hover-pop relative h-16 w-16 overflow-hidden rounded-full ring-2 transition-transform",
-                seed === currentSeed ? "ring-primary-400" : "ring-white/10"
-              )}
-            >
-              <Image src={avatarUrl(seed)} alt="خيار صورة رمزية" fill className="object-cover" />
-            </button>
-          ))}
+
+        <div className="space-y-2 pt-1">
+          <input ref={fileInputRef} type="file" accept={AVATAR_ACCEPT} className="hidden" onChange={handleFile} />
+          <Button
+            type="button"
+            variant="secondary"
+            className="w-full"
+            disabled={uploading}
+            onClick={() => fileInputRef.current?.click()}
+          >
+            {uploading ? <Loader2 className="h-4 w-4 animate-spin" /> : <Upload className="h-4 w-4" />}
+            رفع صورة من جهازك
+          </Button>
+          {error && <FieldMessage kind="error" text={error} />}
+          <p className="text-xs text-lunex-gray">JPG أو PNG أو WEBP أو GIF، حتى 5 ميغابايت.</p>
+        </div>
+
+        <div className="space-y-2 pt-2">
+          <p className="text-xs text-lunex-gray">أو اختر صورة جاهزة:</p>
+          <div className="grid grid-cols-4 gap-3 sm:grid-cols-6">
+            {AVATAR_PRESET_SEEDS.map((seed) => (
+              <button
+                key={seed}
+                type="button"
+                onClick={() => pick(seed)}
+                className={cn(
+                  "hover-pop relative h-16 w-16 overflow-hidden rounded-full ring-2 transition-transform",
+                  seed === currentSeed ? "ring-primary-400" : "ring-white/10"
+                )}
+              >
+                <Image src={avatarUrl(seed)} alt="خيار صورة رمزية" fill className="object-cover" />
+              </button>
+            ))}
+          </div>
         </div>
       </DialogContent>
     </Dialog>

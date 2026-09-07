@@ -24,7 +24,7 @@ import { useRewards } from "@/store/rewards";
 import { useMessages } from "@/store/messages";
 import { getMockDatabase } from "@/lib/mock/generate";
 import { GLOBAL_ROLE_LABELS, can } from "@/lib/rbac";
-import { avatarUrl, cn } from "@/lib/utils";
+import { resolveAvatarUrl, cn } from "@/lib/utils";
 
 export function Header() {
   const router = useRouter();
@@ -146,7 +146,13 @@ export function Header() {
             <DropdownMenuTrigger asChild>
               <button className="flex items-center gap-2 rounded-full border border-white/10 p-0.5 pe-2 transition-colors hover:border-primary-400/50 hover:bg-white/5">
                 <Avatar className="h-8 w-8">
-                  <AvatarImage src={currentUser ? avatarUrl(effectiveAvatarSeed(currentUser, avatarOverrides)) : undefined} />
+                  <AvatarImage
+                    src={
+                      currentUser
+                        ? resolveAvatarUrl(currentUser.id, currentUser.avatarVersion, effectiveAvatarSeed(currentUser, avatarOverrides))
+                        : undefined
+                    }
+                  />
                   <AvatarFallback>{currentUser?.displayName?.[0] ?? "ض"}</AvatarFallback>
                 </Avatar>
                 <span className="hidden text-sm font-medium text-white sm:inline">
@@ -168,7 +174,7 @@ export function Header() {
                     <Link href="/profile"><UserIcon className="h-4 w-4" /> الملف الشخصي</Link>
                   </DropdownMenuItem>
                   <DropdownMenuItem asChild>
-                    <Link href="/profile?tab=settings"><Settings className="h-4 w-4" /> الإعدادات</Link>
+                    <Link href="/profile/settings"><Settings className="h-4 w-4" /> الإعدادات</Link>
                   </DropdownMenuItem>
                   {can(currentUser, "manage_users") && (
                     <DropdownMenuItem asChild>

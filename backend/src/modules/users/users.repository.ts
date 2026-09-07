@@ -21,6 +21,14 @@ export class UsersRepository {
     return this.prisma.user.update({ where: { id }, data: patch });
   }
 
+  updateAvatar(id: string, avatarImage: Buffer, avatarMimeType: string) {
+    return this.prisma.user.update({ where: { id }, data: { avatarImage, avatarMimeType } });
+  }
+
+  findAvatarById(id: string) {
+    return this.prisma.user.findUnique({ where: { id }, select: { avatarImage: true, avatarMimeType: true } });
+  }
+
   writeAuditLog(params: { actorId?: string; action: string; target?: string; ip?: string }) {
     return this.prisma.auditLog.create({ data: params });
   }

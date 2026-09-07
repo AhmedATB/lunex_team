@@ -9,7 +9,7 @@ import { useSession } from "@/store/session";
 import { useProfile, effectiveAvatarSeed } from "@/store/profile";
 import { getMockDatabase } from "@/lib/mock/generate";
 import { GLOBAL_ROLE_LABELS, TEAM_ROLE_LABELS } from "@/lib/rbac";
-import { avatarUrl, formatNumber, safeDecodeURIComponent } from "@/lib/utils";
+import { resolveAvatarUrl, formatNumber, safeDecodeURIComponent } from "@/lib/utils";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -45,7 +45,12 @@ export default function PublicProfilePage() {
       <Card>
         <CardContent className="flex flex-col items-center gap-4 p-6 sm:flex-row sm:items-start">
           <div className="art-glow relative h-24 w-24 shrink-0 overflow-hidden rounded-full ring-4 ring-primary-500/30">
-            <Image src={avatarUrl(effectiveAvatarSeed(user, avatarOverrides))} alt={user.displayName} fill className="object-cover" />
+            <Image
+              src={resolveAvatarUrl(user.id, user.avatarVersion, effectiveAvatarSeed(user, avatarOverrides))}
+              alt={user.displayName}
+              fill
+              className="object-cover"
+            />
           </div>
           <div className="flex-1 space-y-2 text-center sm:text-start">
             <div className="flex flex-wrap items-center justify-center gap-2 sm:justify-start">

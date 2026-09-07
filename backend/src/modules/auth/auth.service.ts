@@ -24,6 +24,7 @@ export interface PublicUser {
   createdAt: Date;
   displayName: string | null;
   bio: string | null;
+  avatarVersion: string | null;
 }
 
 export interface AuthResponse extends SessionTokens {
@@ -225,7 +226,7 @@ export class AuthService {
     return createHmac("sha256", this.refreshPepper).update(raw).digest("hex");
   }
 
-  /** Strips passwordHash — never let the hash leave this service, even accidentally via a spread. */
+  /** Strips passwordHash (and the avatar bytes themselves) — never let either leave this service, even accidentally via a spread. */
   private toPublicUser(user: PrismaUser): PublicUser {
     return {
       id: user.id,
@@ -235,6 +236,7 @@ export class AuthService {
       createdAt: user.createdAt,
       displayName: user.displayName,
       bio: user.bio,
+      avatarVersion: user.avatarImage ? user.updatedAt.toISOString() : null,
     };
   }
 }

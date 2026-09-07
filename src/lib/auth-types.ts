@@ -7,6 +7,8 @@ export interface BackendPublicUser {
   createdAt: string;
   displayName: string | null;
   bio: string | null;
+  /** Set only when a real uploaded avatar exists — see resolveAvatarUrl in lib/utils. */
+  avatarVersion: string | null;
 }
 
 export interface BackendAuthResponse {

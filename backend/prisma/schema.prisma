@@ -28,6 +28,12 @@ model User {
   passwordHash String?
   displayName  String?
   bio          String?
+  /// Small (256x256, re-encoded webp) — stored in the DB rather than local
+  /// disk because Railway's local filesystem is wiped on every deploy; a
+  /// dedicated object store (S3/R2) is the future upgrade, not needed yet
+  /// at avatar-image sizes.
+  avatarImage     Bytes?
+  avatarMimeType  String?
   role         String   @default("reader")
   createdAt    DateTime @default(now())
   updatedAt    DateTime @updatedAt

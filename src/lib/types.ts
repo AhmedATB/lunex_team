@@ -226,6 +226,8 @@ export interface User {
   username: string;
   displayName: string;
   avatarSeed: string;
+  /** Set only when a real uploaded avatar exists — see resolveAvatarUrl in lib/utils. */
+  avatarVersion?: string | null;
   email: string;
   role: GlobalRole;
   teamId?: string;

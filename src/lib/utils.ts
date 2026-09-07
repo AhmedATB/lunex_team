@@ -29,6 +29,18 @@ export function avatarUrl(seed: string): string {
   return `https://i.pravatar.cc/150?u=${encodeURIComponent(seed)}`;
 }
 
+/**
+ * A real uploaded avatar (avatarVersion set) always wins over the seeded
+ * placeholder — the version string is only there to bust the browser's
+ * cache after a re-upload, since the URL is otherwise stable per user.
+ */
+export function resolveAvatarUrl(userId: string, avatarVersion: string | null | undefined, fallbackSeed: string): string {
+  if (avatarVersion) {
+    return `/api/users/${encodeURIComponent(userId)}/avatar?v=${encodeURIComponent(avatarVersion)}`;
+  }
+  return avatarUrl(fallbackSeed);
+}
+
 export function safeDecodeURIComponent(value: string): string {
   try {
     return decodeURIComponent(value);

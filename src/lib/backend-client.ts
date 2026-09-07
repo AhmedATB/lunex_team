@@ -1,4 +1,4 @@
-const BACKEND_URL = process.env.BACKEND_URL ?? "http://localhost:4000";
+export const BACKEND_URL = process.env.BACKEND_URL ?? "http://localhost:4000";
 const BFF_USER_AGENT = "LunexTeamBFF/1.0 (+server-to-server)";
 
 export interface BackendResult<T> {
@@ -31,10 +31,13 @@ export async function callBackend<T>(
     authToken?: string;
   } = {}
 ): Promise<BackendResult<T>> {
-  const headers: Record<string, string> = {
-    "Content-Type": "application/json",
-    "User-Agent": BFF_USER_AGENT,
-  };
+  const isFormData = init.body instanceof FormData;
+  const headers: Record<string, string> = { "User-Agent": BFF_USER_AGENT };
+  // A multipart body needs its own boundary, which fetch only generates
+  // correctly if WE don't set Content-Type ourselves — setting "multipart/
+  // form-data" without a boundary here would make the backend unable to
+  // parse the body at all.
+  if (!isFormData) headers["Content-Type"] = "application/json";
   for (const [key, value] of Object.entries(init.forwardedHeaders ?? {})) {
     if (value) headers[key] = value;
   }
@@ -44,7 +47,7 @@ export async function callBackend<T>(
     const res = await fetch(`${BACKEND_URL}${path}`, {
       method: init.method ?? "GET",
       headers,
-      body: init.body !== undefined ? JSON.stringify(init.body) : undefined,
+      body: isFormData ? (init.body as FormData) : init.body !== undefined ? JSON.stringify(init.body) : undefined,
       cache: "no-store",
     });
 

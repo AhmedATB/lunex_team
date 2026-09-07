@@ -43,6 +43,7 @@ export function synthesizeProfile(backendUser: BackendPublicUser): User {
     username: backendUser.username,
     displayName: backendUser.displayName ?? backendUser.username,
     avatarSeed: backendUser.id,
+    avatarVersion: backendUser.avatarVersion,
     email: backendUser.email,
     role: backendUser.role as GlobalRole,
     level: 1,
