@@ -7,6 +7,7 @@ import { useReaderSettings, useReadingProgress } from "@/store/reader-settings";
 import { useReaderChrome } from "@/store/reader-chrome";
 import { useRewards, chapterKey } from "@/store/rewards";
 import { ProtectedImage } from "@/components/reader/protected-image";
+import { ProtectedPage } from "@/components/reader/protected-page";
 import type { Chapter } from "@/lib/types";
 
 export function ReaderViewer({
@@ -29,12 +30,55 @@ export function ReaderViewer({
   const [pageIndex, setPageIndex] = useState(0);
   const containerRef = useRef<HTMLDivElement>(null);
 
+  // A chapter uploaded through the real pipeline (admin/chapters) has a
+  // matching real backend Chapter for this series+number; older/demo
+  // chapters don't, and keep using the mock picsum placeholder flow below.
+  // Checked fresh per chapter since some series mix real and mock chapters
+  // during this migration.
+  const [realChapterId, setRealChapterId] = useState<string | null>(null);
+  const [realPageCount, setRealPageCount] = useState(0);
+  const [checkedReal, setCheckedReal] = useState(false);
+
+  useEffect(() => {
+    let cancelled = false;
+    setCheckedReal(false);
+    setRealChapterId(null);
+    setRealPageCount(0);
+
+    fetch(`/api/chapters?seriesId=${encodeURIComponent(seriesId)}`)
+      .then((res) => (res.ok ? res.json() : []))
+      .then((list: { id: string; number: number }[]) => {
+        if (cancelled) return null;
+        const match = Array.isArray(list) ? list.find((c) => c.number === chapter.number) : undefined;
+        if (!match) return null;
+        return fetch(`/api/chapters/${match.id}`).then((res) => (res.ok ? res.json() : null));
+      })
+      .then((full: { id: string; pages: { pageNumber: number }[] } | null) => {
+        if (cancelled) return;
+        if (full?.pages?.length) {
+          setRealChapterId(full.id);
+          setRealPageCount(full.pages.length);
+        }
+      })
+      .catch(() => {})
+      .finally(() => {
+        if (!cancelled) setCheckedReal(true);
+      });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [seriesId, chapter.number]);
+
+  const isReal = Boolean(realChapterId) && realPageCount > 0;
+  const pageCount = isReal ? realPageCount : chapter.pages;
+
   const pages = useMemo(
     () =>
-      Array.from({ length: chapter.pages }).map(
+      Array.from({ length: isReal ? 0 : chapter.pages }).map(
         (_, i) => `https://picsum.photos/seed/lunex-page-${chapter.id}-${i}/900/1350`
       ),
-    [chapter]
+    [chapter, isReal]
   );
 
   useEffect(() => {
@@ -43,10 +87,10 @@ export function ReaderViewer({
 
   const goNext = useCallback(() => {
     if (mode !== "vertical") {
-      if (pageIndex < pages.length - 1) return setPageIndex((i) => i + 1);
+      if (pageIndex < pageCount - 1) return setPageIndex((i) => i + 1);
     }
     if (nextChapter) router.push(`/series/${seriesSlug}/${nextChapter}`);
-  }, [mode, pageIndex, pages.length, nextChapter, router, seriesSlug]);
+  }, [mode, pageIndex, pageCount, nextChapter, router, seriesSlug]);
 
   const goPrev = useCallback(() => {
     if (mode !== "vertical") {
@@ -90,7 +134,7 @@ export function ReaderViewer({
     return () => window.removeEventListener("scroll", onScroll);
   }, [mode]);
 
-  const progress = mode === "vertical" ? scrollProgress : pages.length ? (pageIndex + 1) / pages.length : 0;
+  const progress = mode === "vertical" ? scrollProgress : pageCount ? (pageIndex + 1) / pageCount : 0;
 
   // A chapter only counts toward the daily reading reward once actually FINISHED
   // (scrolled to the end / reached the last page) — merely opening it is not enough.
@@ -102,12 +146,12 @@ export function ReaderViewer({
   useEffect(() => {
     if (recordedRef.current) return;
     const finished =
-      mode === "vertical" ? scrollProgress >= 0.98 : pages.length > 0 && pageIndex >= pages.length - 1;
+      mode === "vertical" ? scrollProgress >= 0.98 : pageCount > 0 && pageIndex >= pageCount - 1;
     if (finished) {
       recordedRef.current = true;
       recordChapterRead(chapterKey(seriesId, chapter.number));
     }
-  }, [mode, scrollProgress, pageIndex, pages.length, seriesId, chapter.number, recordChapterRead]);
+  }, [mode, scrollProgress, pageIndex, pageCount, seriesId, chapter.number, recordChapterRead]);
 
   const fitClass =
     fit === "width" ? "w-full h-auto" : fit === "height" ? "h-[calc(100vh-8rem)] w-auto" : "";
@@ -124,22 +168,34 @@ export function ReaderViewer({
         />
       </div>
 
-      {mode === "vertical" ? (
+      {!checkedReal ? (
+        <div className="mx-auto w-full max-w-3xl animate-pulse rounded-lg bg-white/5 py-4" style={{ minHeight: 480 }} />
+      ) : mode === "vertical" ? (
         <div
           ref={containerRef}
           className="reader-protect mx-auto flex max-w-3xl flex-col items-center gap-1 overflow-y-auto py-4"
           onContextMenu={(e) => e.preventDefault()}
           onClick={toggleToolbar}
         >
-          {pages.map((src, i) => (
-            <div key={src} style={zoomStyle} className="w-full">
-              <ProtectedImage
-                src={src}
-                alt={`صفحة ${i + 1}`}
-                priority={i < 2}
-                style={filterStyle}
-                className={fitClass}
-              />
+          {Array.from({ length: pageCount }).map((_, i) => (
+            <div key={i} style={zoomStyle} className="w-full">
+              {isReal ? (
+                <ProtectedPage
+                  chapterId={realChapterId!}
+                  pageNumber={i + 1}
+                  alt={`صفحة ${i + 1}`}
+                  priority={i < 2}
+                  className={fitClass}
+                />
+              ) : (
+                <ProtectedImage
+                  src={pages[i]}
+                  alt={`صفحة ${i + 1}`}
+                  priority={i < 2}
+                  style={filterStyle}
+                  className={fitClass}
+                />
+              )}
             </div>
           ))}
         </div>
@@ -157,13 +213,23 @@ export function ReaderViewer({
             <ChevronRight className="h-6 w-6 rtl:rotate-180" />
           </button>
           <div style={zoomStyle} className="w-full">
-            <ProtectedImage
-              src={pages[pageIndex]}
-              alt={`صفحة ${pageIndex + 1}`}
-              priority
-              style={filterStyle}
-              className={fitClass}
-            />
+            {isReal ? (
+              <ProtectedPage
+                chapterId={realChapterId!}
+                pageNumber={pageIndex + 1}
+                alt={`صفحة ${pageIndex + 1}`}
+                priority
+                className={fitClass}
+              />
+            ) : (
+              <ProtectedImage
+                src={pages[pageIndex]}
+                alt={`صفحة ${pageIndex + 1}`}
+                priority
+                style={filterStyle}
+                className={fitClass}
+              />
+            )}
           </div>
           <button
             onClick={(e) => { e.stopPropagation(); goNext(); }}
@@ -173,7 +239,7 @@ export function ReaderViewer({
             <ChevronLeft className="h-6 w-6 rtl:rotate-180" />
           </button>
           <p className="absolute bottom-2 start-1/2 -translate-x-1/2 rounded-full bg-black/50 px-3 py-1 text-xs text-white">
-            {pageIndex + 1} / {pages.length}
+            {pageIndex + 1} / {pageCount}
           </p>
         </div>
       )}

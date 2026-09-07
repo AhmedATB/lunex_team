@@ -5,6 +5,7 @@ import { ScrapingVelocityTracker } from "./anti-scraping/scraping-velocity.track
 import { ImageTokenSigner, NonceCache } from "./crypto/image-token.util";
 import { ImagesRepository } from "./images.repository";
 import { StorageService } from "./storage/storage.interface";
+import { buildTileBundle, encryptBundle } from "./tiling/tile-bundle.util";
 import type { RequestContext } from "../../common/middleware/request-context.middleware";
 
 export interface IssuedImageToken {
@@ -63,7 +64,7 @@ export class ImagesService {
     assetId: string,
     token: string | undefined,
     ctx: RequestContext
-  ): Promise<{ buffer: Buffer; contentType: string }> {
+  ): Promise<{ buffer: Buffer; contentType: "application/octet-stream" }> {
     if (!token) {
       throw new UnauthorizedException({ code: "missing_token", message: "Image access token required." });
     }
@@ -101,7 +102,9 @@ export class ImagesService {
     }
 
     const original = await this.storage.get(asset.storageKey);
-    const watermarked = await this.watermark(original, payload.userId);
+    const watermarked = await this.watermark(original, payload.userId, payload.nonce);
+    const bundle = await buildTileBundle(watermarked, asset.width, asset.height);
+    const encrypted = encryptBundle(bundle, payload.bundleKey);
 
     await this.repo.logAccess({
       assetId,
@@ -111,23 +114,26 @@ export class ImagesService {
       event: "stream_served",
     });
 
-    return { buffer: watermarked, contentType: "image/png" };
+    return { buffer: encrypted, contentType: "application/octet-stream" };
   }
 
   /**
-   * Tiled, semi-transparent overlay carrying the requesting user's id and the
-   * exact serve time. Barely noticeable at normal reading size, but a leaked
-   * page still carries enough signal (id + timestamp, repeated so cropping
-   * can't remove every copy) to trace the leak back to one session. This is
-   * deterrence through traceability, not prevention — the honest framing for
-   * anything that ultimately has to render onto a screen a human can see.
+   * Tiled, semi-transparent overlay carrying the requesting user's id and a
+   * per-token session nonce (never the same value twice — a fresh one is
+   * minted with every issued token, architecture doc §23/§24) rather than
+   * just a timestamp, so two page views by the same user still carry
+   * visibly different marks. Barely noticeable at normal reading size, but
+   * a leaked page still carries enough signal (repeated so cropping can't
+   * remove every copy) to trace the leak back to one specific session. This
+   * is deterrence through traceability, not prevention — the honest framing
+   * for anything that ultimately has to render onto a screen a human can see.
    */
-  private async watermark(original: Buffer, userId: string): Promise<Buffer> {
+  private async watermark(original: Buffer, userId: string, sessionNonce: string): Promise<Buffer> {
     const image = sharp(original);
     const metadata = await image.metadata();
     const width = metadata.width ?? 800;
     const height = metadata.height ?? 1200;
-    const label = `${userId.slice(0, 8)} - ${new Date().toISOString()}`;
+    const label = `${userId.slice(0, 8)} · ${sessionNonce.slice(0, 10)}`;
 
     const svg = this.buildWatermarkSvg(width, height, label);
     return image

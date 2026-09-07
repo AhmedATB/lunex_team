@@ -8,6 +8,18 @@ export interface ImageTokenPayload {
   deviceFingerprint: string;
   expiresAtMs: number;
   nonce: string;
+  /**
+   * A random, single-use, per-token symmetric key (32 bytes, base64url) —
+   * not a secret the server needs to protect, just unforgeable (HMAC-signed
+   * alongside everything else) and non-replayable (rides the same nonce).
+   * streamAsset() encrypts the tile bundle with this; the client extracts it
+   * by base64url-decoding the token's own body, no server round-trip
+   * needed. Deliberately NOT a "master"/chapter/page key — leaking one
+   * token's bundleKey exposes exactly the one page view it was issued for,
+   * nothing else (architecture doc §15's key-hierarchy goal, achieved with
+   * two levels instead of four).
+   */
+  bundleKey: string;
 }
 
 export type TokenVerifyResult =
@@ -31,6 +43,7 @@ export class ImageTokenSigner {
       deviceFingerprint,
       expiresAtMs: Date.now() + TOKEN_TTL_MS,
       nonce: randomBytes(16).toString("base64url"),
+      bundleKey: randomBytes(32).toString("base64url"),
     };
     const body = Buffer.from(JSON.stringify(payload)).toString("base64url");
     const signature = this.sign(body);
@@ -64,7 +77,8 @@ export class ImageTokenSigner {
       typeof payload.userId !== "string" ||
       typeof payload.deviceFingerprint !== "string" ||
       typeof payload.expiresAtMs !== "number" ||
-      typeof payload.nonce !== "string"
+      typeof payload.nonce !== "string" ||
+      typeof payload.bundleKey !== "string"
     ) {
       return { ok: false, reason: "malformed" };
     }
