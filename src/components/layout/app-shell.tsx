@@ -6,11 +6,15 @@ import { Footer } from "./footer";
 import { Ticker } from "./ticker";
 import { SparkleField } from "@/components/effects/sparkle-field";
 import { MagicCursor } from "@/components/effects/magic-cursor";
+import { ToastHost } from "@/components/ui/toast-host";
+import { AchievementWatcher } from "@/components/effects/achievement-watcher";
 
 export function AppShell({ children }: { children: ReactNode }) {
   return (
     <div className="relative flex min-h-screen flex-col bg-background">
       <MagicCursor />
+      <ToastHost />
+      <AchievementWatcher />
       {/*
         This layer is `absolute` (not `fixed`) inside the page's own `relative` root, so it
         stretches to the FULL scrollable page height and stars/blobs are distributed all the

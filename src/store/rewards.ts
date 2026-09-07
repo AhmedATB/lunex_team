@@ -25,6 +25,10 @@ interface RewardsState {
   dailyDate: string;
   dailyReadKeys: string[];
   dailyRewardClaimed: boolean;
+  /** Cumulative, never reset — unlike dailyReadKeys, this is what achievements track. */
+  allTimeReadKeys: string[];
+  /** Unique calendar days (YYYY-MM-DD) on which at least one chapter was read — the raw data behind the reading streak. */
+  readDates: string[];
   settings: MonetizationSettings;
 
   watchAd: () => void;
@@ -59,6 +63,8 @@ export const useRewards = create<RewardsState>()(
       dailyDate: todayKey(),
       dailyReadKeys: [],
       dailyRewardClaimed: false,
+      allTimeReadKeys: [],
+      readDates: [],
       settings: DEFAULT_MONETIZATION_SETTINGS,
 
       watchAd: () => {
@@ -74,8 +80,11 @@ export const useRewards = create<RewardsState>()(
       recordChapterRead: (key) => {
         set((s) => {
           const daily = rolledDaily(s);
-          if (daily.dailyReadKeys.includes(key)) return daily;
-          return { ...daily, dailyReadKeys: [...daily.dailyReadKeys, key] };
+          const allTime = s.allTimeReadKeys.includes(key) ? s.allTimeReadKeys : [...s.allTimeReadKeys, key];
+          const today = todayKey();
+          const readDates = s.readDates.includes(today) ? s.readDates : [...s.readDates, today];
+          if (daily.dailyReadKeys.includes(key)) return { ...daily, allTimeReadKeys: allTime, readDates };
+          return { ...daily, dailyReadKeys: [...daily.dailyReadKeys, key], allTimeReadKeys: allTime, readDates };
         });
       },
 
@@ -128,6 +137,21 @@ export const useRewards = create<RewardsState>()(
 
 export function chapterKey(seriesId: string, chapterNumber: number): string {
   return `${seriesId}:${chapterNumber}`;
+}
+
+/** Consecutive days ending today or yesterday — reading yesterday but not today still counts (streak isn't broken until a full day is skipped). */
+export function computeStreak(readDates: string[]): number {
+  if (readDates.length === 0) return 0;
+  const dates = new Set(readDates);
+  let cursor = new Date();
+  if (!dates.has(todayKey())) cursor.setDate(cursor.getDate() - 1);
+  let streak = 0;
+  while (dates.has(cursor.toISOString().slice(0, 10))) {
+    streak += 1;
+    cursor = new Date(cursor);
+    cursor.setDate(cursor.getDate() - 1);
+  }
+  return streak;
 }
 
 /**

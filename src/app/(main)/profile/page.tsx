@@ -3,13 +3,17 @@
 import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import Image from "next/image";
-import { Award, BookOpen, MessageSquare, Bookmark as BookmarkIcon, Bell, Settings2 } from "lucide-react";
+import { Award, BookOpen, MessageSquare, Bookmark as BookmarkIcon, Bell, Settings2, Lock } from "lucide-react";
 import { useSession } from "@/store/session";
 import { useBookmarks, useReadingProgress } from "@/store/reader-settings";
 import { useProfile, effectiveAvatarSeed } from "@/store/profile";
+import { useRewards, computeStreak } from "@/store/rewards";
+import { useComments } from "@/store/comments";
+import { useAchievements } from "@/store/achievements";
+import { ACHIEVEMENTS, type AchievementMetric } from "@/lib/achievements";
 import { getMockDatabase } from "@/lib/mock/generate";
 import { GLOBAL_ROLE_LABELS, TEAM_ROLE_LABELS } from "@/lib/rbac";
-import { resolveAvatarUrl, formatNumber, timeAgo } from "@/lib/utils";
+import { resolveAvatarUrl, formatNumber, timeAgo, cn } from "@/lib/utils";
 import type { AppNotification } from "@/lib/notification-types";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -34,6 +38,17 @@ export default function ProfilePage() {
   const historyEntries = Object.entries(progress)
     .map(([seriesId, chapter]) => ({ series: db.series.find((s) => s.id === seriesId), chapter }))
     .filter((e) => e.series);
+
+  const chaptersReadCount = useRewards((s) => s.allTimeReadKeys.length);
+  const readDates = useRewards((s) => s.readDates);
+  const ownCommentCount = useComments((s) => s.addedComments.filter((c) => c.userId === currentUserId).length);
+  const unlockedAchievements = useAchievements((s) => s.unlocked);
+  const achievementValues: Record<AchievementMetric, number> = {
+    chaptersRead: chaptersReadCount,
+    comments: ownCommentCount,
+    bookmarks: bookmarkIds.length,
+    streak: computeStreak(readDates),
+  };
 
   const [notifications, setNotifications] = useState<AppNotification[]>([]);
   const [notifLoading, setNotifLoading] = useState(true);
@@ -120,6 +135,7 @@ export default function ProfilePage() {
         <TabsList>
           <TabsTrigger value="history">سجل القراءة</TabsTrigger>
           <TabsTrigger value="bookmarks">المفضلة</TabsTrigger>
+          <TabsTrigger value="achievements">الإنجازات</TabsTrigger>
           <TabsTrigger value="notifications">الإشعارات</TabsTrigger>
         </TabsList>
 
@@ -146,6 +162,43 @@ export default function ProfilePage() {
               {bookmarkedSeries.map((s) => <SeriesCard key={s.id} series={s} />)}
             </div>
           )}
+        </TabsContent>
+
+        <TabsContent value="achievements">
+          <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 md:grid-cols-4">
+            {ACHIEVEMENTS.map((a) => {
+              const isUnlocked = Boolean(unlockedAchievements[a.id]);
+              const value = achievementValues[a.metric];
+              const pct = Math.min(100, Math.round((value / a.target) * 100));
+              const Icon = a.icon;
+              return (
+                <div
+                  key={a.id}
+                  className={cn(
+                    "panel flex flex-col items-center gap-2 p-4 text-center transition-all",
+                    isUnlocked ? "art-glow ring-1 ring-primary-400/40" : "opacity-60"
+                  )}
+                >
+                  <div
+                    className={cn(
+                      "flex h-12 w-12 items-center justify-center rounded-full",
+                      isUnlocked ? "bg-lunex-gradient" : "bg-white/5"
+                    )}
+                  >
+                    {isUnlocked ? <Icon className="h-6 w-6 text-white" /> : <Lock className="h-5 w-5 text-lunex-gray" />}
+                  </div>
+                  <p className="text-sm font-bold text-white">{a.title}</p>
+                  <p className="text-xs text-lunex-gray">{a.description}</p>
+                  {!isUnlocked && (
+                    <div className="w-full space-y-1">
+                      <Progress value={pct} className="h-1.5" />
+                      <p className="text-[10px] text-lunex-gray/70">{Math.min(value, a.target)}/{a.target}</p>
+                    </div>
+                  )}
+                </div>
+              );
+            })}
+          </div>
         </TabsContent>
 
         <TabsContent value="notifications">

@@ -11,6 +11,7 @@ import { useRatings } from "@/store/ratings";
 import { useComments } from "@/store/comments";
 import { useRealUsers, synthesizeProfile } from "@/store/real-users";
 import { useRewards } from "@/store/rewards";
+import { useAchievements } from "@/store/achievements";
 import { useMessages } from "@/store/messages";
 import { useSession } from "@/store/session";
 import { useTheme } from "@/store/theme";
@@ -37,6 +38,7 @@ export function StoreHydration({ initialUser }: { initialUser: BackendPublicUser
     useTeamManagement.persist.rehydrate();
     useProfile.persist.rehydrate();
     useRewards.persist.rehydrate();
+    useAchievements.persist.rehydrate();
     useMessages.persist.rehydrate();
     useRatings.persist.rehydrate();
     useComments.persist.rehydrate();
