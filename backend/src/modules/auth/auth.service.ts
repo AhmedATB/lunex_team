@@ -6,6 +6,7 @@ import { createHmac, randomBytes, randomUUID } from "node:crypto";
 import { AuthRepository } from "./auth.repository";
 import { getDummyHash, hashPassword, verifyPassword } from "./crypto/password.util";
 import type { RequestContext } from "../../common/middleware/request-context.middleware";
+import { NotificationsService } from "../notifications/notifications.service";
 
 const ACCESS_TOKEN_TTL = "10m";
 const REFRESH_TOKEN_TTL_MS = 7 * 24 * 60 * 60 * 1000; // 7 days
@@ -44,7 +45,8 @@ export class AuthService {
   constructor(
     private readonly repo: AuthRepository,
     private readonly jwt: JwtService,
-    private readonly config: ConfigService
+    private readonly config: ConfigService,
+    private readonly notifications: NotificationsService
   ) {
     this.refreshPepper = this.config.getOrThrow<string>("JWT_REFRESH_PEPPER");
   }
@@ -65,7 +67,9 @@ export class AuthService {
     const user = await this.repo.createUser(email, username, passwordHash);
     await this.repo.writeAuditLog({ actorId: user.id, action: "user.register", ip: ctx.ip });
 
-    const tokens = await this.issueSession(user.id, user.role, ctx);
+    // notifyNewDevice: false — every device is "new" on the very first login
+    // right after registering, so alerting about it would just be noise.
+    const tokens = await this.issueSession(user.id, user.role, ctx, undefined, false);
     return { ...tokens, user: this.toPublicUser(user) };
   }
 
@@ -169,6 +173,12 @@ export class AuthService {
     const passwordHash = await hashPassword(newPassword);
     await this.repo.updatePassword(userId, passwordHash);
     await this.repo.writeAuditLog({ actorId: userId, action: "user.password_changed", ip: ctx.ip });
+    await this.notifications.notify(
+      userId,
+      "security",
+      "تم تغيير كلمة المرور",
+      "إذا لم تكن أنت من قام بهذا، تواصل معنا فوراً."
+    );
   }
 
   /**
@@ -191,9 +201,18 @@ export class AuthService {
     userId: string,
     role: string,
     ctx: RequestContext,
-    familyId: string = randomUUID()
+    familyId: string = randomUUID(),
+    notifyNewDevice: boolean = true
   ): Promise<SessionTokens> {
-    const device = await this.repo.upsertDevice(userId, ctx.deviceFingerprint);
+    const { device, isNew } = await this.repo.upsertDevice(userId, ctx.deviceFingerprint);
+    if (isNew && notifyNewDevice) {
+      await this.notifications.notify(
+        userId,
+        "security",
+        "تسجيل دخول من جهاز جديد",
+        "إذا لم يكن هذا أنت، غيّر كلمة مرورك فوراً وتواصل معنا."
+      );
+    }
 
     const rawRefreshToken = randomBytes(32).toString("base64url");
     const refreshTokenHash = this.hashRefreshToken(rawRefreshToken);

@@ -31,12 +31,17 @@ export class AuthRepository {
     return this.prisma.user.update({ where: { id }, data: { passwordHash } });
   }
 
+  /** `isNew` lets the caller notify the user on a genuinely new device, without a second query — `upsert` alone doesn't say which branch it took. */
   async upsertDevice(userId: string, fingerprintHash: string) {
-    return this.prisma.device.upsert({
+    const existing = await this.prisma.device.findUnique({
+      where: { userId_fingerprintHash: { userId, fingerprintHash } },
+    });
+    const device = await this.prisma.device.upsert({
       where: { userId_fingerprintHash: { userId, fingerprintHash } },
       update: {},
       create: { userId, fingerprintHash },
     });
+    return { device, isNew: !existing };
   }
 
   createSession(params: {

@@ -1,6 +1,7 @@
 import { Module } from "@nestjs/common";
 import { ConfigService } from "@nestjs/config";
 import { JwtModule } from "@nestjs/jwt";
+import { NotificationsModule } from "../notifications/notifications.module";
 import { AuthController } from "./auth.controller";
 import { AuthRepository } from "./auth.repository";
 import { AuthService } from "./auth.service";
@@ -14,7 +15,7 @@ const JwtAsyncModule = JwtModule.registerAsync({
 });
 
 @Module({
-  imports: [JwtAsyncModule],
+  imports: [JwtAsyncModule, NotificationsModule],
   controllers: [AuthController],
   providers: [AuthService, AuthRepository],
   // Re-exporting JwtModule (not just AuthService) is required here: the

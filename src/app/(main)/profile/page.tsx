@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo } from "react";
+import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import Image from "next/image";
 import { Award, BookOpen, MessageSquare, Bookmark as BookmarkIcon, Bell, Settings2 } from "lucide-react";
@@ -9,7 +9,8 @@ import { useBookmarks, useReadingProgress } from "@/store/reader-settings";
 import { useProfile, effectiveAvatarSeed } from "@/store/profile";
 import { getMockDatabase } from "@/lib/mock/generate";
 import { GLOBAL_ROLE_LABELS, TEAM_ROLE_LABELS } from "@/lib/rbac";
-import { resolveAvatarUrl, formatNumber } from "@/lib/utils";
+import { resolveAvatarUrl, formatNumber, timeAgo } from "@/lib/utils";
+import type { AppNotification } from "@/lib/notification-types";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -33,6 +34,19 @@ export default function ProfilePage() {
   const historyEntries = Object.entries(progress)
     .map(([seriesId, chapter]) => ({ series: db.series.find((s) => s.id === seriesId), chapter }))
     .filter((e) => e.series);
+
+  const [notifications, setNotifications] = useState<AppNotification[]>([]);
+  const [notifLoading, setNotifLoading] = useState(true);
+  useEffect(() => {
+    if (!currentUserId) {
+      setNotifLoading(false);
+      return;
+    }
+    fetch("/api/notifications")
+      .then((res) => (res.ok ? res.json() : null))
+      .then((body) => setNotifications(body?.items ?? []))
+      .finally(() => setNotifLoading(false));
+  }, [currentUserId]);
 
   if (!user) {
     return (
@@ -135,21 +149,26 @@ export default function ProfilePage() {
         </TabsContent>
 
         <TabsContent value="notifications">
-          <Card>
-            <CardContent className="divide-y divide-white/5 p-0">
-              {[
-                "تم نشر فصل جديد من سلسلة تتابعها",
-                "علّق أحدهم على تعليقك",
-                "تم قبول طلب انضمامك لفريق Aurora",
-                "تحديث في سياسة النشر",
-              ].map((n, i) => (
-                <div key={i} className="flex items-center gap-3 p-4">
-                  <Bell className="h-4 w-4 shrink-0 text-primary-300" />
-                  <p className="text-sm text-lunex-gray">{n}</p>
-                </div>
-              ))}
-            </CardContent>
-          </Card>
+          {notifLoading ? (
+            <EmptyState text="جارِ التحميل..." />
+          ) : notifications.length === 0 ? (
+            <EmptyState text="لا توجد إشعارات حتى الآن." />
+          ) : (
+            <Card>
+              <CardContent className="divide-y divide-white/5 p-0">
+                {notifications.map((n) => (
+                  <div key={n.id} className="flex items-start gap-3 p-4">
+                    <Bell className="mt-0.5 h-4 w-4 shrink-0 text-primary-300" />
+                    <div className="min-w-0 flex-1">
+                      <p className="text-sm text-white">{n.title}</p>
+                      {n.body && <p className="mt-0.5 text-sm text-lunex-gray">{n.body}</p>}
+                      <p className="mt-1 text-xs text-lunex-gray/70">{timeAgo(n.createdAt)}</p>
+                    </div>
+                  </div>
+                ))}
+              </CardContent>
+            </Card>
+          )}
         </TabsContent>
       </Tabs>
     </div>

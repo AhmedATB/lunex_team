@@ -4,7 +4,7 @@ import Link from "next/link";
 import Image from "next/image";
 import { useRouter } from "next/navigation";
 import { useEffect, useMemo, useState } from "react";
-import { Search, Bell, Menu, LogOut, Settings, User as UserIcon, ShieldCheck, Coins, MessageCircle, Palette } from "lucide-react";
+import { Search, Menu, LogOut, Settings, User as UserIcon, ShieldCheck, Coins, MessageCircle, Palette } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Avatar, AvatarImage, AvatarFallback } from "@/components/ui/avatar";
@@ -18,6 +18,7 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { ThemePicker } from "@/components/settings/theme-picker";
+import { NotificationsBell } from "@/components/layout/notifications-bell";
 import { useSession } from "@/store/session";
 import { useProfile, effectiveAvatarSeed } from "@/store/profile";
 import { useRewards } from "@/store/rewards";
@@ -125,10 +126,7 @@ export function Header() {
             </Link>
           </Button>
 
-          <Button variant="ghost" size="icon" aria-label="الإشعارات" className="relative">
-            <Bell className="h-5 w-5" />
-            <span className="absolute end-1.5 top-1.5 h-2 w-2 rounded-full border border-black bg-amber-400" />
-          </Button>
+          <NotificationsBell loggedIn={Boolean(currentUserId)} />
 
           {/* Available to everyone, no account needed — style is a device/browser preference, not tied to a profile. */}
           <Popover>

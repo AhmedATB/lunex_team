@@ -10,6 +10,7 @@ import { ProofOfWorkGuard } from "./common/security/proof-of-work.guard";
 import { SecurityModule } from "./common/security/security.module";
 import { AuthModule } from "./modules/auth/auth.module";
 import { ImagesModule } from "./modules/images/images.module";
+import { NotificationsModule } from "./modules/notifications/notifications.module";
 import { OAuthModule } from "./modules/oauth/oauth.module";
 import { UsersModule } from "./modules/users/users.module";
 import { PrismaModule } from "./prisma/prisma.module";
@@ -26,6 +27,7 @@ import { PrismaModule } from "./prisma/prisma.module";
     PrismaModule,
     AuthModule,
     ImagesModule,
+    NotificationsModule,
     OAuthModule,
     UsersModule,
   ],

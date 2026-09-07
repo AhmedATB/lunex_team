@@ -1,6 +1,7 @@
 import { BadRequestException, ConflictException, ForbiddenException, Injectable, NotFoundException } from "@nestjs/common";
 import sharp from "sharp";
 import type { RequestContext } from "../../common/middleware/request-context.middleware";
+import { NotificationsService } from "../notifications/notifications.service";
 import { UsersRepository } from "./users.repository";
 import type { UpdateProfileDto } from "./dto/update-profile.dto";
 
@@ -18,7 +19,10 @@ const AVATAR_SIZE_PX = 256;
  */
 @Injectable()
 export class UsersService {
-  constructor(private readonly repo: UsersRepository) {}
+  constructor(
+    private readonly repo: UsersRepository,
+    private readonly notifications: NotificationsService
+  ) {}
 
   async changeRole(actorId: string, targetUserId: string, newRole: string, ctx: RequestContext) {
     // Re-fetched from DB rather than trusted off the actor's JWT claim: a
@@ -48,6 +52,13 @@ export class UsersService {
       target: `${targetUserId}:${target.role}->${newRole}`,
       ip: ctx.ip,
     });
+    await this.notifications.notify(
+      targetUserId,
+      "account",
+      "تم تحديث صلاحيتك",
+      "تم تغيير دورك على المنصة — راجع صفحة حسابك للتفاصيل.",
+      "/profile"
+    );
 
     return { id: updated.id, email: updated.email, username: updated.username, role: updated.role };
   }
