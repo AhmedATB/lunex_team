@@ -5,20 +5,25 @@ import { TopReaders } from "@/components/home/top-readers";
 import { LatestComments } from "@/components/home/latest-comments";
 import { ContinueReading } from "@/components/home/continue-reading";
 import { LatestChaptersGrid } from "@/components/home/latest-chapters-grid";
+import { HeroSlider } from "@/components/home/hero-slider";
 import { BloodCard } from "@/components/shared/series-cards/blood-card";
 import { SeriesShowcase } from "@/components/shared/series-showcase";
 import { FadeIn } from "@/components/motion/fade-in";
 import type { HomeLayoutData } from "./types";
 
 /**
- * "ساحة المعركة" (Battle Wall) — opens directly on a ranked roster, no
- * hero, no warm-up. Every series display uses BloodCard (clipped corner,
- * thick border, stamped rank badge) for a consistent "combatant card" feel
- * throughout, not just the leaderboard section.
+ * "ساحة المعركة" (Battle Wall) — opens on the hero spotlight, then straight
+ * into a ranked roster. Every series display uses BloodCard (clipped
+ * corner, thick border, stamped rank badge) for a consistent "combatant
+ * card" feel throughout, not just the leaderboard section.
  */
 export function CrimsonBloodHome(data: HomeLayoutData) {
   return (
     <div className="container relative space-y-12 py-6">
+      <FadeIn>
+        <HeroSlider series={data.featured.length ? data.featured : data.trending.slice(0, 5)} />
+      </FadeIn>
+
       <FadeIn>
         <SeriesShowcase
           title="الأقوى الآن"

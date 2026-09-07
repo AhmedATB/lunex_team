@@ -5,21 +5,26 @@ import { TopReaders } from "@/components/home/top-readers";
 import { LatestComments } from "@/components/home/latest-comments";
 import { ContinueReading } from "@/components/home/continue-reading";
 import { LatestChaptersGrid } from "@/components/home/latest-chapters-grid";
+import { HeroSlider } from "@/components/home/hero-slider";
 import { CyberCard } from "@/components/shared/series-cards/cyber-card";
 import { SeriesShowcase } from "@/components/shared/series-showcase";
 import { FadeIn } from "@/components/motion/fade-in";
 import type { HomeLayoutData } from "./types";
 
 /**
- * "الشبكة" (Grid Wall) — no hero slider: opens straight onto a dense ranked
- * grid, like a wall of screens. Every series display in this layout uses
- * CyberCard (sharp corners, HUD brackets, info burned onto the image), not
- * just the trending section — the card design itself is the differentiator
- * here, not just section order.
+ * "الشبكة" (Grid Wall) — opens on the hero spotlight, then straight into a
+ * dense ranked grid like a wall of screens. Every series display in this
+ * layout uses CyberCard (sharp corners, HUD brackets, info burned onto the
+ * image), not just the trending section — the card design itself is the
+ * differentiator here, not section order.
  */
 export function NeonCyberHome(data: HomeLayoutData) {
   return (
     <div className="container relative space-y-12 py-6">
+      <FadeIn>
+        <HeroSlider series={data.featured.length ? data.featured : data.trending.slice(0, 5)} />
+      </FadeIn>
+
       <FadeIn>
         <StatsBar stats={data.stats} />
       </FadeIn>
