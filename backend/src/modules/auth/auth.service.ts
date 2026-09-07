@@ -22,6 +22,8 @@ export interface PublicUser {
   username: string;
   role: string;
   createdAt: Date;
+  displayName: string | null;
+  bio: string | null;
 }
 
 export interface AuthResponse extends SessionTokens {
@@ -141,6 +143,34 @@ export class AuthService {
   }
 
   /**
+   * A user changing their own password from a page they're already logged
+   * into — still requires the CURRENT password, not just a valid session,
+   * since a hijacked-but-not-yet-logged-out session shouldn't be enough on
+   * its own to lock the real owner out by swapping the password under them.
+   */
+  async changePassword(userId: string, currentPassword: string, newPassword: string, ctx: RequestContext): Promise<void> {
+    const user = await this.repo.findUserById(userId);
+    if (!user) {
+      throw new UnauthorizedException({ code: "user_not_found", message: "Account no longer exists." });
+    }
+    if (!user.passwordHash) {
+      throw new ConflictException({
+        code: "no_password_set",
+        message: "This account signs in via Discord/Google and has no password to change.",
+      });
+    }
+
+    const currentOk = await verifyPassword(user.passwordHash, currentPassword);
+    if (!currentOk) {
+      throw new UnauthorizedException({ code: "invalid_current_password", message: "Current password is incorrect." });
+    }
+
+    const passwordHash = await hashPassword(newPassword);
+    await this.repo.updatePassword(userId, passwordHash);
+    await this.repo.writeAuditLog({ actorId: userId, action: "user.password_changed", ip: ctx.ip });
+  }
+
+  /**
    * Revokes exactly the ONE session this refresh token belongs to — unlike
    * refresh()'s reuse-detection, a normal logout is not an attack signal, so
    * it must not kill the user's other logged-in devices. An unknown/already-
@@ -197,6 +227,14 @@ export class AuthService {
 
   /** Strips passwordHash — never let the hash leave this service, even accidentally via a spread. */
   private toPublicUser(user: PrismaUser): PublicUser {
-    return { id: user.id, email: user.email, username: user.username, role: user.role, createdAt: user.createdAt };
+    return {
+      id: user.id,
+      email: user.email,
+      username: user.username,
+      role: user.role,
+      createdAt: user.createdAt,
+      displayName: user.displayName,
+      bio: user.bio,
+    };
   }
 }

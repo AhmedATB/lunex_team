@@ -30,12 +30,18 @@ export const useRealUsers = create<RealUsersState>()(
   )
 );
 
-/** Zero-state defaults for the fields the real backend doesn't track (yet). Identity fields (id/email/username/role) are the only ones that are ever real. */
+/**
+ * displayName/bio are real, persisted backend fields now (see backend
+ * UsersService.updateProfile) — this reads the actual value, falling back to
+ * a sane default only when the account has never set one. Everything else
+ * below (level/xp/badges/team affiliation) still belongs to features that
+ * are mock-data-backed, so those stay zero-state defaults.
+ */
 export function synthesizeProfile(backendUser: BackendPublicUser): User {
   return {
     id: backendUser.id,
     username: backendUser.username,
-    displayName: backendUser.username,
+    displayName: backendUser.displayName ?? backendUser.username,
     avatarSeed: backendUser.id,
     email: backendUser.email,
     role: backendUser.role as GlobalRole,
@@ -43,7 +49,7 @@ export function synthesizeProfile(backendUser: BackendPublicUser): User {
     xp: 0,
     xpToNext: 100,
     joinedAt: backendUser.createdAt,
-    bio: "",
+    bio: backendUser.bio ?? "",
     isOnline: true,
     readCount: 0,
     commentCount: 0,

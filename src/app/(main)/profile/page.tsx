@@ -1,35 +1,20 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo } from "react";
+import Link from "next/link";
 import Image from "next/image";
-import {
-  Award,
-  BookOpen,
-  MessageSquare,
-  Bookmark as BookmarkIcon,
-  Bell,
-  Settings,
-  Moon,
-  Shield,
-  Pencil,
-} from "lucide-react";
+import { Award, BookOpen, MessageSquare, Bookmark as BookmarkIcon, Bell, Settings2 } from "lucide-react";
 import { useSession } from "@/store/session";
 import { useBookmarks, useReadingProgress } from "@/store/reader-settings";
 import { useProfile, effectiveAvatarSeed } from "@/store/profile";
 import { getMockDatabase } from "@/lib/mock/generate";
 import { GLOBAL_ROLE_LABELS, TEAM_ROLE_LABELS } from "@/lib/rbac";
-import { AVATAR_PRESET_SEEDS } from "@/lib/avatar-presets";
-import { avatarUrl, cn, formatNumber } from "@/lib/utils";
-import { ThemePicker } from "@/components/settings/theme-picker";
+import { avatarUrl, formatNumber } from "@/lib/utils";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Progress } from "@/components/ui/progress";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Switch } from "@/components/ui/switch";
-import { Label } from "@/components/ui/label";
-import { Separator } from "@/components/ui/separator";
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { SeriesCard } from "@/components/shared/series-card";
 
 export default function ProfilePage() {
@@ -41,7 +26,6 @@ export default function ProfilePage() {
   const user = db.users.find((u) => u.id === currentUserId);
   const team = db.teams.find((t) => t.id === user?.teamId);
   const avatarOverrides = useProfile((s) => s.avatarOverrides);
-  const setAvatarSeed = useProfile((s) => s.setAvatarSeed);
 
   const bookmarkIds = useBookmarks((s) => s.bookmarks);
   const progress = useReadingProgress((s) => s.progress);
@@ -60,16 +44,11 @@ export default function ProfilePage() {
 
   return (
     <div className="container space-y-6 py-6">
-      <Card>
-        <CardContent className="flex flex-col items-center gap-4 p-6 sm:flex-row sm:items-start">
-          <div className="relative h-24 w-24 shrink-0">
-            <div className="art-glow relative h-24 w-24 overflow-hidden rounded-full ring-4 ring-primary-500/30">
-              <Image src={avatarUrl(effectiveAvatarSeed(user, avatarOverrides))} alt={user.displayName} fill className="object-cover" />
-            </div>
-            <AvatarPickerDialog
-              currentSeed={effectiveAvatarSeed(user, avatarOverrides)}
-              onSelect={(seed) => setAvatarSeed(user.id, seed)}
-            />
+      <Card className="relative overflow-hidden">
+        <div className="absolute inset-x-0 top-0 h-24 bg-lunex-gradient opacity-20" aria-hidden="true" />
+        <CardContent className="relative flex flex-col items-center gap-4 p-6 sm:flex-row sm:items-start">
+          <div className="art-glow relative h-24 w-24 shrink-0 overflow-hidden rounded-full ring-4 ring-primary-500/30">
+            <Image src={avatarUrl(effectiveAvatarSeed(user, avatarOverrides))} alt={user.displayName} fill className="object-cover" />
           </div>
           <div className="flex-1 space-y-2 text-center sm:text-start">
             <div className="flex flex-wrap items-center justify-center gap-2 sm:justify-start">
@@ -82,7 +61,7 @@ export default function ProfilePage() {
               )}
             </div>
             <p className="text-sm text-lunex-gray">@{user.username}</p>
-            <p className="mx-auto max-w-md text-sm text-lunex-gray sm:mx-0">{user.bio}</p>
+            {user.bio && <p className="mx-auto max-w-md text-sm text-lunex-gray sm:mx-0">{user.bio}</p>}
 
             <div className="mx-auto max-w-xs space-y-1 sm:mx-0">
               <div className="flex justify-between text-xs text-lunex-gray">
@@ -92,19 +71,28 @@ export default function ProfilePage() {
               <Progress value={(user.xp / user.xpToNext) * 100} />
             </div>
 
-            <div className="flex flex-wrap justify-center gap-1.5 pt-1 sm:justify-start">
-              {user.badges.map((b) => (
-                <Badge key={b} variant="secondary" className="flex items-center gap-1">
-                  <Award className="h-3 w-3" /> {b}
-                </Badge>
-              ))}
-            </div>
+            {user.badges.length > 0 && (
+              <div className="flex flex-wrap justify-center gap-1.5 pt-1 sm:justify-start">
+                {user.badges.map((b) => (
+                  <Badge key={b} variant="secondary" className="flex items-center gap-1">
+                    <Award className="h-3 w-3" /> {b}
+                  </Badge>
+                ))}
+              </div>
+            )}
           </div>
 
-          <div className="grid grid-cols-3 gap-4 text-center sm:flex sm:flex-col sm:gap-3">
-            <Stat icon={BookOpen} label="فصل مقروء" value={user.readCount} />
-            <Stat icon={MessageSquare} label="تعليق" value={user.commentCount} />
-            <Stat icon={BookmarkIcon} label="مفضلة" value={bookmarkedSeries.length} />
+          <div className="flex flex-col items-center gap-3 sm:items-end">
+            <Button variant="secondary" size="sm" asChild>
+              <Link href="/profile/settings">
+                <Settings2 className="h-4 w-4" /> إعدادات الحساب
+              </Link>
+            </Button>
+            <div className="grid grid-cols-3 gap-4 text-center sm:flex sm:gap-3">
+              <Stat icon={BookOpen} label="فصل مقروء" value={user.readCount} />
+              <Stat icon={MessageSquare} label="تعليق" value={user.commentCount} />
+              <Stat icon={BookmarkIcon} label="مفضلة" value={bookmarkedSeries.length} />
+            </div>
           </div>
         </CardContent>
       </Card>
@@ -114,7 +102,6 @@ export default function ProfilePage() {
           <TabsTrigger value="history">سجل القراءة</TabsTrigger>
           <TabsTrigger value="bookmarks">المفضلة</TabsTrigger>
           <TabsTrigger value="notifications">الإشعارات</TabsTrigger>
-          <TabsTrigger value="settings">الإعدادات</TabsTrigger>
         </TabsList>
 
         <TabsContent value="history">
@@ -159,27 +146,6 @@ export default function ProfilePage() {
             </CardContent>
           </Card>
         </TabsContent>
-
-        <TabsContent value="settings" className="space-y-4">
-          <Card>
-            <CardContent className="space-y-4 p-5">
-              <h3 className="flex items-center gap-2 font-display text-sm font-bold text-white">
-                <Moon className="h-4 w-4" /> المظهر
-              </h3>
-              <ThemePicker />
-            </CardContent>
-          </Card>
-          <Card>
-            <CardContent className="space-y-4 p-5">
-              <h3 className="flex items-center gap-2 font-display text-sm font-bold text-white">
-                <Settings className="h-4 w-4" /> تفضيلات عامة
-              </h3>
-              <SettingRow icon={Bell} label="إشعارات الفصول الجديدة" defaultChecked />
-              <Separator />
-              <SettingRow icon={Shield} label="المصادقة الثنائية (2FA)" />
-            </CardContent>
-          </Card>
-        </TabsContent>
       </Tabs>
     </div>
   );
@@ -203,68 +169,3 @@ function EmptyState({ text }: { text: string }) {
   );
 }
 
-function SettingRow({
-  icon: Icon,
-  label,
-  defaultChecked,
-}: {
-  icon: typeof Moon;
-  label: string;
-  defaultChecked?: boolean;
-}) {
-  return (
-    <div className="flex items-center justify-between">
-      <Label className="flex items-center gap-2 text-white">
-        <Icon className="h-4 w-4 text-lunex-gray" /> {label}
-      </Label>
-      <Switch defaultChecked={defaultChecked} />
-    </div>
-  );
-}
-
-function AvatarPickerDialog({
-  currentSeed,
-  onSelect,
-}: {
-  currentSeed: string;
-  onSelect: (seed: string) => void;
-}) {
-  const [open, setOpen] = useState(false);
-
-  function pick(seed: string) {
-    onSelect(seed);
-    setOpen(false);
-  }
-
-  return (
-    <Dialog open={open} onOpenChange={setOpen}>
-      <DialogTrigger asChild>
-        <Button
-          size="icon"
-          className="hover-pop absolute bottom-0 end-0 h-8 w-8 rounded-full shadow-lg"
-          aria-label="تغيير الصورة الرمزية"
-        >
-          <Pencil className="h-3.5 w-3.5" />
-        </Button>
-      </DialogTrigger>
-      <DialogContent className="max-h-[80vh] overflow-y-auto">
-        <DialogHeader><DialogTitle>اختر صورتك الرمزية</DialogTitle></DialogHeader>
-        <div className="grid grid-cols-4 gap-3 pt-2 sm:grid-cols-6">
-          {AVATAR_PRESET_SEEDS.map((seed) => (
-            <button
-              key={seed}
-              type="button"
-              onClick={() => pick(seed)}
-              className={cn(
-                "hover-pop relative h-16 w-16 overflow-hidden rounded-full ring-2 transition-transform",
-                seed === currentSeed ? "ring-primary-400" : "ring-white/10"
-              )}
-            >
-              <Image src={avatarUrl(seed)} alt="خيار صورة رمزية" fill className="object-cover" />
-            </button>
-          ))}
-        </div>
-      </DialogContent>
-    </Dialog>
-  );
-}

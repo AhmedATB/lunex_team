@@ -4,6 +4,7 @@ import type { Request } from "express";
 import { CurrentUser } from "../../common/decorators/current-user.decorator";
 import type { AccessTokenPayload } from "../../common/guards/jwt-auth.guard";
 import { ChangeRoleDto } from "./dto/change-role.dto";
+import { UpdateProfileDto } from "./dto/update-profile.dto";
 import { UsersService } from "./users.service";
 
 /** No @Public() anywhere here — every route requires a valid access token via the global JwtAuthGuard, and UsersService independently re-checks the actor's actual DB role before allowing anything. */
@@ -21,5 +22,13 @@ export class UsersController {
     @Req() req: Request
   ) {
     return this.users.changeRole(actor.sub, id, dto.role, req.context);
+  }
+
+  /** A user editing their own profile — actor.sub is the target, never a caller-supplied id. */
+  @Patch("me")
+  @HttpCode(HttpStatus.OK)
+  @Throttle({ default: { limit: 20, ttl: 60_000 } })
+  updateProfile(@Body() dto: UpdateProfileDto, @CurrentUser() actor: AccessTokenPayload, @Req() req: Request) {
+    return this.users.updateProfile(actor.sub, dto, req.context);
   }
 }

@@ -26,6 +26,8 @@ model User {
   /// login() must therefore reject (not crash on) a password attempt when
   /// this is null, rather than assuming every user has one.
   passwordHash String?
+  displayName  String?
+  bio          String?
   role         String   @default("reader")
   createdAt    DateTime @default(now())
   updatedAt    DateTime @updatedAt

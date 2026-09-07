@@ -1,4 +1,4 @@
-import { Body, Controller, Get, HttpCode, HttpStatus, Post, Req } from "@nestjs/common";
+import { Body, Controller, Get, HttpCode, HttpStatus, Patch, Post, Req } from "@nestjs/common";
 import { Throttle } from "@nestjs/throttler";
 import type { Request } from "express";
 import { CurrentUser } from "../../common/decorators/current-user.decorator";
@@ -6,6 +6,7 @@ import { Public } from "../../common/decorators/public.decorator";
 import { RequirePow } from "../../common/decorators/require-pow.decorator";
 import type { AccessTokenPayload } from "../../common/guards/jwt-auth.guard";
 import { AuthService } from "./auth.service";
+import { ChangePasswordDto } from "./dto/change-password.dto";
 import { LoginDto } from "./dto/login.dto";
 import { RefreshDto } from "./dto/refresh.dto";
 import { RegisterDto } from "./dto/register.dto";
@@ -50,6 +51,14 @@ export class AuthController {
   @HttpCode(HttpStatus.OK)
   me(@CurrentUser() user: AccessTokenPayload) {
     return this.auth.me(user.sub);
+  }
+
+  /** No @Public() — must already be logged in with a valid access token, and still has to supply the current password (see AuthService.changePassword). */
+  @Patch("password")
+  @HttpCode(HttpStatus.NO_CONTENT)
+  @Throttle({ default: { limit: 10, ttl: 60_000 } })
+  async changePassword(@Body() dto: ChangePasswordDto, @CurrentUser() user: AccessTokenPayload, @Req() req: Request) {
+    await this.auth.changePassword(user.sub, dto.currentPassword, dto.newPassword, req.context);
   }
 
   /** @Public() like refresh — the refresh token itself is the credential; a caller can log out even with an expired/missing access token. */

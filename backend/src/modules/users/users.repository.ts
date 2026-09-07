@@ -9,8 +9,16 @@ export class UsersRepository {
     return this.prisma.user.findUnique({ where: { id } });
   }
 
+  findByUsername(username: string) {
+    return this.prisma.user.findUnique({ where: { username } });
+  }
+
   updateRole(id: string, role: string) {
     return this.prisma.user.update({ where: { id }, data: { role } });
+  }
+
+  updateProfile(id: string, patch: { username?: string; displayName?: string; bio?: string }) {
+    return this.prisma.user.update({ where: { id }, data: patch });
   }
 
   writeAuditLog(params: { actorId?: string; action: string; target?: string; ip?: string }) {

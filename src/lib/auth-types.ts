@@ -5,6 +5,8 @@ export interface BackendPublicUser {
   username: string;
   role: string;
   createdAt: string;
+  displayName: string | null;
+  bio: string | null;
 }
 
 export interface BackendAuthResponse {

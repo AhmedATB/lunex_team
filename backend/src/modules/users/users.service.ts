@@ -1,6 +1,7 @@
-import { ForbiddenException, Injectable, NotFoundException } from "@nestjs/common";
+import { ConflictException, ForbiddenException, Injectable, NotFoundException } from "@nestjs/common";
 import type { RequestContext } from "../../common/middleware/request-context.middleware";
 import { UsersRepository } from "./users.repository";
+import type { UpdateProfileDto } from "./dto/update-profile.dto";
 
 const ROLE_MANAGER_ROLES = new Set(["owner", "super_administrator"]);
 
@@ -46,5 +47,32 @@ export class UsersService {
     });
 
     return { id: updated.id, email: updated.email, username: updated.username, role: updated.role };
+  }
+
+  /** Self-service — a user editing their own username/displayName/bio. Username uniqueness is pre-checked (matches AuthService.register's approach) rather than caught as a DB constraint error. */
+  async updateProfile(userId: string, dto: UpdateProfileDto, ctx: RequestContext) {
+    if (dto.username) {
+      const existing = await this.repo.findByUsername(dto.username);
+      if (existing && existing.id !== userId) {
+        throw new ConflictException({ code: "username_taken", message: "This username is already taken." });
+      }
+    }
+
+    const updated = await this.repo.updateProfile(userId, {
+      username: dto.username,
+      displayName: dto.displayName,
+      bio: dto.bio,
+    });
+    await this.repo.writeAuditLog({ actorId: userId, action: "user.profile_updated", ip: ctx.ip });
+
+    return {
+      id: updated.id,
+      email: updated.email,
+      username: updated.username,
+      role: updated.role,
+      createdAt: updated.createdAt,
+      displayName: updated.displayName,
+      bio: updated.bio,
+    };
   }
 }

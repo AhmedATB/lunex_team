@@ -27,6 +27,10 @@ export class AuthRepository {
     return this.prisma.user.create({ data: { email, username, passwordHash } });
   }
 
+  updatePassword(id: string, passwordHash: string) {
+    return this.prisma.user.update({ where: { id }, data: { passwordHash } });
+  }
+
   async upsertDevice(userId: string, fingerprintHash: string) {
     return this.prisma.device.upsert({
       where: { userId_fingerprintHash: { userId, fingerprintHash } },
