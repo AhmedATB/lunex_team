@@ -26,5 +26,10 @@ import { StorageService } from "./storage/storage.interface";
       inject: [LocalDiskStorageService, PrismaBlobStorageService],
     },
   ],
+  // ChaptersModule stores page bytes through the same StorageService rather
+  // than standing up a second storage config, and calls ImagesService to
+  // mint tokens once IT has decided the caller is authorized — ImagesService
+  // itself stays authorization-agnostic (token mechanics only).
+  exports: [StorageService, ImagesService],
 })
 export class ImagesModule {}

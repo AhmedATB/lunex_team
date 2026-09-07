@@ -1,0 +1,12 @@
+import { Module } from "@nestjs/common";
+import { ImagesModule } from "../images/images.module";
+import { ChaptersController } from "./chapters.controller";
+import { ChaptersRepository } from "./chapters.repository";
+import { ChaptersService } from "./chapters.service";
+
+@Module({
+  imports: [ImagesModule],
+  controllers: [ChaptersController],
+  providers: [ChaptersService, ChaptersRepository],
+})
+export class ChaptersModule {}
