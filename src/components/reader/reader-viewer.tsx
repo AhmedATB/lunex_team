@@ -4,6 +4,7 @@ import { useEffect, useMemo, useRef, useState, useCallback } from "react";
 import { useRouter } from "next/navigation";
 import { ChevronLeft, ChevronRight } from "lucide-react";
 import { useReaderSettings, useReadingProgress } from "@/store/reader-settings";
+import { useReaderChrome } from "@/store/reader-chrome";
 import { useRewards, chapterKey } from "@/store/rewards";
 import { ProtectedImage } from "@/components/reader/protected-image";
 import type { Chapter } from "@/lib/types";
@@ -23,6 +24,7 @@ export function ReaderViewer({
 }) {
   const { mode, fit, zoom, brightness, contrast } = useReaderSettings();
   const setProgress = useReadingProgress((s) => s.setProgress);
+  const toggleToolbar = useReaderChrome((s) => s.toggleToolbar);
   const router = useRouter();
   const [pageIndex, setPageIndex] = useState(0);
   const containerRef = useRef<HTMLDivElement>(null);
@@ -127,6 +129,7 @@ export function ReaderViewer({
           ref={containerRef}
           className="reader-protect mx-auto flex max-w-3xl flex-col items-center gap-1 overflow-y-auto py-4"
           onContextMenu={(e) => e.preventDefault()}
+          onClick={toggleToolbar}
         >
           {pages.map((src, i) => (
             <div key={src} style={zoomStyle} className="w-full">
@@ -144,9 +147,10 @@ export function ReaderViewer({
         <div
           className="reader-protect relative mx-auto flex max-w-3xl items-center justify-center py-4"
           onContextMenu={(e) => e.preventDefault()}
+          onClick={toggleToolbar}
         >
           <button
-            onClick={goPrev}
+            onClick={(e) => { e.stopPropagation(); goPrev(); }}
             aria-label="السابق"
             className="absolute start-0 z-10 rounded-full bg-black/40 p-2 text-white hover:bg-black/60"
           >
@@ -162,7 +166,7 @@ export function ReaderViewer({
             />
           </div>
           <button
-            onClick={goNext}
+            onClick={(e) => { e.stopPropagation(); goNext(); }}
             aria-label="التالي"
             className="absolute end-0 z-10 rounded-full bg-black/40 p-2 text-white hover:bg-black/60"
           >

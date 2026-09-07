@@ -4,6 +4,7 @@ import { useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import { ChevronRight, ChevronLeft } from "lucide-react";
 import { useNovelReaderSettings, useReadingProgress } from "@/store/reader-settings";
+import { useReaderChrome } from "@/store/reader-chrome";
 import { useRewards, chapterKey } from "@/store/rewards";
 import type { Chapter } from "@/lib/types";
 import { cn } from "@/lib/utils";
@@ -29,6 +30,7 @@ export function NovelViewer({
 }) {
   const { fontSize, theme } = useNovelReaderSettings();
   const setProgress = useReadingProgress((s) => s.setProgress);
+  const toggleToolbar = useReaderChrome((s) => s.toggleToolbar);
   const containerRef = useRef<HTMLDivElement>(null);
 
   const paragraphs = (chapter.content ?? "").split(/\n{2,}/).filter(Boolean);
@@ -78,7 +80,7 @@ export function NovelViewer({
         />
       </div>
 
-      <div ref={containerRef} dir="rtl" className="mx-auto max-w-[70ch] px-6 py-12">
+      <div ref={containerRef} dir="rtl" className="mx-auto max-w-[70ch] px-6 py-12" onClick={toggleToolbar}>
         <h1 className="mb-8 text-center font-display text-2xl font-bold">{chapter.title}</h1>
 
         <div

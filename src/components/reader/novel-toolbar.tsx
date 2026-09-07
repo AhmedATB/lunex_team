@@ -20,6 +20,7 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { useNovelReaderSettings, type NovelReadingTheme } from "@/store/reader-settings";
+import { useReaderChrome } from "@/store/reader-chrome";
 import type { Chapter } from "@/lib/types";
 import { cn } from "@/lib/utils";
 
@@ -47,6 +48,7 @@ export function NovelToolbar({
   const router = useRouter();
   const settings = useNovelReaderSettings();
   const [fullscreen, setFullscreen] = useState(false);
+  const toolbarVisible = useReaderChrome((s) => s.toolbarVisible);
 
   function toggleFullscreen() {
     if (!document.fullscreenElement) {
@@ -59,7 +61,12 @@ export function NovelToolbar({
   }
 
   return (
-    <div className="sticky top-0 z-30 flex flex-wrap items-center gap-2 border-b border-white/10 bg-[#09090B]/90 px-3 py-2 backdrop-blur-xl">
+    <div
+      className={cn(
+        "sticky top-0 z-30 flex flex-wrap items-center gap-2 border-b border-white/10 bg-[#09090B]/90 px-3 py-2 backdrop-blur-xl transition-transform duration-300",
+        !toolbarVisible && "-translate-y-full lg:translate-y-0"
+      )}
+    >
       <Link href={`/series/${seriesSlug}`} className="flex items-center gap-1 text-sm text-lunex-gray hover:text-white">
         <ArrowRight className="h-4 w-4 rtl:rotate-180" />
         <span className="hidden max-w-[140px] truncate sm:inline">{seriesTitle}</span>

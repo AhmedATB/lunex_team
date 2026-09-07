@@ -40,6 +40,14 @@ export default function ReaderPage() {
     document.title = series ? `${series.titleAr} - الفصل ${chapterParam} | LUNEX TEAM` : "غير موجود | LUNEX TEAM";
   }, [series, chapterParam]);
 
+  // Navigating to a new chapter reuses this same route component (no remount),
+  // so the browser keeps whatever scroll position the previous chapter ended
+  // at — finishing chapter N at the bottom and pressing "next" would otherwise
+  // drop you at the bottom of chapter N+1 instead of its start.
+  useEffect(() => {
+    window.scrollTo(0, 0);
+  }, [chapter?.id]);
+
   if (!ready) return null;
   if (!series || !chapter) {
     notFound();
