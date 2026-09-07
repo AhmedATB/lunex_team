@@ -1,18 +1,18 @@
 import { Suspense } from "react";
 import type { Metadata } from "next";
 import { getGenres } from "@/lib/mock/repo";
-import { SeriesExplorer } from "@/components/explore/series-explorer";
+import { UnifiedSearch } from "@/components/search/unified-search";
 
 export const metadata: Metadata = {
   title: "البحث",
-  description: "ابحث عن سلسلتك المفضلة بالاسم أو المؤلف أو التصنيف.",
+  description: "ابحث عن سلاسل، فرق ترجمة، أو مستخدمين في مكان واحد.",
 };
 
 export default async function SearchPage() {
   const genres = await getGenres();
   return (
     <Suspense>
-      <SeriesExplorer genres={genres} title="البحث" />
+      <UnifiedSearch genres={genres} />
     </Suspense>
   );
 }
