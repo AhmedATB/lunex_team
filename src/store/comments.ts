@@ -11,11 +11,18 @@ export interface CommentOverride {
   editedAt?: string;
 }
 
+export interface CommentReport {
+  reporterId: string;
+  reason: string;
+  at: string;
+}
+
 interface CommentsState {
   addedComments: Comment[];
   removedCommentIds: string[];
   overrides: Record<string, CommentOverride>;
   reactions: Record<string, "like" | "dislike" | undefined>;
+  reports: Record<string, CommentReport[]>;
 
   postComment: (
     input: Pick<Comment, "seriesId" | "userId" | "content" | "isSpoiler"> &
@@ -26,6 +33,8 @@ interface CommentsState {
   setPinned: (id: string, pinned: boolean) => void;
   setSpoiler: (id: string, spoiler: boolean) => void;
   react: (id: string, kind: "like" | "dislike") => void;
+  reportComment: (id: string, reporterId: string, reason: string) => void;
+  dismissReports: (id: string) => void;
 }
 
 export const useComments = create<CommentsState>()(
@@ -35,6 +44,7 @@ export const useComments = create<CommentsState>()(
       removedCommentIds: [],
       overrides: {},
       reactions: {},
+      reports: {},
 
       postComment: (input) => {
         const comment: Comment = {
@@ -68,6 +78,23 @@ export const useComments = create<CommentsState>()(
 
       react: (id, kind) => {
         set((s) => ({ reactions: { ...s.reactions, [id]: s.reactions[id] === kind ? undefined : kind } }));
+      },
+
+      reportComment: (id, reporterId, reason) => {
+        set((s) => ({
+          reports: {
+            ...s.reports,
+            [id]: [...(s.reports[id] ?? []).filter((r) => r.reporterId !== reporterId), { reporterId, reason, at: new Date().toISOString() }],
+          },
+        }));
+      },
+
+      dismissReports: (id) => {
+        set((s) => {
+          const next = { ...s.reports };
+          delete next[id];
+          return { reports: next };
+        });
       },
     }),
     { name: "lunex-comments", skipHydration: true }

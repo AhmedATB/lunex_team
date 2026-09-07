@@ -2,11 +2,18 @@
 
 import { useMemo, useState } from "react";
 import Image from "next/image";
-import { ThumbsUp, ThumbsDown, Pin, PinOff, Send, Pencil, Trash2, EyeOff, AlertTriangle, Check, X } from "lucide-react";
+import { ThumbsUp, ThumbsDown, Pin, PinOff, Send, Pencil, Trash2, EyeOff, AlertTriangle, Check, X, Flag } from "lucide-react";
 import type { Comment, User } from "@/lib/types";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { Badge } from "@/components/ui/badge";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuLabel,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 import { avatarUrl, timeAgo, cn } from "@/lib/utils";
 import { useSession } from "@/store/session";
 import { useProfile, effectiveAvatarSeed } from "@/store/profile";
@@ -15,6 +22,8 @@ import { useComments, mergeComments } from "@/store/comments";
 import { getTeamAuthRoles, getEffectiveCustomRoles } from "@/lib/team-auth";
 import { canInTeam } from "@/lib/rbac";
 import { getMockDatabase } from "@/lib/mock/generate";
+
+const REPORT_REASONS = ["محتوى غير مناسب", "تحرش أو إساءة", "معلومات مضللة", "سبام", "أخرى"];
 
 export function CommentSection({
   seriesId,
@@ -88,6 +97,15 @@ export function CommentSection({
 
   function reveal(id: string) {
     setRevealedIds((s) => new Set(s).add(id));
+  }
+
+  function report(id: string, reason: string) {
+    if (!currentUserId) return;
+    commentsStore.reportComment(id, currentUserId, reason);
+  }
+
+  function hasReported(id: string) {
+    return Boolean(currentUserId && commentsStore.reports[id]?.some((r) => r.reporterId === currentUserId));
   }
 
   return (
@@ -198,6 +216,30 @@ export function CommentSection({
                       <ThumbsDown className="h-3.5 w-3.5" /> {dislikes}
                     </button>
                     <button className="text-xs text-lunex-gray hover:text-white">رد</button>
+
+                    {!isOwn && currentUserId && (
+                      hasReported(c.id) ? (
+                        <span className="flex items-center gap-1 text-xs text-lunex-gray/60">
+                          <Flag className="h-3 w-3" /> تم الإبلاغ
+                        </span>
+                      ) : (
+                        <DropdownMenu>
+                          <DropdownMenuTrigger asChild>
+                            <button className="flex items-center gap-1 text-xs text-lunex-gray hover:text-red-400">
+                              <Flag className="h-3 w-3" /> بلاغ
+                            </button>
+                          </DropdownMenuTrigger>
+                          <DropdownMenuContent align="start" className="w-48">
+                            <DropdownMenuLabel>سبب البلاغ</DropdownMenuLabel>
+                            {REPORT_REASONS.map((reason) => (
+                              <DropdownMenuItem key={reason} onClick={() => report(c.id, reason)}>
+                                {reason}
+                              </DropdownMenuItem>
+                            ))}
+                          </DropdownMenuContent>
+                        </DropdownMenu>
+                      )
+                    )}
 
                     {isOwn && (
                       <>
