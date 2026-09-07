@@ -103,6 +103,18 @@ export default function ReaderPage() {
   }, [chapter?.id]);
 
   if (!ready || !realChecked) return null;
+  if (process.env.NODE_ENV !== "production" || true) {
+    console.log("[reader-debug]", {
+      ready,
+      realChecked,
+      seriesId: series?.id,
+      chapterParam,
+      chapterNumber,
+      chapterFound: Boolean(chapter),
+      allChapterNumbers: allChapters.map((c) => c.number),
+      realChaptersRaw: realChapters,
+    });
+  }
   if (!series || !chapter) {
     notFound();
   }
