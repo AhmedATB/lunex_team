@@ -4,7 +4,6 @@ import {
   Compass,
   Flame,
   Bookmark,
-  Search,
   User,
   Users,
   LayoutDashboard,
@@ -35,7 +34,7 @@ export const SIDEBAR_NAV: NavItem[] = [
 export const BOTTOM_NAV: NavItem[] = [
   { href: "/", label: "الرئيسية", icon: Home },
   { href: "/series", label: "استكشاف", icon: Compass },
-  { href: "/search", label: "بحث", icon: Search },
+  { href: "/series?type=novel", label: "الروايات", icon: BookText },
   { href: "/store", label: "المتجر", icon: Coins },
   { href: "/bookmarks", label: "مفضلتي", icon: Bookmark },
   { href: "/profile", label: "حسابي", icon: User },
