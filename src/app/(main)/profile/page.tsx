@@ -123,8 +123,8 @@ export default function ProfilePage() {
               </Link>
             </Button>
             <div className="grid grid-cols-3 gap-4 text-center sm:flex sm:gap-3">
-              <Stat icon={BookOpen} label="فصل مقروء" value={user.readCount} />
-              <Stat icon={MessageSquare} label="تعليق" value={user.commentCount} />
+              <Stat icon={BookOpen} label="فصل مقروء" value={chaptersReadCount} />
+              <Stat icon={MessageSquare} label="تعليق" value={ownCommentCount} />
               <Stat icon={BookmarkIcon} label="مفضلة" value={bookmarkedSeries.length} />
             </div>
           </div>
