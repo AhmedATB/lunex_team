@@ -122,6 +122,16 @@ export default function AdminChaptersPage() {
     loadRealChapters();
   }
 
+  /** Real chapters only — the backend's update() already supports this, the table just never exposed it after creation-time publish. */
+  async function togglePublish(id: string, nextPublished: boolean) {
+    await fetch(`/api/chapters/${id}`, {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ isPublished: nextPublished }),
+    }).catch(() => {});
+    loadRealChapters();
+  }
+
   return (
     <div className="space-y-4">
       <h1 className="font-display text-2xl font-bold text-white">إدارة الفصول</h1>
@@ -206,7 +216,17 @@ export default function AdminChaptersPage() {
                       )}
                     </span>
                   </td>
-                  <td className="p-3"><Badge variant={r.isPublished ? "success" : "secondary"}>{r.isPublished ? "منشور" : "مسودة"}</Badge></td>
+                  <td className="p-3">
+                    {r.isReal ? (
+                      <button type="button" onClick={() => togglePublish(r.id, !r.isPublished)} title="اضغط لتبديل حالة النشر">
+                        <Badge variant={r.isPublished ? "success" : "secondary"} className="cursor-pointer hover:opacity-80">
+                          {r.isPublished ? "منشور" : "مسودة"}
+                        </Badge>
+                      </button>
+                    ) : (
+                      <Badge variant={r.isPublished ? "success" : "secondary"}>{r.isPublished ? "منشور" : "مسودة"}</Badge>
+                    )}
+                  </td>
                   <td className="p-3 text-lunex-gray">{timeAgo(r.at)}</td>
                 </tr>
               ))}
