@@ -72,6 +72,14 @@ export class AuthRepository {
     });
   }
 
+  /** Used when banning a user — kills every device/session at once, not just one family. */
+  revokeAllSessionsForUser(userId: string) {
+    return this.prisma.session.updateMany({
+      where: { userId, revoked: false },
+      data: { revoked: true, revokedAt: new Date() },
+    });
+  }
+
   recordLoginEvent(params: {
     userId?: string;
     email: string;

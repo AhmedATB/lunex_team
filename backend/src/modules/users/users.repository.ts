@@ -17,6 +17,10 @@ export class UsersRepository {
     return this.prisma.user.update({ where: { id }, data: { role } });
   }
 
+  updateBanned(id: string, isBanned: boolean) {
+    return this.prisma.user.update({ where: { id }, data: { isBanned, bannedAt: isBanned ? new Date() : null } });
+  }
+
   updateProfile(id: string, patch: { username?: string; displayName?: string; bio?: string }) {
     return this.prisma.user.update({ where: { id }, data: patch });
   }

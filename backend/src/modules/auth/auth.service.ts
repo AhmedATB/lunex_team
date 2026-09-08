@@ -1,4 +1,4 @@
-import { ConflictException, Injectable, UnauthorizedException } from "@nestjs/common";
+import { ConflictException, ForbiddenException, Injectable, UnauthorizedException } from "@nestjs/common";
 import { ConfigService } from "@nestjs/config";
 import { JwtService } from "@nestjs/jwt";
 import type { User as PrismaUser } from "@prisma/client";
@@ -26,6 +26,7 @@ export interface PublicUser {
   displayName: string | null;
   bio: string | null;
   avatarVersion: string | null;
+  isBanned: boolean;
 }
 
 export interface AuthResponse extends SessionTokens {
@@ -89,6 +90,13 @@ export class AuthService {
       throw new UnauthorizedException({ code: "invalid_credentials", message: "Incorrect email or password." });
     }
 
+    // Checked only after the password is confirmed correct — a wrong-password
+    // guess must never reveal whether an account happens to be banned.
+    if (user.isBanned) {
+      await this.repo.recordLoginEvent({ userId: user.id, email, ip: ctx.ip, outcome: "banned" });
+      throw new ForbiddenException({ code: "account_banned", message: "This account has been banned." });
+    }
+
     await this.repo.recordLoginEvent({ userId: user.id, email, ip: ctx.ip, outcome: "success" });
     const tokens = await this.issueSession(user.id, user.role, ctx);
     return { ...tokens, user: this.toPublicUser(user) };
@@ -126,6 +134,12 @@ export class AuthService {
     if (!user) {
       throw new UnauthorizedException({ code: "user_not_found", message: "Account no longer exists." });
     }
+    // A ban revokes every session up front, but this bounds the case where a
+    // refresh was already in flight (or the revoke hasn't landed yet) from
+    // still minting a fresh session for a banned account.
+    if (user.isBanned) {
+      throw new UnauthorizedException({ code: "account_banned", message: "This account has been banned." });
+    }
 
     return this.issueSession(user.id, user.role, ctx, session.familyId);
   }
@@ -138,9 +152,30 @@ export class AuthService {
     return this.toPublicUser(user);
   }
 
-  /** Public wrapper around issueSession for OAuthService — OAuth logins get the exact same session/cookie contract as password logins, just via a different identity check upstream. */
+  /**
+   * Public wrapper around issueSession for OAuthService — OAuth logins get
+   * the exact same session/cookie contract as password logins, just via a
+   * different identity check upstream. The ban check lives here too: OAuth
+   * never goes through login(), so a banned user linking or reusing a
+   * Discord/Google account is the one other place a session could be
+   * minted for them.
+   */
   async issueSessionForUser(userId: string, role: string, ctx: RequestContext): Promise<SessionTokens> {
+    const user = await this.repo.findUserById(userId);
+    if (user?.isBanned) {
+      throw new ForbiddenException({ code: "account_banned", message: "This account has been banned." });
+    }
     return this.issueSession(userId, role, ctx);
+  }
+
+  /**
+   * Called from UsersService when an admin bans someone — kills every
+   * refresh-token session immediately, so the ban takes effect as soon as
+   * their current access token naturally expires (at most ACCESS_TOKEN_TTL
+   * later), the same latency this app already accepts for role changes.
+   */
+  async revokeAllSessionsForUser(userId: string): Promise<void> {
+    await this.repo.revokeAllSessionsForUser(userId);
   }
 
   toPublicUserFrom(user: PrismaUser): PublicUser {
@@ -256,6 +291,7 @@ export class AuthService {
       displayName: user.displayName,
       bio: user.bio,
       avatarVersion: user.avatarImage ? user.updatedAt.toISOString() : null,
+      isBanned: user.isBanned,
     };
   }
 }

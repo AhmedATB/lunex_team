@@ -1,6 +1,7 @@
 import { BadRequestException, ConflictException, ForbiddenException, Injectable, NotFoundException } from "@nestjs/common";
 import sharp from "sharp";
 import type { RequestContext } from "../../common/middleware/request-context.middleware";
+import { AuthService } from "../auth/auth.service";
 import { NotificationsService } from "../notifications/notifications.service";
 import { UsersRepository } from "./users.repository";
 import type { UpdateProfileDto } from "./dto/update-profile.dto";
@@ -21,7 +22,8 @@ const AVATAR_SIZE_PX = 256;
 export class UsersService {
   constructor(
     private readonly repo: UsersRepository,
-    private readonly notifications: NotificationsService
+    private readonly notifications: NotificationsService,
+    private readonly auth: AuthService
   ) {}
 
   async changeRole(actorId: string, targetUserId: string, newRole: string, ctx: RequestContext) {
@@ -61,6 +63,47 @@ export class UsersService {
     );
 
     return { id: updated.id, email: updated.email, username: updated.username, role: updated.role };
+  }
+
+  /**
+   * Bans (or lifts a ban on) an account. Same actor gate as changeRole, plus
+   * two extra guards a role change doesn't need: an owner can't be banned
+   * (by anyone, including another owner — losing the platform's own owner
+   * account to a mistake or malicious super_administrator would be far
+   * worse than any abuse a ban is meant to stop), and nobody can ban
+   * themselves. Banning revokes every existing session so the ban takes
+   * effect as soon as the account's current access token expires (see
+   * AuthService.revokeAllSessionsForUser).
+   */
+  async setBanned(actorId: string, targetUserId: string, isBanned: boolean, ctx: RequestContext) {
+    const actor = await this.repo.findById(actorId);
+    if (!actor || !ROLE_MANAGER_ROLES.has(actor.role)) {
+      throw new ForbiddenException({ code: "insufficient_permissions", message: "You cannot ban users." });
+    }
+    if (targetUserId === actorId) {
+      throw new ForbiddenException({ code: "cannot_ban_self", message: "You cannot ban your own account." });
+    }
+
+    const target = await this.repo.findById(targetUserId);
+    if (!target) {
+      throw new NotFoundException({ code: "user_not_found", message: "User not found." });
+    }
+    if (target.role === "owner") {
+      throw new ForbiddenException({ code: "cannot_ban_owner", message: "The owner account cannot be banned." });
+    }
+
+    const updated = await this.repo.updateBanned(targetUserId, isBanned);
+    if (isBanned) {
+      await this.auth.revokeAllSessionsForUser(targetUserId);
+    }
+    await this.repo.writeAuditLog({
+      actorId,
+      action: isBanned ? "user.banned" : "user.unbanned",
+      target: targetUserId,
+      ip: ctx.ip,
+    });
+
+    return { id: updated.id, isBanned: updated.isBanned };
   }
 
   /** Self-service — a user editing their own username/displayName/bio. Username uniqueness is pre-checked (matches AuthService.register's approach) rather than caught as a DB constraint error. */
@@ -129,6 +172,7 @@ export class UsersService {
     displayName: string | null;
     bio: string | null;
     avatarImage: Buffer | Uint8Array | null;
+    isBanned: boolean;
   }) {
     return {
       id: user.id,
@@ -139,6 +183,7 @@ export class UsersService {
       displayName: user.displayName,
       bio: user.bio,
       avatarVersion: user.avatarImage ? user.updatedAt.toISOString() : null,
+      isBanned: user.isBanned,
     };
   }
 }
