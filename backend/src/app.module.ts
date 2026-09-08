@@ -9,6 +9,7 @@ import { BotUserAgentGuard } from "./common/security/bot-user-agent.guard";
 import { ProofOfWorkGuard } from "./common/security/proof-of-work.guard";
 import { SecurityModule } from "./common/security/security.module";
 import { AuthModule } from "./modules/auth/auth.module";
+import { BotIntegrationModule } from "./modules/bot-integration/bot-integration.module";
 import { ChaptersModule } from "./modules/chapters/chapters.module";
 import { ImagesModule } from "./modules/images/images.module";
 import { NotificationsModule } from "./modules/notifications/notifications.module";
@@ -27,6 +28,7 @@ import { PrismaModule } from "./prisma/prisma.module";
     SecurityModule,
     PrismaModule,
     AuthModule,
+    BotIntegrationModule,
     ChaptersModule,
     ImagesModule,
     NotificationsModule,

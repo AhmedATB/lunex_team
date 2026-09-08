@@ -58,6 +58,11 @@ export class ChaptersService {
     return this.repo.listPublishedBySeries(seriesId);
   }
 
+  /** Used by the bot-integration lookup route only — a plain read, no role check, gated entirely by ServiceKeyGuard at the controller. */
+  findBySeriesAndNumber(seriesId: string, number: number) {
+    return this.repo.findBySeriesAndNumber(seriesId, number);
+  }
+
   async listRecentForAdmin(role: string) {
     this.assertCanPublish(role);
     return this.repo.listRecent(50);

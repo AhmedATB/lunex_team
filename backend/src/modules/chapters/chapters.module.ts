@@ -8,5 +8,6 @@ import { ChaptersService } from "./chapters.service";
   imports: [ImagesModule],
   controllers: [ChaptersController],
   providers: [ChaptersService, ChaptersRepository],
+  exports: [ChaptersService],
 })
 export class ChaptersModule {}

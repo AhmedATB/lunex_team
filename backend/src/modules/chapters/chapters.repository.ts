@@ -16,6 +16,14 @@ export class ChaptersRepository {
     });
   }
 
+  /** Regardless of isPublished — lets a resumed/retried machine push find a chapter it already created instead of hitting the seriesId+number unique constraint blind. */
+  findBySeriesAndNumber(seriesId: string, number: number) {
+    return this.prisma.chapter.findUnique({
+      where: { seriesId_number: { seriesId, number } },
+      include: { pages: { orderBy: { pageNumber: "asc" } } },
+    });
+  }
+
   /** Published-only — this is the shape the public reader sees. */
   listPublishedBySeries(seriesId: string) {
     return this.prisma.chapter.findMany({
