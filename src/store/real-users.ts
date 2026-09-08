@@ -56,5 +56,6 @@ export function synthesizeProfile(backendUser: BackendPublicUser): User {
     commentCount: 0,
     bookmarkCount: 0,
     badges: [],
+    isBanned: backendUser.isBanned,
   };
 }

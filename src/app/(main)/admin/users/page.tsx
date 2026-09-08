@@ -7,6 +7,7 @@ import { getMockDatabase, mergeRealUsers } from "@/lib/mock/generate";
 import { GLOBAL_ROLE_LABELS } from "@/lib/rbac";
 import type { GlobalRole, User } from "@/lib/types";
 import { useRealUsers } from "@/store/real-users";
+import { useSession } from "@/store/session";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -43,6 +44,7 @@ export default function AdminUsersPage() {
   const [users, setUsers] = useState<User[]>(() => getMockDatabase().users);
   const realProfiles = useRealUsers((s) => s.profiles);
   const avatarOverrides = useProfile((s) => s.avatarOverrides);
+  const currentUserId = useSession((s) => s.currentUserId);
 
   const filtered = useMemo(() => {
     return users.filter((u) => {
@@ -57,6 +59,16 @@ export default function AdminUsersPage() {
     const existing = realProfiles[userId];
     if (existing) {
       const updated = { ...existing, role: newRole };
+      useRealUsers.getState().upsertProfile(updated);
+      mergeRealUsers({ [userId]: updated });
+    }
+  }
+
+  function applyBanChange(userId: string, isBanned: boolean) {
+    setUsers((prev) => prev.map((u) => (u.id === userId ? { ...u, isBanned } : u)));
+    const existing = realProfiles[userId];
+    if (existing) {
+      const updated = { ...existing, isBanned };
       useRealUsers.getState().upsertProfile(updated);
       mergeRealUsers({ [userId]: updated });
     }
@@ -108,7 +120,10 @@ export default function AdminUsersPage() {
                       <p className="truncate text-xs text-lunex-gray" dir="ltr">@{u.username}</p>
                     </div>
                   </td>
-                  <td className="p-3"><Badge variant="secondary">{GLOBAL_ROLE_LABELS[u.role]}</Badge></td>
+                  <td className="p-3 flex flex-wrap items-center gap-1.5">
+                    <Badge variant="secondary">{GLOBAL_ROLE_LABELS[u.role]}</Badge>
+                    {u.isBanned && <Badge variant="destructive">محظور</Badge>}
+                  </td>
                   <td className="p-3 text-lunex-gray">{u.level}</td>
                   <td className="p-3 text-lunex-gray">{u.readCount}</td>
                   <td className="p-3 text-lunex-gray">{timeAgo(u.joinedAt)}</td>
@@ -127,9 +142,23 @@ export default function AdminUsersPage() {
                             <ShieldCheck className="h-4 w-4" /> تغيير الدور (حساب تجريبي)
                           </DropdownMenuItem>
                         )}
-                        <DropdownMenuItem className="text-red-400 focus:bg-red-500/10">
-                          <Ban className="h-4 w-4" /> حظر المستخدم
-                        </DropdownMenuItem>
+                        {realProfiles[u.id] && u.id !== currentUserId && u.role !== "owner" ? (
+                          <BanUserDialog user={u} onChanged={(isBanned) => applyBanChange(u.id, isBanned)} />
+                        ) : (
+                          <DropdownMenuItem
+                            disabled
+                            className="text-red-400"
+                            title={
+                              !realProfiles[u.id]
+                                ? "حساب تجريبي غير مرتبط بحساب حقيقي"
+                                : u.id === currentUserId
+                                  ? "لا يمكنك حظر حسابك"
+                                  : "لا يمكن حظر حساب المالك"
+                            }
+                          >
+                            <Ban className="h-4 w-4" /> حظر المستخدم
+                          </DropdownMenuItem>
+                        )}
                       </DropdownMenuContent>
                     </DropdownMenu>
                   </td>
@@ -196,6 +225,63 @@ function ChangeRoleDialog({ user, onChanged }: { user: User; onChanged: (role: G
           <Button onClick={submit} disabled={loading} className="w-full">
             {loading && <Loader2 className="h-4 w-4 animate-spin" />}
             حفظ
+          </Button>
+        </div>
+      </DialogContent>
+    </Dialog>
+  );
+}
+
+function BanUserDialog({ user, onChanged }: { user: User; onChanged: (isBanned: boolean) => void }) {
+  const [open, setOpen] = useState(false);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState("");
+  const willBan = !user.isBanned;
+
+  async function submit() {
+    setError("");
+    setLoading(true);
+    try {
+      const res = await fetch(`/api/admin/users/${user.id}/ban`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ isBanned: willBan }),
+      });
+      const body = await res.json();
+      if (!res.ok) {
+        setError(body?.message ?? "تعذر تنفيذ العملية.");
+        return;
+      }
+      onChanged(willBan);
+      setOpen(false);
+    } catch {
+      setError("تعذر الاتصال بالخادم.");
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  return (
+    <Dialog open={open} onOpenChange={setOpen}>
+      <DialogTrigger asChild>
+        <DropdownMenuItem onSelect={(e) => e.preventDefault()} className={willBan ? "text-red-400 focus:bg-red-500/10" : undefined}>
+          <Ban className="h-4 w-4" /> {willBan ? "حظر المستخدم" : "إلغاء الحظر"}
+        </DropdownMenuItem>
+      </DialogTrigger>
+      <DialogContent>
+        <DialogHeader>
+          <DialogTitle>{willBan ? `حظر ${user.displayName}` : `إلغاء حظر ${user.displayName}`}</DialogTitle>
+        </DialogHeader>
+        <div className="space-y-3 pt-2">
+          <p className="text-sm text-lunex-gray">
+            {willBan
+              ? "لن يستطيع هذا المستخدم تسجيل الدخول بعد الآن، وستُنهى كل جلساته الحالية فوراً."
+              : "سيستطيع هذا المستخدم تسجيل الدخول مرة أخرى."}
+          </p>
+          {error && <p className="text-sm text-red-400">{error}</p>}
+          <Button onClick={submit} disabled={loading} variant={willBan ? "destructive" : "default"} className="w-full">
+            {loading && <Loader2 className="h-4 w-4 animate-spin" />}
+            {willBan ? "تأكيد الحظر" : "تأكيد إلغاء الحظر"}
           </Button>
         </div>
       </DialogContent>

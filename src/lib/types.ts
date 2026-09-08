@@ -244,6 +244,8 @@ export interface User {
   commentCount: number;
   bookmarkCount: number;
   badges: string[];
+  /** Real accounts only — mock users are never banned. */
+  isBanned?: boolean;
 }
 
 export interface Chapter {

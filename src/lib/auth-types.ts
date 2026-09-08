@@ -9,6 +9,7 @@ export interface BackendPublicUser {
   bio: string | null;
   /** Set only when a real uploaded avatar exists — see resolveAvatarUrl in lib/utils. */
   avatarVersion: string | null;
+  isBanned: boolean;
 }
 
 export interface BackendAuthResponse {
