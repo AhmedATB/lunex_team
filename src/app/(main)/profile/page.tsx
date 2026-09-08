@@ -41,7 +41,10 @@ export default function ProfilePage() {
 
   const chaptersReadCount = useRewards((s) => s.allTimeReadKeys.length);
   const readDates = useRewards((s) => s.readDates);
-  const ownCommentCount = useComments((s) => s.addedComments.filter((c) => c.userId === currentUserId).length);
+  const ownCommentCount = useComments((s) => {
+    const removed = new Set(s.removedCommentIds);
+    return s.addedComments.filter((c) => c.userId === currentUserId && !removed.has(c.id)).length;
+  });
   const unlockedAchievements = useAchievements((s) => s.unlocked);
   const achievementValues: Record<AchievementMetric, number> = {
     chaptersRead: chaptersReadCount,

@@ -20,7 +20,10 @@ export function AchievementWatcher() {
   const currentUserId = useSession((s) => s.currentUserId);
   const chaptersRead = useRewards((s) => s.allTimeReadKeys.length);
   const readDates = useRewards((s) => s.readDates);
-  const ownComments = useComments((s) => s.addedComments.filter((c) => c.userId === currentUserId).length);
+  const ownComments = useComments((s) => {
+    const removed = new Set(s.removedCommentIds);
+    return s.addedComments.filter((c) => c.userId === currentUserId && !removed.has(c.id)).length;
+  });
   const bookmarks = useBookmarks((s) => s.bookmarks.length);
   const unlocked = useAchievements((s) => s.unlocked);
   const unlock = useAchievements((s) => s.unlock);
