@@ -6,8 +6,9 @@ import { Search, MoreVertical, Ban, ShieldCheck, Loader2 } from "lucide-react";
 import { getMockDatabase, mergeRealUsers } from "@/lib/mock/generate";
 import { GLOBAL_ROLE_LABELS } from "@/lib/rbac";
 import type { GlobalRole, User } from "@/lib/types";
-import { useRealUsers } from "@/store/real-users";
+import { useRealUsers, synthesizeProfile } from "@/store/real-users";
 import { useSession } from "@/store/session";
+import type { BackendPublicUser } from "@/lib/auth-types";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -45,14 +46,47 @@ export default function AdminUsersPage() {
   const realProfiles = useRealUsers((s) => s.profiles);
   const avatarOverrides = useProfile((s) => s.avatarOverrides);
   const currentUserId = useSession((s) => s.currentUserId);
+  const [bannedOnly, setBannedOnly] = useState(false);
+  const [loadingBanned, setLoadingBanned] = useState(false);
 
   const filtered = useMemo(() => {
     return users.filter((u) => {
+      if (bannedOnly) return Boolean(u.isBanned);
       if (role !== "all" && u.role !== role) return false;
       if (query && !u.displayName.includes(query) && !u.username.includes(query)) return false;
       return true;
     });
-  }, [users, query, role]);
+  }, [users, query, role, bannedOnly]);
+
+  /**
+   * The admin's own `users` list is otherwise limited to mock rows plus
+   * whichever real accounts happen to already be cached locally (see
+   * mergeRealUsers) — there's no "list all real users" endpoint, so this is
+   * the one place that actually queries Postgres for every banned account,
+   * real listing or not.
+   */
+  async function toggleBannedOnly() {
+    const next = !bannedOnly;
+    setBannedOnly(next);
+    if (!next) return;
+    setLoadingBanned(true);
+    try {
+      const res = await fetch("/api/admin/users/banned");
+      if (!res.ok) return;
+      const list: BackendPublicUser[] = await res.json();
+      setUsers((prev) => {
+        const byId = new Map(prev.map((u) => [u.id, u] as const));
+        for (const backendUser of list) {
+          const profile = synthesizeProfile(backendUser);
+          byId.set(profile.id, profile);
+          useRealUsers.getState().upsertProfile(profile);
+        }
+        return Array.from(byId.values());
+      });
+    } finally {
+      setLoadingBanned(false);
+    }
+  }
 
   function applyRoleChange(userId: string, newRole: GlobalRole) {
     setUsers((prev) => prev.map((u) => (u.id === userId ? { ...u, role: newRole } : u)));
@@ -83,7 +117,7 @@ export default function AdminUsersPage() {
             <Search className="pointer-events-none absolute start-3 top-1/2 h-4 w-4 -translate-y-1/2 text-lunex-gray" />
             <Input value={query} onChange={(e) => setQuery(e.target.value)} placeholder="ابحث..." className="ps-9" />
           </div>
-          <Select value={role} onValueChange={(v) => setRole(v as GlobalRole | "all")}>
+          <Select value={role} onValueChange={(v) => setRole(v as GlobalRole | "all")} disabled={bannedOnly}>
             <SelectTrigger className="w-40"><SelectValue /></SelectTrigger>
             <SelectContent>
               <SelectItem value="all">كل الأدوار</SelectItem>
@@ -92,6 +126,10 @@ export default function AdminUsersPage() {
               ))}
             </SelectContent>
           </Select>
+          <Button variant={bannedOnly ? "destructive" : "secondary"} size="sm" onClick={toggleBannedOnly} disabled={loadingBanned}>
+            {loadingBanned && <Loader2 className="h-3.5 w-3.5 animate-spin" />}
+            <Ban className="h-3.5 w-3.5" /> {bannedOnly ? "عرض الكل" : "المحظورون فقط"}
+          </Button>
         </div>
       </div>
 

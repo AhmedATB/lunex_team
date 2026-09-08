@@ -21,6 +21,11 @@ export class UsersRepository {
     return this.prisma.user.update({ where: { id }, data: { isBanned, bannedAt: isBanned ? new Date() : null } });
   }
 
+  /** Real accounts only — this is the one place an admin can reliably find every banned user, since the admin UI otherwise only knows about real accounts it has locally cached. */
+  listBanned() {
+    return this.prisma.user.findMany({ where: { isBanned: true }, orderBy: { bannedAt: "desc" } });
+  }
+
   updateProfile(id: string, patch: { username?: string; displayName?: string; bio?: string }) {
     return this.prisma.user.update({ where: { id }, data: patch });
   }

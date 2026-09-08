@@ -106,6 +106,16 @@ export class UsersService {
     return { id: updated.id, isBanned: updated.isBanned };
   }
 
+  /** The only reliable way to see every banned real account — the admin UI's own user list is otherwise limited to whatever it has locally cached (see mergeRealUsers). */
+  async listBanned(actorId: string) {
+    const actor = await this.repo.findById(actorId);
+    if (!actor || !ROLE_MANAGER_ROLES.has(actor.role)) {
+      throw new ForbiddenException({ code: "insufficient_permissions", message: "You cannot view banned users." });
+    }
+    const banned = await this.repo.listBanned();
+    return banned.map((u) => this.toPublic(u));
+  }
+
   /** Self-service — a user editing their own username/displayName/bio. Username uniqueness is pre-checked (matches AuthService.register's approach) rather than caught as a DB constraint error. */
   async updateProfile(userId: string, dto: UpdateProfileDto, ctx: RequestContext) {
     if (dto.username) {

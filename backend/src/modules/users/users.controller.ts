@@ -44,6 +44,12 @@ export class UsersController {
     return this.users.changeRole(actor.sub, id, dto.role, req.context);
   }
 
+  @Get("banned")
+  @HttpCode(HttpStatus.OK)
+  listBanned(@CurrentUser() actor: AccessTokenPayload) {
+    return this.users.listBanned(actor.sub);
+  }
+
   @Patch(":id/ban")
   @HttpCode(HttpStatus.OK)
   @Throttle({ default: { limit: 30, ttl: 60_000 } })
