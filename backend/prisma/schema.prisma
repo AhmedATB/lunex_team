@@ -152,13 +152,19 @@ model ImageAsset {
 }
 
 /// A published chapter's metadata. `seriesId`/`teamId` reference the
-/// frontend's mock Series/Team ids — deliberately NOT a foreign key, the
-/// same convention ImageAccessLog.assetId already uses, since Series/Team
-/// aren't real tables yet (architecture doc §4/§19). Only chapter+page
-/// content moved server-side for the image-protection work; the catalog
-/// metadata around it stays mock until that's tackled separately.
+/// frontend's mock Series/Team ids OR, for imported rows, real Series/Team.id
+/// values (see below) — deliberately NOT a foreign key either way, the same
+/// convention ImageAccessLog.assetId already uses: two permanently
+/// incompatible id spaces (mock-catalog strings and real UUIDs) coexist in
+/// these columns, so a hard FK would break the moment it's added. Only
+/// chapter+page content moved server-side for the image-protection work; the
+/// catalog metadata around it stays mock (for non-imported rows) until
+/// that's tackled separately.
 model Chapter {
   id           String    @id @default(uuid())
+  /// Old-site chapter uuid, for rows pulled in by the legacy-import module.
+  /// Null for every chapter created through the normal admin/bot flow.
+  externalId   String?   @unique
   seriesId     String
   teamId       String
   number       Float
@@ -176,6 +182,60 @@ model Chapter {
   @@unique([seriesId, number])
   @@index([seriesId])
   @@map("chapters")
+}
+
+/// A real scanlation team imported from the old site (lunexteam.com). Not
+/// referenced by Chapter/Series via a Prisma relation on the mock-shared
+/// seriesId/teamId columns above — see the note on Chapter for why — but
+/// this table's own `id` is what those columns hold for imported rows.
+model Team {
+  id          String   @id @default(uuid())
+  externalId  String?  @unique
+  name        String
+  description String?
+  isOfficial  Boolean  @default(false)
+  isVerified  Boolean  @default(false)
+  isInactive  Boolean  @default(false)
+  metadata    Json?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  series Series[]
+
+  @@map("teams")
+}
+
+/// A real series imported from the old site. `teamId` here is a genuine
+/// nullable FK to Team (unlike Chapter.seriesId/teamId) because both tables
+/// are new and only ever populated by the same import pipeline — no
+/// legacy/mock id collision is possible. Always left null by the importer:
+/// translation credit lives per-chapter in the source data (Chapter.teamId),
+/// not per-series — see legacy-import.service.ts.
+model Series {
+  id                     String   @id @default(uuid())
+  externalId             String?  @unique
+  title                  String
+  altTitles              Json?
+  descriptionAr          String?
+  descriptionEn          String?
+  status                 String   @default("ongoing")
+  originalLanguage       String?
+  contentRating          String?
+  publicationDemographic String?
+  year                   Int?
+  /// Re-encoded webp, same convention as User.avatarImage — no dedicated
+  /// object store yet, see that field's own comment for why.
+  coverImage             Bytes?
+  coverMimeType          String?
+  teamId                 String?
+  team                   Team?    @relation(fields: [teamId], references: [id])
+  tags                   Json?
+  metadata               Json?
+  createdAt              DateTime @default(now())
+  updatedAt              DateTime @updatedAt
+
+  @@index([teamId])
+  @@map("series")
 }
 
 /// pageNumber is an explicit column, not an array index — the admin upload
