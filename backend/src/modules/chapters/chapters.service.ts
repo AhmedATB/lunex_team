@@ -25,7 +25,17 @@ const CAN_PUBLISH_GLOBAL_ROLES = new Set(["uploader", "editor", "super_administr
 /** Same sliding-window default as the frontend's DEFAULT_MONETIZATION_SETTINGS.lockedChapterCount — the newest N chapters of a series are locked, everything older is free. */
 const FREE_CHAPTER_WINDOW = 3;
 
-const MAX_PAGE_DIMENSION = 6000;
+/**
+ * Real manhwa pages are tall single-strip images, not discrete print pages —
+ * confirmed real examples from the legacy-import source run as tall as
+ * 800×14385px. 6000 was sized for a traditional page scan and silently
+ * rejected almost every real strip (caught as a per-page soft failure by
+ * legacy-import.service.ts, so it looked like "successful" imports with
+ * near-zero pages). Raised generously above any real strip's height while
+ * still bounding the decompression cost sharp() pays decoding a hostile
+ * upload.
+ */
+const MAX_PAGE_DIMENSION = 20000;
 
 @Injectable()
 export class ChaptersService {
