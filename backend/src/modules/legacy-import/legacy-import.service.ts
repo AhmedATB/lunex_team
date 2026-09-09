@@ -174,6 +174,31 @@ export class LegacyImportService {
     return { succeeded, warnings, failed, total, nextOffset, hasMore: nextOffset < total };
   }
 
+  /**
+   * Loops importChaptersPage internally to exhaustion for one series — the
+   * same "loop to completion server-side" shape as importTeams, so driving
+   * a real migration is one call per series instead of one call per handful
+   * of chapters. importChaptersPage itself stays available for resumable/
+   * manual paging (e.g. retrying just one page after a transient failure).
+   */
+  async importAllChaptersForSeries(role: string, seriesExternalId: string) {
+    this.assertCanImport(role);
+    let offset = 0;
+    let succeeded = 0;
+    let warnings = 0;
+    let failed = 0;
+    let hasMore = true;
+    while (hasMore) {
+      const page = await this.importChaptersPage(role, seriesExternalId, DEFAULT_CHAPTER_LIMIT, offset);
+      succeeded += page.succeeded;
+      warnings += page.warnings;
+      failed += page.failed;
+      offset = page.nextOffset;
+      hasMore = page.hasMore;
+    }
+    return { succeeded, warnings, failed, total: offset };
+  }
+
   private async importOneChapter(seriesId: string, chapter: LegacyChapter): Promise<boolean> {
     const existing = await this.repo.findChapterByExternalId(chapter.id);
     if (existing) return false; // already imported — not a failure, just nothing to do
