@@ -1,15 +1,21 @@
 "use client";
 
 import { useTheme } from "@/store/theme";
+import type { StyleId } from "@/lib/theme-presets";
 
 /**
  * Ambient neon layer rendered once in the root layout, so it's behind
  * EVERY page, not just the home page — a grid horizon + drifting cyan/
  * magenta glow blobs + a faint scanline texture. Only mounts when Neon
  * Cyber is the active style; every other style renders nothing here.
+ * `initialStyle` (the lunex-style cookie, read server-side in layout.tsx)
+ * avoids this incorrectly flashing in/out before the client store finishes
+ * reading localStorage — same reasoning as HomeLayoutSwitcher.
  */
-export function NeonBackdrop() {
-  const style = useTheme((s) => s.style);
+export function NeonBackdrop({ initialStyle }: { initialStyle: StyleId }) {
+  const liveStyle = useTheme((s) => s.style);
+  const hasHydrated = useTheme((s) => s.hasHydrated);
+  const style = hasHydrated ? liveStyle : initialStyle;
   if (style !== "neon-cyber") return null;
 
   return (

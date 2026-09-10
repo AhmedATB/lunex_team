@@ -6,6 +6,7 @@ import { StoreHydration } from "@/components/store-hydration";
 import { ThemeApplier } from "@/components/theme-applier";
 import { NeonBackdrop } from "@/components/neon-backdrop";
 import { getServerSession } from "@/lib/server-session";
+import { getInitialStyle } from "@/lib/theme-cookie";
 
 const cairo = Cairo({
   subsets: ["arabic", "latin"],
@@ -49,14 +50,20 @@ export const metadata: Metadata = {
 };
 
 export default async function RootLayout({ children }: { children: React.ReactNode }) {
-  const initialUser = await getServerSession();
+  const [initialUser, initialStyle] = await Promise.all([getServerSession(), getInitialStyle()]);
 
   return (
-    <html lang="ar" dir="rtl" className={`${cairo.variable} ${tajawal.variable} ${baloo.variable}`} suppressHydrationWarning>
+    <html
+      lang="ar"
+      dir="rtl"
+      data-style={initialStyle}
+      className={`${cairo.variable} ${tajawal.variable} ${baloo.variable}`}
+      suppressHydrationWarning
+    >
       <body className="font-sans">
         <StoreHydration initialUser={initialUser} />
         <ThemeApplier />
-        <NeonBackdrop />
+        <NeonBackdrop initialStyle={initialStyle} />
         <TooltipProvider delayDuration={200}>{children}</TooltipProvider>
       </body>
     </html>

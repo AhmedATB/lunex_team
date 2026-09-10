@@ -6,6 +6,9 @@ export type StyleId =
   | "blue-moon"
   | "crimson-blood";
 
+/** Shared between client (store/theme.ts) and server (theme-cookie.ts) — kept here since this file has no server-only imports and is already safe in both. */
+export const STYLE_COOKIE = "lunex-style";
+
 export interface StylePreset {
   id: StyleId;
   nameAr: string;

@@ -16,10 +16,17 @@ const ACCENT_VAR_NAMES = [50, 100, 200, 300, 400, 500, 600, 700, 800, 900, 950] 
 export function ThemeApplier() {
   const style = useTheme((s) => s.style);
   const accent = useTheme((s) => s.accent);
+  const hasHydrated = useTheme((s) => s.hasHydrated);
 
   useEffect(() => {
+    // Before hydration finishes, `style` is still the store's hardcoded
+    // default, not the visitor's real saved choice — layout.tsx already set
+    // the correct value server-side from the lunex-style cookie, so writing
+    // here too early would stomp that with the wrong one. Only take over
+    // once the live value is trustworthy.
+    if (!hasHydrated) return;
     document.documentElement.dataset.style = style;
-  }, [style]);
+  }, [style, hasHydrated]);
 
   useEffect(() => {
     const root = document.documentElement.style;
