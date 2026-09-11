@@ -1,4 +1,5 @@
 import { Suspense, type ReactNode } from "react";
+import type { StyleId } from "@/lib/theme-presets";
 import { Header } from "./header";
 import { Sidebar } from "./sidebar";
 import { BottomNav } from "./bottom-nav";
@@ -9,7 +10,7 @@ import { MagicCursor } from "@/components/effects/magic-cursor";
 import { ToastHost } from "@/components/ui/toast-host";
 import { AchievementWatcher } from "@/components/effects/achievement-watcher";
 
-export function AppShell({ children }: { children: ReactNode }) {
+export function AppShell({ children, initialStyle }: { children: ReactNode; initialStyle: StyleId }) {
   return (
     <div className="relative flex min-h-screen flex-col bg-background">
       <MagicCursor />
@@ -28,7 +29,7 @@ export function AppShell({ children }: { children: ReactNode }) {
         <div className="ambient-blob end-[20%] top-[62%] h-[20rem] w-[20rem] bg-pink-500/25" style={{ animationDelay: "-3s" }} />
         <div className="ambient-blob start-[5%] top-[85%] h-[22rem] w-[22rem] bg-primary-600/30" style={{ animationDelay: "-9s" }} />
         <div className="ambient-blob end-[8%] top-[100%] h-[24rem] w-[24rem] bg-secondary/25" style={{ animationDelay: "-14s" }} />
-        <SparkleField />
+        <SparkleField initialStyle={initialStyle} />
         <div
           className="absolute inset-0 opacity-40"
           style={{
