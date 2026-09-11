@@ -213,11 +213,22 @@
     animation: neon-text-glow 2.4s ease-in-out infinite;
   }
 
-  /* Soft drifting glow blobs — the ambient "aura" behind content. */
+  /*
+    Soft drifting glow blobs — the ambient "aura" behind content.
+    `will-change` forces the browser to promote this to its own GPU
+    compositing layer up front — without it, a large `filter: blur()`
+    element can paint fully SHARP and at full color for the first frame
+    or two before the blur actually takes effect, i.e. exactly a flash of
+    a solid colored patch where a soft glow should be. That's almost
+    certainly the "blue flash on every load" that's been reported: this
+    class sits right over the hero on first paint, on every single page
+    load (first visit or refresh), regardless of active style.
+  */
   .ambient-blob {
     position: absolute;
     border-radius: 9999px;
     filter: blur(70px);
+    will-change: filter, opacity, transform;
     pointer-events: none;
     animation: drift 16s ease-in-out infinite, pulse-glow 5s ease-in-out infinite;
   }
