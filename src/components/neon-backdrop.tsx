@@ -11,6 +11,10 @@ import type { StyleId } from "@/lib/theme-presets";
  * `initialStyle` (the lunex-style cookie, read server-side in layout.tsx)
  * avoids this incorrectly flashing in/out before the client store finishes
  * reading localStorage — same reasoning as HomeLayoutSwitcher.
+ *
+ * No negative z-index (see AppShell's own decorative-layer comment) — this
+ * must be mounted inside AppShell's decorative wrapper (early DOM order,
+ * before Header/main/Footer) for that same reason, not at the root layout.
  */
 export function NeonBackdrop({ initialStyle }: { initialStyle: StyleId }) {
   const liveStyle = useTheme((s) => s.style);
@@ -19,7 +23,7 @@ export function NeonBackdrop({ initialStyle }: { initialStyle: StyleId }) {
   if (style !== "neon-cyber") return null;
 
   return (
-    <div className="pointer-events-none fixed inset-0 -z-10 overflow-hidden" aria-hidden="true">
+    <div className="pointer-events-none fixed inset-0 overflow-hidden" aria-hidden="true">
       <div
         className="absolute inset-0 opacity-[0.15]"
         style={{

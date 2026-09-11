@@ -222,6 +222,26 @@
     animation: drift 16s ease-in-out infinite, pulse-glow 5s ease-in-out infinite;
   }
 
+  /*
+    Faceted gem silhouette (clip-path, not an image) — Blue Moon's signature
+    crystal shape, always on-screen via CrystalBackdrop's `fixed` layer
+    (unlike SparkleField's scattered ones, which land wherever chance
+    puts them across the full scrollable page). Glassy gradient fill +
+    a static edge highlight; the drop-shadow glow is painted once, not
+    animated, for the same reason the neon-cyber .panel comment above
+    gives — box-shadow/filter animated on N elements forever is N
+    full repaints every frame.
+  */
+  .crystal-shard {
+    position: absolute;
+    pointer-events: none;
+    clip-path: polygon(50% 0%, 82% 18%, 100% 52%, 68% 100%, 32% 100%, 0% 52%, 18% 18%);
+    background: linear-gradient(135deg, rgba(226, 240, 255, 0.95) 0%, rgba(147, 197, 253, 0.6) 45%, rgba(37, 99, 235, 0.4) 100%);
+    border: 1px solid rgba(226, 240, 255, 0.55);
+    filter: drop-shadow(0 0 14px rgba(96, 165, 250, 0.5));
+    animation: crystal-glint 5s ease-in-out infinite;
+  }
+
   /* Colored halo around featured artwork — the "this image matters" cue. */
   .art-glow {
     position: relative;
@@ -456,6 +476,12 @@
   50% { opacity: 1; transform: scale(1) rotate(90deg); }
 }
 
+/* A gem catching light — small wobble + brighten, not a full spin (crystal-shard's facets aren't rotationally symmetric, so twinkle's 90deg turn would look like tumbling, not glinting). */
+@keyframes crystal-glint {
+  0%, 100% { opacity: 0.6; transform: scale(0.94) rotate(-4deg); }
+  50% { opacity: 1; transform: scale(1) rotate(4deg); }
+}
+
 @keyframes pulse-glow {
   0%, 100% { opacity: 0.55; }
   50% { opacity: 0.9; }
@@ -506,6 +532,7 @@
 @media (prefers-reduced-motion: reduce) {
   .marquee-track,
   .ambient-blob,
+  .crystal-shard,
   .sparkle,
   .sparkle-star,
   .magic-border::before,
