@@ -7,7 +7,6 @@ import { Footer } from "./footer";
 import { Ticker } from "./ticker";
 import { SparkleField } from "@/components/effects/sparkle-field";
 import { NeonBackdrop } from "@/components/neon-backdrop";
-import { CrystalBackdrop } from "@/components/crystal-backdrop";
 import { MagicCursor } from "@/components/effects/magic-cursor";
 import { ToastHost } from "@/components/ui/toast-host";
 import { AchievementWatcher } from "@/components/effects/achievement-watcher";
@@ -40,9 +39,8 @@ export function AppShell({ children, initialStyle }: { children: ReactNode; init
         <div className="ambient-blob start-[5%] top-[85%] h-[22rem] w-[22rem] bg-primary-600/30" style={{ animationDelay: "-9s" }} />
         <div className="ambient-blob end-[8%] top-[100%] h-[24rem] w-[24rem] bg-secondary/25" style={{ animationDelay: "-14s" }} />
         <SparkleField initialStyle={initialStyle} />
-        {/* fixed (not absolute) so these stay anchored to the viewport and are always on-screen, not scattered across the full scroll height like the siblings above. */}
+        {/* fixed (not absolute) so it stays anchored to the viewport and is always on-screen, not scattered across the full scroll height like the siblings above. */}
         <NeonBackdrop initialStyle={initialStyle} />
-        <CrystalBackdrop initialStyle={initialStyle} />
         <div
           className="absolute inset-0 opacity-40"
           style={{
