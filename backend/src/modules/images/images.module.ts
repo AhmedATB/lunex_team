@@ -4,13 +4,14 @@ import { ImagesRepository } from "./images.repository";
 import { ImagesService } from "./images.service";
 import { LocalDiskStorageService } from "./storage/local-storage.service";
 import { PrismaBlobStorageService } from "./storage/prisma-blob-storage.service";
+import { R2StorageService } from "./storage/r2-storage.service";
 import { StorageService } from "./storage/storage.interface";
 
 /**
- * IMAGE_STORAGE_BACKEND=local opts into the dev-only local-disk backend
- * (useful for running the pipeline with zero DB writes); any other value,
- * including unset, uses the Postgres-backed default — see
- * PrismaBlobStorageService for why that's the current production choice.
+ * IMAGE_STORAGE_BACKEND selects the backend: "local" (dev-only disk, zero DB
+ * writes), "r2" (Cloudflare R2 — the real production target, see
+ * R2StorageService), or anything else/unset (today's Postgres-backed
+ * default, kept until the R2 cutover — see PrismaBlobStorageService).
  */
 @Module({
   controllers: [ImagesController],
@@ -19,11 +20,20 @@ import { StorageService } from "./storage/storage.interface";
     ImagesRepository,
     LocalDiskStorageService,
     PrismaBlobStorageService,
+    R2StorageService,
     {
       provide: StorageService,
-      useFactory: (local: LocalDiskStorageService, prismaBlob: PrismaBlobStorageService) =>
-        process.env.IMAGE_STORAGE_BACKEND === "local" ? local : prismaBlob,
-      inject: [LocalDiskStorageService, PrismaBlobStorageService],
+      useFactory: (local: LocalDiskStorageService, prismaBlob: PrismaBlobStorageService, r2: R2StorageService) => {
+        switch (process.env.IMAGE_STORAGE_BACKEND) {
+          case "local":
+            return local;
+          case "r2":
+            return r2;
+          default:
+            return prismaBlob;
+        }
+      },
+      inject: [LocalDiskStorageService, PrismaBlobStorageService, R2StorageService],
     },
   ],
   // ChaptersModule stores page bytes through the same StorageService rather
