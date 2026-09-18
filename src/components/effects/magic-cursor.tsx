@@ -47,33 +47,27 @@ export function MagicCursor() {
     const reduceMotion = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
     if (reduceMotion) return;
 
+    /*
+     * Mouse-only from here — there used to also be a touch-tap burst (6 DOM
+     * nodes spawned per touchstart, each with an animated drop-shadow
+     * filter). Removed: `touchstart` fires at the start of every scroll
+     * gesture, not just discrete taps, so on a reading app where scrolling
+     * is the primary interaction, this was firing constantly and was the
+     * single most likely source of the real mobile lag reported (dev/perf
+     * feedback: "UX matters more than how nice it looks", 2026-09-19).
+     */
     const isFinePointer = window.matchMedia("(pointer: fine)").matches;
+    if (!isFinePointer) return;
 
-    if (isFinePointer) {
-      // Mouse: a continuous trail follows the pointer.
-      function onMove(e: MouseEvent) {
-        const now = performance.now();
-        if (now - lastSpawn.current < 35) return;
-        lastSpawn.current = now;
-        spawnOne(e.clientX, e.clientY);
-        if (Math.random() > 0.6) spawnOne(e.clientX, e.clientY);
-      }
-      window.addEventListener("mousemove", onMove, { passive: true });
-      return () => window.removeEventListener("mousemove", onMove);
+    function onMove(e: MouseEvent) {
+      const now = performance.now();
+      if (now - lastSpawn.current < 35) return;
+      lastSpawn.current = now;
+      spawnOne(e.clientX, e.clientY);
+      if (Math.random() > 0.6) spawnOne(e.clientX, e.clientY);
     }
-
-    // Touch: there's no hover/trail concept, so give every tap a small
-    // celebratory burst at the touch point instead — the phone-equivalent
-    // of the cursor trail, since most readers are on mobile.
-    function onTouch(e: TouchEvent) {
-      const touch = e.touches[0];
-      if (!touch) return;
-      for (let i = 0; i < 6; i++) {
-        setTimeout(() => spawnOne(touch.clientX, touch.clientY, 34), i * 25);
-      }
-    }
-    window.addEventListener("touchstart", onTouch, { passive: true });
-    return () => window.removeEventListener("touchstart", onTouch);
+    window.addEventListener("mousemove", onMove, { passive: true });
+    return () => window.removeEventListener("mousemove", onMove);
   }, []);
 
   return null;

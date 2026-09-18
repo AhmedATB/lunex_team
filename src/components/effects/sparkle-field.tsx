@@ -27,8 +27,17 @@ function makeRand(seed: number) {
   };
 }
 
-/** Deterministic per-item randomness (position/size/timing) so both server and client render the same layout — only the COLOR varies by style, picked at render time from the palette above. */
-const STAR_LAYOUT = Array.from({ length: 70 }).map((_, i) => {
+/**
+ * Deterministic per-item randomness (position/size/timing) so both server
+ * and client render the same layout — only the COLOR varies by style,
+ * picked at render time from the palette above.
+ *
+ * Counts trimmed from the original 70/18 (perf feedback, 2026-09-19: real
+ * mobile lag) — every one of these is a permanently-animating SVG with an
+ * animated drop-shadow filter, which is genuine ongoing paint/compositing
+ * cost for as long as the page is open, not a one-off.
+ */
+const STAR_LAYOUT = Array.from({ length: 30 }).map((_, i) => {
   const rand = makeRand(i * 9301 + 49297);
   return {
     id: `star-${i}`,
@@ -41,7 +50,7 @@ const STAR_LAYOUT = Array.from({ length: 70 }).map((_, i) => {
   };
 });
 
-const CRYSTAL_LAYOUT = Array.from({ length: 18 }).map((_, i) => {
+const CRYSTAL_LAYOUT = Array.from({ length: 10 }).map((_, i) => {
   const rand = makeRand(i * 6151 + 12007);
   return {
     id: `crystal-${i}`,
@@ -61,7 +70,8 @@ export function SparkleField({ initialStyle }: { initialStyle: StyleId }) {
   const palette = paletteFor(style);
 
   return (
-    <div className="pointer-events-none absolute inset-0 -z-10 overflow-hidden" aria-hidden="true">
+    // No negative z-index — see AppShell's decorative-layer comment; it rendered invisible at this position.
+    <div className="pointer-events-none absolute inset-0 overflow-hidden" aria-hidden="true">
       {STAR_LAYOUT.map((s) => {
         const color = palette.stars[s.colorIndex % palette.stars.length];
         return (
