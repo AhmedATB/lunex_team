@@ -31,12 +31,11 @@ export function AppShell({ children, initialStyle }: { children: ReactNode; init
         FIRST child here is what actually keeps it behind Header/Ticker/main/Footer — plain
         DOM-order stacking among equal (auto) z-index siblings, not a negative z-index.
       */}
+      {/* Cut from 6 blobs to 4 (perf pass, 2026-09-19) — each is a continuously-animated filter:blur(70px) element, real ongoing compositing cost for as long as the page is open. Positions kept spread top/mid/bottom so the page still reads as decorated end to end. */}
       <div className="pointer-events-none absolute inset-0 overflow-hidden">
         <div className="ambient-blob start-[-8%] top-[-4%] h-[28rem] w-[28rem] bg-primary-600/35" />
         <div className="ambient-blob end-[-10%] top-[18%] h-[26rem] w-[26rem] bg-secondary/30" style={{ animationDelay: "-6s" }} />
-        <div className="ambient-blob start-[15%] top-[42%] h-[24rem] w-[24rem] bg-accent/25" style={{ animationDelay: "-11s" }} />
-        <div className="ambient-blob end-[20%] top-[62%] h-[20rem] w-[20rem] bg-pink-500/25" style={{ animationDelay: "-3s" }} />
-        <div className="ambient-blob start-[5%] top-[85%] h-[22rem] w-[22rem] bg-primary-600/30" style={{ animationDelay: "-9s" }} />
+        <div className="ambient-blob start-[15%] top-[55%] h-[22rem] w-[22rem] bg-accent/25" style={{ animationDelay: "-11s" }} />
         <div className="ambient-blob end-[8%] top-[100%] h-[24rem] w-[24rem] bg-secondary/25" style={{ animationDelay: "-14s" }} />
         <SparkleField initialStyle={initialStyle} />
         {/* fixed (not absolute) so it stays anchored to the viewport and is always on-screen, not scattered across the full scroll height like the siblings above. */}
