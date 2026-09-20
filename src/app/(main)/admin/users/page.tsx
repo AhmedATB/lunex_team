@@ -151,7 +151,7 @@ export default function AdminUsersPage() {
                 <tr key={u.id} className="border-b border-white/5 last:border-0 hover:bg-white/[0.02]">
                   <td className="flex items-center gap-2 p-3">
                     <div className="relative h-8 w-8 shrink-0 overflow-hidden rounded-full ring-2 ring-white/10">
-                      <Image src={avatarUrl(effectiveAvatarSeed(u, avatarOverrides))} alt={u.displayName} fill className="object-cover" />
+                      <Image src={avatarUrl(effectiveAvatarSeed(u, avatarOverrides))} alt={u.displayName} fill sizes="32px" className="object-cover" />
                     </div>
                     <div className="min-w-0">
                       <p className="truncate font-medium text-white">{u.displayName}</p>

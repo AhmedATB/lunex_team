@@ -105,7 +105,7 @@ export default function AdminTeamRequestsPage() {
                       style={request.logoUrl ? undefined : { background: `linear-gradient(135deg, ${request.color ?? "#A855F7"}, #C084FC)` }}
                     >
                       {request.logoUrl ? (
-                        <Image src={request.logoUrl} alt={request.teamName} fill className="object-cover" unoptimized />
+                        <Image src={request.logoUrl} alt={request.teamName} fill sizes="48px" className="object-cover" unoptimized />
                       ) : request.color ? (
                         <span className="flex h-full w-full items-center justify-center font-display text-lg font-black text-white">
                           {request.teamName[0]?.toUpperCase()}

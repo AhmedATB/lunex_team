@@ -37,7 +37,7 @@ export function ContinueReading() {
             className="group relative overflow-hidden rounded-2xl border border-white/10"
           >
             <div className="relative aspect-[3/4.2] w-full">
-              <Image src={series.cover} alt={series.titleAr} fill className="object-cover" />
+              <Image src={series.cover} alt={series.titleAr} fill sizes="(min-width: 1024px) 16vw, (min-width: 640px) 33vw, 50vw" className="object-cover" />
               <div className="absolute inset-0 bg-gradient-to-t from-black/90 via-black/20 to-transparent" />
               {/* Always at least a little visible — on touch there's no hover to reveal
                   this "tap to continue" affordance, so it can't be opacity-0 by default. */}

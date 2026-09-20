@@ -98,7 +98,7 @@ export default function TeamDetailPage() {
             style={team.logoUrl ? undefined : { background: `linear-gradient(135deg, ${team.color}, #C084FC)` }}
           >
             {team.logoUrl ? (
-              <Image src={team.logoUrl} alt={team.name} fill className="object-cover" unoptimized />
+              <Image src={team.logoUrl} alt={team.name} fill sizes="80px" className="object-cover" unoptimized />
             ) : (
               team.name[0]
             )}
@@ -166,7 +166,7 @@ export default function TeamDetailPage() {
                   roleTierAnimationClass(m!.teamRole, isLeader)
                 )}
               >
-                <Image src={avatarUrl(effectiveAvatarSeed(m!, avatarOverrides))} alt={m!.displayName} fill className="object-cover" />
+                <Image src={avatarUrl(effectiveAvatarSeed(m!, avatarOverrides))} alt={m!.displayName} fill sizes="40px" className="object-cover" />
               </div>
               <div className="min-w-0 flex-1">
                 <p className="truncate text-sm font-semibold text-white">{m!.displayName}</p>

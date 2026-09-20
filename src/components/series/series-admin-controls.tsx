@@ -150,7 +150,7 @@ function ImageUploadField({
     <div className="space-y-1.5">
       <Label>{label}</Label>
       <div className={cn("relative overflow-hidden rounded-xl border border-white/10", previewClassName)}>
-        <Image src={value} alt={`معاينة ${label}`} fill className="object-cover" unoptimized />
+        <Image src={value} alt={`معاينة ${label}`} fill sizes="200px" className="object-cover" unoptimized />
       </div>
       <input ref={inputRef} type="file" accept="image/*" className="hidden" onChange={onFileSelected} />
       <Button type="button" size="sm" variant="secondary" className="w-full" onClick={() => inputRef.current?.click()}>

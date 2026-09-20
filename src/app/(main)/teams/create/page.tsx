@@ -141,7 +141,7 @@ export default function CreateTeamPage() {
                   style={{ background: `linear-gradient(135deg, ${form.color}, #C084FC)` }}
                 >
                   {form.logoUrl.trim() ? (
-                    <Image src={form.logoUrl.trim()} alt="معاينة الشعار" fill className="object-cover" unoptimized />
+                    <Image src={form.logoUrl.trim()} alt="معاينة الشعار" fill sizes="64px" className="object-cover" unoptimized />
                   ) : (
                     (form.teamName.trim()[0] ?? "L").toUpperCase()
                   )}

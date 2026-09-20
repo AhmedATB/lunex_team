@@ -212,7 +212,7 @@ export default function TeamDashboardPage() {
           style={team.logoUrl ? undefined : { background: `linear-gradient(135deg, ${team.color}, #C084FC)` }}
         >
           {team.logoUrl ? (
-            <Image src={team.logoUrl} alt={team.name} fill className="object-cover" unoptimized />
+            <Image src={team.logoUrl} alt={team.name} fill sizes="56px" className="object-cover" unoptimized />
           ) : (
             team.name[0]
           )}
@@ -334,7 +334,7 @@ export default function TeamDashboardPage() {
                       roleTierAnimationClass(m.teamRole, isLeader)
                     )}
                   >
-                    <Image src={avatarUrl(effectiveAvatarSeed(m, avatarOverrides))} alt={m.displayName} fill className="object-cover" />
+                    <Image src={avatarUrl(effectiveAvatarSeed(m, avatarOverrides))} alt={m.displayName} fill sizes="40px" className="object-cover" />
                   </div>
                   <div className="min-w-0 flex-1">
                     <p className="truncate text-sm font-bold text-white">{m.displayName}</p>
@@ -520,7 +520,7 @@ export default function TeamDashboardPage() {
                 <Card key={application.id} className="panel-hover">
                   <CardContent className="flex flex-wrap items-center gap-3 p-4">
                     <div className="relative h-9 w-9 shrink-0 overflow-hidden rounded-full ring-2 ring-primary-500/30">
-                      <Image src={avatarUrl(effectiveAvatarSeed(applicant, avatarOverrides))} alt={applicant.displayName} fill className="object-cover" />
+                      <Image src={avatarUrl(effectiveAvatarSeed(applicant, avatarOverrides))} alt={applicant.displayName} fill sizes="36px" className="object-cover" />
                     </div>
                     <div className="min-w-0 flex-1">
                       <p className="text-sm font-bold text-white">{applicant.displayName} — {TEAM_ROLE_LABELS[application.preferredRole]}</p>
@@ -861,7 +861,7 @@ function TeamInfoSettingsForm({
                 style={{ background: `linear-gradient(135deg, ${form.color}, #C084FC)` }}
               >
                 {form.logoUrl.trim() ? (
-                  <Image src={form.logoUrl.trim()} alt="معاينة الشعار" fill className="object-cover" unoptimized />
+                  <Image src={form.logoUrl.trim()} alt="معاينة الشعار" fill sizes="64px" className="object-cover" unoptimized />
                 ) : (
                   (form.name.trim()[0] ?? "L").toUpperCase()
                 )}

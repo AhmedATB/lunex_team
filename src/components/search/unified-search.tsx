@@ -212,7 +212,7 @@ function TeamResultCard({ team, db }: { team: Team; db: ReturnType<typeof getMoc
         className="art-glow relative flex h-11 w-11 shrink-0 items-center justify-center overflow-hidden rounded-xl font-display text-base font-black text-white"
         style={team.logoUrl ? undefined : { background: `linear-gradient(135deg, ${team.color}, #C084FC)` }}
       >
-        {team.logoUrl ? <Image src={team.logoUrl} alt={team.name} fill className="object-cover" unoptimized /> : team.name[0]}
+        {team.logoUrl ? <Image src={team.logoUrl} alt={team.name} fill sizes="44px" className="object-cover" unoptimized /> : team.name[0]}
       </div>
       <div className="min-w-0 flex-1">
         <p className="truncate font-bold text-white group-hover:text-primary-300">{team.name}</p>

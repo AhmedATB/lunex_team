@@ -59,7 +59,7 @@ export default function TeamsPage() {
                   style={team.logoUrl ? undefined : { background: `linear-gradient(135deg, ${team.color}, #C084FC)` }}
                 >
                   {team.logoUrl ? (
-                    <Image src={team.logoUrl} alt={team.name} fill className="object-cover" unoptimized />
+                    <Image src={team.logoUrl} alt={team.name} fill sizes="48px" className="object-cover" unoptimized />
                   ) : (
                     team.name[0]
                   )}

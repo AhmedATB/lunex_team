@@ -140,7 +140,7 @@ function ProfileInfoCard({
           <div className="flex items-center gap-4">
             <div className="relative h-20 w-20 shrink-0">
               <div className="art-glow relative h-20 w-20 overflow-hidden rounded-full ring-4 ring-primary-500/30">
-                <Image src={currentAvatarUrl} alt={displayName} fill className="object-cover" />
+                <Image src={currentAvatarUrl} alt={displayName} fill sizes="80px" className="object-cover" />
               </div>
               <AvatarPickerDialog
                 currentSeed={currentSeed}
@@ -436,7 +436,7 @@ function AvatarPickerDialog({
                   seed === currentSeed ? "ring-primary-400" : "ring-white/10"
                 )}
               >
-                <Image src={avatarUrl(seed)} alt="خيار صورة رمزية" fill className="object-cover" />
+                <Image src={avatarUrl(seed)} alt="خيار صورة رمزية" fill sizes="64px" className="object-cover" />
               </button>
             ))}
           </div>

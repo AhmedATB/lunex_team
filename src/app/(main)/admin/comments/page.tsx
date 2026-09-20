@@ -76,7 +76,7 @@ export default function AdminCommentsPage() {
             <Card key={c.id}>
               <CardContent className="flex items-start gap-3 p-4">
                 <div className="relative h-9 w-9 shrink-0 overflow-hidden rounded-full ring-2 ring-white/10">
-                  <Image src={avatarUrl(effectiveAvatarSeed(user, avatarOverrides))} alt={user.displayName} fill className="object-cover" />
+                  <Image src={avatarUrl(effectiveAvatarSeed(user, avatarOverrides))} alt={user.displayName} fill sizes="36px" className="object-cover" />
                 </div>
                 <div className="min-w-0 flex-1">
                   <div className="flex flex-wrap items-center gap-2">
