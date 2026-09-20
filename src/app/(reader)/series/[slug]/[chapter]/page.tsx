@@ -65,6 +65,10 @@ export default function ReaderPage() {
     return () => {
       cancelled = true;
     };
+    // Only series.id is actually read below — depending on the whole `series`
+    // object would re-fetch on every render where a new (but equal) object
+    // comes out of the mock-db/store spread above, not just on a real change.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [series?.id]);
 
   const removedIds = new Set(store.removedChapterIds);
