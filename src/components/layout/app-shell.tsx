@@ -8,6 +8,7 @@ import { Ticker } from "./ticker";
 import { SparkleField } from "@/components/effects/sparkle-field";
 import { NeonBackdrop } from "@/components/neon-backdrop";
 import { MagicCursor } from "@/components/effects/magic-cursor";
+import { ScrollPerformanceGuard } from "@/components/effects/scroll-performance-guard";
 import { ToastHost } from "@/components/ui/toast-host";
 import { AchievementWatcher } from "@/components/effects/achievement-watcher";
 
@@ -15,6 +16,7 @@ export function AppShell({ children, initialStyle }: { children: ReactNode; init
   return (
     <div className="relative flex min-h-screen flex-col bg-background">
       <MagicCursor />
+      <ScrollPerformanceGuard />
       <ToastHost />
       <AchievementWatcher />
       {/*

@@ -520,6 +520,7 @@
   .ambient-blob,
   .sparkle,
   .sparkle-star,
+  .float-slow,
   .magic-border::before,
   .section-title::after,
   .magic-divider::before,
@@ -527,4 +528,20 @@
   .neon-text {
     animation: none;
   }
+}
+
+/*
+  ScrollPerformanceGuard toggles this class on <html> while actively
+  scrolling (see that component). These are the purely-decorative,
+  permanently-looping animations that sit behind real content as
+  `position: absolute` (not `fixed`), so the browser repaints them every
+  scroll frame instead of just panning a composited layer — exactly what
+  showed up as heavy/janky scrolling. Pausing (not stopping) means they
+  resume from the same point a beat after scrolling settles, no restart.
+*/
+.is-scrolling .ambient-blob,
+.is-scrolling .sparkle,
+.is-scrolling .sparkle-star,
+.is-scrolling .float-slow {
+  animation-play-state: paused;
 }
