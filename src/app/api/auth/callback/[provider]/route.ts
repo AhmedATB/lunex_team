@@ -1,6 +1,7 @@
-import { NextRequest, NextResponse } from "next/server";
+import { NextRequest } from "next/server";
 import type { BackendAuthResponse, BackendErrorBody } from "@/lib/auth-types";
 import { callBackend } from "@/lib/backend-client";
+import { redirectTo } from "@/lib/request-origin";
 import { clearOAuthStateCookie, OAUTH_STATE_COOKIE, setSessionCookies } from "@/lib/session-cookies";
 
 /**
@@ -18,7 +19,7 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ prov
   const storedState = req.cookies.get(OAUTH_STATE_COOKIE)?.value;
 
   if (providerError || !code || !state || !storedState || state !== storedState) {
-    const response = NextResponse.redirect(new URL("/login?error=oauth_failed", req.url));
+    const response = redirectTo(req, "/login?error=oauth_failed");
     clearOAuthStateCookie(response);
     return response;
   }
@@ -29,12 +30,12 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ prov
   );
 
   if (!result.ok) {
-    const response = NextResponse.redirect(new URL("/login?error=oauth_failed", req.url));
+    const response = redirectTo(req, "/login?error=oauth_failed");
     clearOAuthStateCookie(response);
     return response;
   }
 
-  const response = NextResponse.redirect(new URL("/profile", req.url));
+  const response = redirectTo(req, "/profile");
   clearOAuthStateCookie(response);
   setSessionCookies(response, result.body);
   return response;

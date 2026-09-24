@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { callBackend } from "@/lib/backend-client";
+import { redirectTo } from "@/lib/request-origin";
 import { setOAuthStateCookie } from "@/lib/session-cookies";
 
 interface StartResponse {
@@ -17,7 +18,7 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ prov
 
   const result = await callBackend<StartResponse>(`/v1/auth/oauth/${encodeURIComponent(provider)}/start`);
   if (!result.ok) {
-    return NextResponse.redirect(new URL("/login?error=oauth_unavailable", req.url));
+    return redirectTo(req, "/login?error=oauth_unavailable");
   }
 
   const response = NextResponse.redirect(result.body.url);
