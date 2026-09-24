@@ -9,7 +9,7 @@ interface ThemeState {
   style: StyleId;
   /** null = use the active style's own built-in accent (today's behavior). Set to override just the accent on top of whichever style is active. */
   accent: AccentId | null;
-  /** True once the persisted value has been read from localStorage — see store-hydration.tsx. Lets SSR-sensitive consumers (HomeLayoutSwitcher) know when it's safe to trust `style` instead of the server-provided initial value. */
+  /** True once the persisted value has been read from localStorage — see store-hydration.tsx. Lets SSR-sensitive consumers (NeonBackdrop, SparkleField) know when it's safe to trust `style` instead of the server-provided initial value. */
   hasHydrated: boolean;
   setStyle: (style: StyleId) => void;
   setAccent: (accent: AccentId | null) => void;

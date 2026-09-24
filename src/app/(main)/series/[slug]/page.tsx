@@ -20,6 +20,7 @@ import { ChapterList } from "@/components/series/chapter-list";
 import { CommentSection } from "@/components/series/comment-section";
 import { SeriesRow } from "@/components/shared/series-card";
 import { FadeIn } from "@/components/motion/fade-in";
+import { SeriesDetailSkeleton } from "@/components/shared/skeletons";
 import { formatNumber, safeDecodeURIComponent } from "@/lib/utils";
 
 const TYPE_LABEL: Record<string, string> = {
@@ -51,7 +52,7 @@ export default function SeriesDetailPage() {
     document.title = series ? `${series.titleAr} | LUNEX TEAM` : "غير موجود | LUNEX TEAM";
   }, [series]);
 
-  if (!ready) return null;
+  if (!ready) return <SeriesDetailSkeleton />;
   if (!series) {
     notFound();
   }
@@ -109,7 +110,8 @@ export default function SeriesDetailPage() {
         </div>
       </div>
 
-      <div className="container -mt-24 space-y-8 sm:-mt-28">
+      {/* relative z-10: this block overlaps the banner above, whose overlay/blobs/animated image are all positioned or transformed and would otherwise paint over the title. */}
+      <div className="container relative z-10 -mt-24 space-y-8 sm:-mt-28">
         <FadeIn>
           <div className="flex flex-col gap-6 sm:flex-row">
             <div className="art-glow shine w-40 shrink-0 sm:w-52">

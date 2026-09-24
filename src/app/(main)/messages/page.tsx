@@ -11,6 +11,7 @@ import { useProfile, effectiveAvatarSeed } from "@/store/profile";
 import { avatarUrl, cn, timeAgo } from "@/lib/utils";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
+import { GridPageSkeleton } from "@/components/shared/skeletons";
 
 export default function MessagesPage() {
   return (
@@ -68,7 +69,7 @@ function MessagesPageInner() {
     if (selectedUserId && currentUserId) markRead(conversationId(currentUserId, selectedUserId), currentUserId);
   }, [selectedUserId, currentUserId, markRead]);
 
-  if (!ready) return null;
+  if (!ready) return <GridPageSkeleton />;
 
   if (!currentUserId) {
     return <div className="container py-16 text-center text-lunex-gray">يجب تسجيل الدخول لعرض رسائلك.</div>;

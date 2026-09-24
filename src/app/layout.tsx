@@ -1,6 +1,8 @@
+import { Suspense } from "react";
 import type { Metadata } from "next";
 import { Cairo, Tajawal, Baloo_Bhaijaan_2 } from "next/font/google";
 import "./globals.css";
+import { NavigationProgress } from "@/components/navigation-progress";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { StoreHydration } from "@/components/store-hydration";
 import { ThemeApplier } from "@/components/theme-applier";
@@ -39,11 +41,13 @@ export const metadata: Metadata = {
     siteName: "LUNEX TEAM",
     locale: "ar_AR",
     type: "website",
+    images: [{ url: "/hero-banner.png", width: 1920, height: 800, alt: "LUNEX TEAM" }],
   },
   twitter: {
     card: "summary_large_image",
     title: "LUNEX TEAM",
     description: "منصة عربية فاخرة لقراءة وترجمة المانهوا والمانها.",
+    images: ["/hero-banner.png"],
   },
   robots: { index: true, follow: true },
 };
@@ -62,6 +66,9 @@ export default async function RootLayout({ children }: { children: React.ReactNo
       <body className="font-sans">
         <StoreHydration initialUser={initialUser} />
         <ThemeApplier />
+        <Suspense fallback={null}>
+          <NavigationProgress />
+        </Suspense>
         <TooltipProvider delayDuration={200}>{children}</TooltipProvider>
       </body>
     </html>

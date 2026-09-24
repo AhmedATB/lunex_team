@@ -10,7 +10,7 @@ import type { StyleId } from "@/lib/theme-presets";
  * Cyber is the active style; every other style renders nothing here.
  * `initialStyle` (the lunex-style cookie, read server-side in layout.tsx)
  * avoids this incorrectly flashing in/out before the client store finishes
- * reading localStorage — same reasoning as HomeLayoutSwitcher.
+ * reading localStorage.
  *
  * No negative z-index (see AppShell's own decorative-layer comment) — this
  * must be mounted inside AppShell's decorative wrapper (early DOM order,

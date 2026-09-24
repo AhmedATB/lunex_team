@@ -10,6 +10,7 @@ import { NovelToolbar } from "@/components/reader/novel-toolbar";
 import { NovelViewer } from "@/components/reader/novel-viewer";
 import { ChapterGate } from "@/components/reader/chapter-gate";
 import { CommentSection } from "@/components/series/comment-section";
+import { ReaderSkeleton } from "@/components/shared/skeletons";
 import { safeDecodeURIComponent, cn } from "@/lib/utils";
 import type { Chapter } from "@/lib/types";
 
@@ -106,7 +107,7 @@ export default function ReaderPage() {
     window.scrollTo(0, 0);
   }, [chapter?.id]);
 
-  if (!ready || !realChecked) return null;
+  if (!ready || !realChecked) return <ReaderSkeleton />;
   if (!series || !chapter) {
     notFound();
   }

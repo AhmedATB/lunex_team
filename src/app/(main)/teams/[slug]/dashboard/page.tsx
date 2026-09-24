@@ -44,6 +44,7 @@ import {
   Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger,
 } from "@/components/ui/dialog";
 import { ChaptersOverTimeChart, StatusPieChart } from "@/components/admin/charts";
+import { GridPageSkeleton } from "@/components/shared/skeletons";
 
 const PROMOTION_LADDER: TeamRole[] = ["trainee", "member", "team_administrator", "assistant_leader"];
 function promote(role: TeamRole): TeamRole {
@@ -96,7 +97,7 @@ export default function TeamDashboardPage() {
     if (team) document.title = `لوحة إدارة ${team.name} | LUNEX TEAM`;
   }, [team]);
 
-  if (!ready) return null;
+  if (!ready) return <GridPageSkeleton />;
 
   if (!team) {
     return <div className="container py-16 text-center text-lunex-gray">الفريق غير موجود.</div>;

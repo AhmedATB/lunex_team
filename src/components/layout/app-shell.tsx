@@ -5,6 +5,7 @@ import { Sidebar } from "./sidebar";
 import { BottomNav } from "./bottom-nav";
 import { Footer } from "./footer";
 import { Ticker } from "./ticker";
+import { PendingMain } from "./pending-main";
 import { SparkleField } from "@/components/effects/sparkle-field";
 import { NeonBackdrop } from "@/components/neon-backdrop";
 import { MagicCursor } from "@/components/effects/magic-cursor";
@@ -56,7 +57,9 @@ export function AppShell({ children, initialStyle }: { children: ReactNode; init
         <Suspense fallback={null}>
           <Sidebar />
         </Suspense>
-        <main className="min-w-0 flex-1 pb-20 lg:pb-0">{children}</main>
+        <main className="min-w-0 flex-1 pb-20 lg:pb-0">
+          <PendingMain>{children}</PendingMain>
+        </main>
       </div>
       <Footer />
       <Suspense fallback={null}>

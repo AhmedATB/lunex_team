@@ -14,6 +14,7 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Progress } from "@/components/ui/progress";
+import { ProfileSkeleton } from "@/components/shared/skeletons";
 
 export default function PublicProfilePage() {
   const params = useParams<{ username: string }>();
@@ -33,7 +34,7 @@ export default function PublicProfilePage() {
     document.title = user ? `${user.displayName} | LUNEX TEAM` : "غير موجود | LUNEX TEAM";
   }, [user]);
 
-  if (!ready) return null;
+  if (!ready) return <ProfileSkeleton />;
   if (!user) {
     notFound();
   }

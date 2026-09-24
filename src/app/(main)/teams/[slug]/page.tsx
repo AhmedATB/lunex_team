@@ -25,6 +25,7 @@ import {
 } from "@/components/ui/dialog";
 import { SeriesRow } from "@/components/shared/series-card";
 import { TeamDashboardLink } from "@/components/series/team-dashboard-link";
+import { ProfileSkeleton } from "@/components/shared/skeletons";
 import { avatarUrl, cn, safeDecodeURIComponent } from "@/lib/utils";
 import type { RecruitmentPosition } from "@/lib/types";
 
@@ -49,7 +50,7 @@ export default function TeamDetailPage() {
     document.title = team ? `${team.name} | LUNEX TEAM` : "غير موجود | LUNEX TEAM";
   }, [team]);
 
-  if (!ready) return null;
+  if (!ready) return <ProfileSkeleton />;
   if (!team) {
     notFound();
   }

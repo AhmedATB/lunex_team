@@ -15,8 +15,7 @@ import {
   getPlatformStats,
 } from "@/lib/mock/repo";
 import { getMockDatabase } from "@/lib/mock/generate";
-import { getInitialStyle } from "@/lib/theme-cookie";
-import { HomeLayoutSwitcher } from "@/components/home/layouts/home-layout-switcher";
+import { EditorialHome } from "@/components/home/layouts/editorial-home";
 
 export default async function HomePage() {
   const [
@@ -34,7 +33,6 @@ export default async function HomePage() {
     news,
     topReaders,
     stats,
-    initialStyle,
   ] = await Promise.all([
     getFeaturedSeries(6),
     getLatestChapters(12),
@@ -50,7 +48,6 @@ export default async function HomePage() {
     getNews(6),
     getTopReaders(8),
     getPlatformStats(),
-    getInitialStyle(),
   ]);
 
   const db = getMockDatabase();
@@ -60,7 +57,7 @@ export default async function HomePage() {
   const seriesMap = new Map(db.series.map((s) => [s.id, s]));
 
   return (
-    <HomeLayoutSwitcher
+    <EditorialHome
       featured={featured}
       latestChapters={latestChapters}
       popular={popular}
@@ -78,7 +75,6 @@ export default async function HomePage() {
       latestComments={latestComments}
       users={db.users}
       seriesMap={seriesMap}
-      initialStyle={initialStyle}
     />
   );
 }

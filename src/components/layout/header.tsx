@@ -23,6 +23,7 @@ import { useSession } from "@/store/session";
 import { useProfile, effectiveAvatarSeed } from "@/store/profile";
 import { useRewards } from "@/store/rewards";
 import { useMessages } from "@/store/messages";
+import { useNavigation } from "@/store/navigation";
 import { getMockDatabase } from "@/lib/mock/generate";
 import { GLOBAL_ROLE_LABELS, can } from "@/lib/rbac";
 import { resolveAvatarUrl, cn } from "@/lib/utils";
@@ -57,7 +58,9 @@ export function Header() {
   );
   function submitSearch(e: React.FormEvent) {
     e.preventDefault();
-    router.push(`/search${query ? `?q=${encodeURIComponent(query)}` : ""}`);
+    const target = `/search${query ? `?q=${encodeURIComponent(query)}` : ""}`;
+    useNavigation.getState().start(target);
+    router.push(target);
   }
 
   async function handleLogout() {
