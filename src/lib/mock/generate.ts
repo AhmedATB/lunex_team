@@ -177,7 +177,7 @@ function build(): MockDatabase {
       description: `فريق ${name} لترجمة وتنسيق المانهوا الكورية بجودة عالية واحترافية.`,
       leaderId,
       memberIds,
-      discordUrl: "https://discord.gg/lunexteam",
+      discordUrl: "https://discord.gg/KSbdfBqNrE",
       websiteUrl: undefined,
       rank: i + 1,
       recruiting: rng.bool(0.5),

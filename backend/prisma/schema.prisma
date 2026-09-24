@@ -111,10 +111,13 @@ model LoginEvent {
   at        DateTime @default(now())
 
   @@index([email, at])
+  @@index([at])
   @@map("login_events")
 }
 
-/// Append-only by convention at the application layer here; the production
+/// Append-only by convention at the application layer here, with ONE
+/// exception: RetentionService deletes rows past their retention window
+/// (see backend/docs/security-architecture.md §20). The production
 /// Postgres deployment additionally revokes UPDATE/DELETE at the DB role
 /// grant level (see §7 / §24 of the architecture doc) — SQLite has no
 /// equivalent role system, so that specific control only exists once this
@@ -127,6 +130,7 @@ model AuditLog {
   ip       String?
   at       DateTime @default(now())
 
+  @@index([at])
   @@map("audit_log")
 }
 
@@ -232,6 +236,7 @@ model ImageAccessLog {
 
   @@index([assetId, at])
   @@index([userId, at])
+  @@index([at])
   @@map("image_access_log")
 }
 

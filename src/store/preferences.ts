@@ -1,7 +1,8 @@
 "use client";
 
 import { create } from "zustand";
-import { persist } from "zustand/middleware";
+import { createJSONStorage, persist } from "zustand/middleware";
+import { preferenceStorage } from "@/lib/consent";
 
 /** Client-side only, deliberately — there's no push/email delivery backend yet, so this controls in-app UI only (e.g. whether the ticker/notification bell surfaces new-chapter alerts), not a promise of server-sent notifications. */
 interface PreferencesState {
@@ -15,6 +16,6 @@ export const usePreferences = create<PreferencesState>()(
       newChapterAlerts: true,
       setNewChapterAlerts: (newChapterAlerts) => set({ newChapterAlerts }),
     }),
-    { name: "lunex-preferences", skipHydration: true }
+    { name: "lunex-preferences", storage: createJSONStorage(() => preferenceStorage), skipHydration: true }
   )
 );

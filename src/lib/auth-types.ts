@@ -10,6 +10,8 @@ export interface BackendPublicUser {
   /** Set only when a real uploaded avatar exists — see resolveAvatarUrl in lib/utils. */
   avatarVersion: string | null;
   isBanned: boolean;
+  /** false for a Discord/Google-only account (no password to type). */
+  hasPassword: boolean;
 }
 
 export interface BackendAuthResponse {

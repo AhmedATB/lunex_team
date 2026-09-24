@@ -1,5 +1,6 @@
 import Link from "next/link";
 import Image from "next/image";
+import { CookieSettingsButton } from "@/components/consent/cookie-settings-button";
 
 export function Footer() {
   return (
@@ -41,8 +42,17 @@ export function Footer() {
           ]}
         />
       </div>
-      <div className="container mt-8 border-t border-white/10 pt-6 text-center text-xs text-lunex-gray">
-        © {new Date().getFullYear()} LUNEX TEAM. جميع الحقوق محفوظة. بيانات هذا الموقع تجريبية بالكامل.
+      <div className="container mt-8 flex flex-col items-center gap-3 border-t border-white/10 pt-6 text-xs text-lunex-gray">
+        <nav aria-label="روابط قانونية" className="flex flex-wrap items-center justify-center gap-x-5 gap-y-2">
+          <Link href="/terms" className="transition-colors hover:text-primary-300">
+            الشروط والأحكام
+          </Link>
+          <Link href="/privacy" className="transition-colors hover:text-primary-300">
+            سياسة الخصوصية
+          </Link>
+          <CookieSettingsButton className="transition-colors hover:text-primary-300" />
+        </nav>
+        <p className="text-center">© {new Date().getFullYear()} LUNEX TEAM. جميع الحقوق محفوظة.</p>
       </div>
     </footer>
   );

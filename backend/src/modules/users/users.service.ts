@@ -1,9 +1,18 @@
-import { BadRequestException, ConflictException, ForbiddenException, Injectable, NotFoundException } from "@nestjs/common";
+import {
+  BadRequestException,
+  ConflictException,
+  ForbiddenException,
+  Injectable,
+  NotFoundException,
+  UnauthorizedException,
+} from "@nestjs/common";
 import sharp from "sharp";
 import type { RequestContext } from "../../common/middleware/request-context.middleware";
 import { AuthService } from "../auth/auth.service";
+import { verifyPassword } from "../auth/crypto/password.util";
 import { NotificationsService } from "../notifications/notifications.service";
 import { UsersRepository } from "./users.repository";
+import type { DeleteAccountDto } from "./dto/delete-account.dto";
 import type { UpdateProfileDto } from "./dto/update-profile.dto";
 
 const ROLE_MANAGER_ROLES = new Set(["owner", "super_administrator"]);
@@ -165,6 +174,65 @@ export class UsersService {
     return this.toPublic(updated);
   }
 
+  /**
+   * Self-service, irreversible. The account's own credentials are re-checked
+   * (a stolen-but-still-logged-in session must not be enough to erase someone
+   * else's account), and the platform owner is refused — losing the only
+   * owner to one click would leave nobody able to grant the role again, so
+   * ownership has to be handed over first (same reasoning as cannot_ban_owner).
+   *
+   * Sessions are deleted along with the row (schema cascade), so every
+   * refresh token dies with it; an access token already in flight simply
+   * stops resolving to a user within its 10-minute lifetime.
+   */
+  async deleteAccount(userId: string, dto: DeleteAccountDto): Promise<void> {
+    const user = await this.repo.findById(userId);
+    if (!user) {
+      throw new NotFoundException({ code: "user_not_found", message: "Account no longer exists." });
+    }
+    if (user.role === "owner") {
+      throw new ForbiddenException({
+        code: "owner_cannot_delete",
+        message: "The owner account cannot be deleted. Transfer ownership to another account first.",
+      });
+    }
+
+    if (user.passwordHash) {
+      const ok = dto.password ? await verifyPassword(user.passwordHash, dto.password) : false;
+      if (!ok) {
+        throw new UnauthorizedException({ code: "invalid_password", message: "Password is incorrect." });
+      }
+    } else if (dto.confirmUsername !== user.username) {
+      // A Discord/Google-only account has no password to type — retyping the
+      // username is a deliberate-action check, not authentication (the
+      // session itself already is).
+      throw new BadRequestException({ code: "confirmation_mismatch", message: "Type your username exactly to confirm." });
+    }
+
+    await this.repo.deleteAccount(user.id, user.email);
+  }
+
+  /** Machine-readable copy of everything stored about the caller (data portability). Timestamps are ISO strings; secrets and hashes are never included — see UsersRepository.collectExport. */
+  async exportData(userId: string) {
+    const data = await this.repo.collectExport(userId);
+    if (!data.user) {
+      throw new NotFoundException({ code: "user_not_found", message: "Account no longer exists." });
+    }
+    const { avatarMimeType, ...account } = data.user;
+    return {
+      exportedAt: new Date().toISOString(),
+      account: { ...account, hasCustomAvatar: avatarMimeType !== null },
+      linkedAccounts: data.oauthAccounts,
+      devices: data.devices,
+      sessions: data.sessions,
+      loginHistory: data.loginEvents,
+      unlockedChapters: data.chapterUnlocks,
+      notifications: data.notifications,
+      chapterAccessLog: data.imageAccess,
+      accountActivity: data.activity,
+    };
+  }
+
   async getAvatarBytes(userId: string): Promise<{ buffer: Buffer; mimeType: string } | null> {
     const user = await this.repo.findAvatarById(userId);
     if (!user?.avatarImage || !user.avatarMimeType) return null;
@@ -183,6 +251,7 @@ export class UsersService {
     bio: string | null;
     avatarImage: Buffer | Uint8Array | null;
     isBanned: boolean;
+    passwordHash: string | null;
   }) {
     return {
       id: user.id,
@@ -194,6 +263,7 @@ export class UsersService {
       bio: user.bio,
       avatarVersion: user.avatarImage ? user.updatedAt.toISOString() : null,
       isBanned: user.isBanned,
+      hasPassword: user.passwordHash !== null,
     };
   }
 }

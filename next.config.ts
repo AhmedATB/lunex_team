@@ -6,7 +6,6 @@ const nextConfig: NextConfig = {
     formats: ["image/avif", "image/webp"],
     remotePatterns: [
       { protocol: "https", hostname: "picsum.photos" },
-      { protocol: "https", hostname: "i.pravatar.cc" },
     ],
   },
   eslint: {

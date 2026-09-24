@@ -1,6 +1,7 @@
 import {
   Body,
   Controller,
+  Delete,
   Get,
   HttpCode,
   HttpStatus,
@@ -21,6 +22,7 @@ import { CurrentUser } from "../../common/decorators/current-user.decorator";
 import { Public } from "../../common/decorators/public.decorator";
 import type { AccessTokenPayload } from "../../common/guards/jwt-auth.guard";
 import { ChangeRoleDto } from "./dto/change-role.dto";
+import { DeleteAccountDto } from "./dto/delete-account.dto";
 import { SetBannedDto } from "./dto/set-banned.dto";
 import { UpdateProfileDto } from "./dto/update-profile.dto";
 import { UsersService } from "./users.service";
@@ -68,6 +70,22 @@ export class UsersController {
   @Throttle({ default: { limit: 20, ttl: 60_000 } })
   updateProfile(@Body() dto: UpdateProfileDto, @CurrentUser() actor: AccessTokenPayload, @Req() req: Request) {
     return this.users.updateProfile(actor.sub, dto, req.context);
+  }
+
+  /** Permanently deletes the caller's own account — actor.sub is the target, never a caller-supplied id. */
+  @Delete("me")
+  @HttpCode(HttpStatus.NO_CONTENT)
+  @Throttle({ default: { limit: 5, ttl: 600_000 } })
+  deleteAccount(@Body() dto: DeleteAccountDto, @CurrentUser() actor: AccessTokenPayload) {
+    return this.users.deleteAccount(actor.sub, dto);
+  }
+
+  /** Data-portability download of everything stored about the caller. Rate-limited hard: it fans out to nine queries. */
+  @Get("me/export")
+  @HttpCode(HttpStatus.OK)
+  @Throttle({ default: { limit: 5, ttl: 600_000 } })
+  exportData(@CurrentUser() actor: AccessTokenPayload) {
+    return this.users.exportData(actor.sub);
   }
 
   /** memoryStorage — the file must reach UsersService as a Buffer (for sharp + the DB column), never written to Railway's ephemeral local disk. */

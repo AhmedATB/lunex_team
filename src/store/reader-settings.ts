@@ -1,7 +1,8 @@
 "use client";
 
 import { create } from "zustand";
-import { persist } from "zustand/middleware";
+import { createJSONStorage, persist } from "zustand/middleware";
+import { preferenceStorage } from "@/lib/consent";
 
 export type ReaderMode = "vertical" | "horizontal" | "page";
 export type ReaderFit = "width" | "height" | "original";
@@ -37,7 +38,7 @@ export const useReaderSettings = create<ReaderSettingsState>()(
       setContrast: (contrast) => set({ contrast }),
       setRtl: (rtl) => set({ rtl }),
     }),
-    { name: "lunex-reader-settings", skipHydration: true }
+    { name: "lunex-reader-settings", storage: createJSONStorage(() => preferenceStorage), skipHydration: true }
   )
 );
 
@@ -80,7 +81,7 @@ export const useNovelReaderSettings = create<NovelReaderSettingsState>()(
       setFontSize: (fontSize) => set({ fontSize }),
       setTheme: (theme) => set({ theme }),
     }),
-    { name: "lunex-novel-reader-settings", skipHydration: true }
+    { name: "lunex-novel-reader-settings", storage: createJSONStorage(() => preferenceStorage), skipHydration: true }
   )
 );
 

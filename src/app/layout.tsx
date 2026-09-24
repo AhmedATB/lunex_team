@@ -3,11 +3,14 @@ import type { Metadata } from "next";
 import { Cairo, Tajawal, Baloo_Bhaijaan_2 } from "next/font/google";
 import "./globals.css";
 import { NavigationProgress } from "@/components/navigation-progress";
+import { CookieConsent } from "@/components/consent/cookie-consent";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { StoreHydration } from "@/components/store-hydration";
 import { ThemeApplier } from "@/components/theme-applier";
 import { getServerSession } from "@/lib/server-session";
 import { getInitialStyle } from "@/lib/theme-cookie";
+import { getInitialConsent } from "@/lib/consent-cookie";
+import { SITE_URL } from "@/lib/site";
 
 const cairo = Cairo({
   subsets: ["arabic", "latin"],
@@ -28,7 +31,7 @@ const baloo = Baloo_Bhaijaan_2({
 });
 
 export const metadata: Metadata = {
-  metadataBase: new URL("https://lunexteam.example"),
+  metadataBase: new URL(SITE_URL),
   title: {
     default: "LUNEX TEAM — منصة قراءة المانهوا المترجمة",
     template: "%s | LUNEX TEAM",
@@ -53,7 +56,11 @@ export const metadata: Metadata = {
 };
 
 export default async function RootLayout({ children }: { children: React.ReactNode }) {
-  const [initialUser, initialStyle] = await Promise.all([getServerSession(), getInitialStyle()]);
+  const [initialUser, initialStyle, initialConsent] = await Promise.all([
+    getServerSession(),
+    getInitialStyle(),
+    getInitialConsent(),
+  ]);
 
   return (
     <html
@@ -70,6 +77,7 @@ export default async function RootLayout({ children }: { children: React.ReactNo
           <NavigationProgress />
         </Suspense>
         <TooltipProvider delayDuration={200}>{children}</TooltipProvider>
+        <CookieConsent initialChoice={initialConsent} />
       </body>
     </html>
   );

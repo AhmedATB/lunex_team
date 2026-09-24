@@ -1,7 +1,6 @@
 import type { MetadataRoute } from "next";
 import { getMockDatabase } from "@/lib/mock/generate";
-
-const BASE_URL = "https://lunexteam.example";
+import { SITE_URL as BASE_URL } from "@/lib/site";
 
 export default function sitemap(): MetadataRoute.Sitemap {
   const db = getMockDatabase();
@@ -12,6 +11,8 @@ export default function sitemap(): MetadataRoute.Sitemap {
     { url: `${BASE_URL}/search`, changeFrequency: "daily", priority: 0.6 },
     { url: `${BASE_URL}/teams`, changeFrequency: "daily", priority: 0.7 },
     { url: `${BASE_URL}/news`, changeFrequency: "daily", priority: 0.6 },
+    { url: `${BASE_URL}/privacy`, changeFrequency: "yearly", priority: 0.3 },
+    { url: `${BASE_URL}/terms`, changeFrequency: "yearly", priority: 0.3 },
   ];
 
   const seriesRoutes: MetadataRoute.Sitemap = db.series.map((s) => ({

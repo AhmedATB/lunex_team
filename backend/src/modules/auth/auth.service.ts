@@ -27,6 +27,8 @@ export interface PublicUser {
   bio: string | null;
   avatarVersion: string | null;
   isBanned: boolean;
+  /** false for a Discord/Google-only account — tells the UI which confirmation an irreversible action needs (password vs. retyping the username). The hash itself never leaves the server. */
+  hasPassword: boolean;
 }
 
 export interface AuthResponse extends SessionTokens {
@@ -292,6 +294,7 @@ export class AuthService {
       bio: user.bio,
       avatarVersion: user.avatarImage ? user.updatedAt.toISOString() : null,
       isBanned: user.isBanned,
+      hasPassword: user.passwordHash !== null,
     };
   }
 }

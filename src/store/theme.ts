@@ -1,8 +1,9 @@
 "use client";
 
 import { create } from "zustand";
-import { persist } from "zustand/middleware";
+import { createJSONStorage, persist } from "zustand/middleware";
 import { DEFAULT_STYLE, STYLE_COOKIE, type StyleId } from "@/lib/theme-presets";
+import { hasPreferenceConsent, preferenceStorage } from "@/lib/consent";
 import type { AccentId } from "@/lib/accent-presets";
 
 interface ThemeState {
@@ -15,9 +16,9 @@ interface ThemeState {
   setAccent: (accent: AccentId | null) => void;
 }
 
-/** Mirrors the style choice into a cookie so Server Components can read it too (theme-cookie.ts) — localStorage alone is invisible to SSR, which is exactly what causes the default-then-swap flash this cookie exists to avoid. */
-function writeStyleCookie(style: StyleId) {
-  if (typeof document === "undefined") return;
+/** Mirrors the style choice into a cookie so Server Components can read it too (theme-cookie.ts) — localStorage alone is invisible to SSR, which is exactly what causes the default-then-swap flash this cookie exists to avoid. Only written once the reader has accepted preference storage. */
+export function writeStyleCookie(style: StyleId) {
+  if (typeof document === "undefined" || !hasPreferenceConsent()) return;
   document.cookie = `${STYLE_COOKIE}=${style}; path=/; max-age=31536000; SameSite=Lax`;
 }
 
@@ -35,6 +36,7 @@ export const useTheme = create<ThemeState>()(
     }),
     {
       name: "lunex-theme",
+      storage: createJSONStorage(() => preferenceStorage),
       skipHydration: true,
       onRehydrateStorage: () => (state) => {
         if (state) writeStyleCookie(state.style);

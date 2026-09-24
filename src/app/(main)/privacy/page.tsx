@@ -1,0 +1,235 @@
+import type { Metadata } from "next";
+import Link from "next/link";
+import { CookieSettingsButton } from "@/components/consent/cookie-settings-button";
+import { LegalList, LegalPage, LegalSection, Strong } from "@/components/legal/legal";
+import { CONTACT_DISCORD_URL } from "@/lib/site";
+
+export const metadata: Metadata = {
+  title: "سياسة الخصوصية",
+  description: "ما الذي يجمعه LUNEX TEAM عنك، ولماذا، وكيف نحميه، وما هي خياراتك بشأن ملفات تعريف الارتباط.",
+};
+
+const COOKIES: { name: string; purpose: string; duration: string; essential: boolean }[] = [
+  { name: "lunex_at", purpose: "رمز دخول قصير الأجل يُبقيك مسجّلاً في حسابك.", duration: "10 دقائق", essential: true },
+  { name: "lunex_at_exp", purpose: "وقت انتهاء رمز الدخول، ليُجدَّد تلقائياً دون أن تسجّل الدخول من جديد.", duration: "10 دقائق", essential: true },
+  { name: "lunex_rt", purpose: "رمز عشوائي لتجديد الجلسة. لا يحمل أي بيانات عنك.", duration: "7 أيام", essential: true },
+  { name: "lunex_oauth_state", purpose: "يحمي عملية الدخول عبر Discord أو Google من التزوير.", duration: "5 دقائق", essential: true },
+  { name: "lunex-consent", purpose: "يتذكّر اختيارك بخصوص ملفات تعريف الارتباط حتى لا نسألك كل زيارة.", duration: "6 أشهر", essential: true },
+  { name: "lunex-style", purpose: "يحفظ نمط ألوان الموقع الذي اخترته ليظهر بالشكل نفسه عند زيارتك التالية.", duration: "سنة", essential: false },
+];
+
+/** Must match DEFAULT_RETENTION_DAYS in backend/src/modules/retention/retention.service.ts — that job is what actually enforces these. */
+const RETENTION: { data: string; period: string }[] = [
+  { data: "بيانات حسابك (البريد، والاسم، والنبذة، والصورة، والحسابات المرتبطة، والإشعارات، والجلسات والأجهزة)", period: "ما دام حسابك قائماً، وتُحذف فور حذفه" },
+  { data: "سجل محاولات الدخول (عنوان IP والبريد المُدخَل ونتيجة المحاولة)", period: "90 يوماً" },
+  { data: "سجل الوصول لصفحات الفصول (الحساب، وعنوان IP، وبصمة الجهاز)", period: "180 يوماً" },
+  { data: "سجل الإجراءات الأمنية والإدارية (تغيير كلمة المرور، والحظر، وتغيير الأدوار...)", period: "365 يوماً" },
+];
+
+export default function PrivacyPage() {
+  return (
+    <LegalPage title="سياسة الخصوصية" updated="25 سبتمبر 2026">
+      <LegalSection title="من نحن">
+        <p>
+          LUNEX TEAM (&quot;نحن&quot;) فريق ترجمة ونشر مانهوا ومانها للقرّاء العرب، ويدير موقع lunexteam.com. توضّح هذه السياسة ما الذي
+          نجمعه عنك عند استخدام الموقع، ولماذا، وكيف نحميه، وما هي خياراتك. باستخدامك الموقع أو إنشاء حساب فيه فأنت تقرّ بأنك اطّلعت عليها.
+          وتُقرأ مع <Link href="/terms" className="font-medium text-primary-300 underline-offset-2 hover:underline">الشروط والأحكام</Link>.
+        </p>
+      </LegalSection>
+
+      <LegalSection title="البيانات التي نجمعها">
+        <p><Strong>عند إنشاء حساب</Strong></p>
+        <p>
+          البريد الإلكتروني، واسم المستخدم، والاسم المعروض، وكذلك النبذة والصورة الرمزية إن أضفتهما. كلمة المرور لا نخزّنها كما هي،
+          بل نخزّن بصمة مشفّرة لها (Argon2id) لا يمكن عكسها إلى كلمة المرور.
+        </p>
+
+        <p><Strong>عند الدخول عبر Discord أو Google</Strong></p>
+        <p>
+          نأخذ من المزوّد معرّف حسابك وبريدك الإلكتروني وحالة توثيقه واسمك المعروض فقط. لا نستورد صورتك، ولا نحتفظ برمز الوصول الذي
+          يمنحه المزوّد بعد إتمام الدخول.
+        </p>
+
+        <p><Strong>بيانات الأمان</Strong></p>
+        <p>لحماية الحسابات والموقع نسجّل:</p>
+        <LegalList>
+          <li>عنوان IP ونتيجة كل محاولة دخول (نجاح أو فشل) مع البريد المُدخَل.</li>
+          <li>سجلاً بالإجراءات الحساسة على حسابك: التسجيل، والدخول، والخروج، وتغيير كلمة المرور، وتحديث الصورة.</li>
+          <li>بصمة مجزّأة للجهاز، مشتقّة من معرّف عشوائي محفوظ في متصفحك.</li>
+          <li>جلسات الدخول النشطة. نخزّن بصمة مشفّرة لرمز الجلسة وليس الرمز نفسه.</li>
+        </LegalList>
+
+        <p><Strong>قراءة الفصول وحماية المحتوى</Strong></p>
+        <p>
+          لمنع تسريب الفصول ونسخها، تُقدَّم صفحاتها بمفتاح قصير الأجل مرتبط بحسابك وجهازك، وتُوضَع عليها علامة مائية مرئية خفيفة تتضمّن
+          جزءاً من معرّف حسابك. ونسجّل أحداث الوصول للصفحات: الحساب، وبصمة الجهاز المجزّأة، وعنوان IP، ونوع الحدث. نستخدم هذه السجلات
+          لأغراض الحماية فقط.
+        </p>
+
+        <p><Strong>بيانات تبقى في متصفحك فقط</Strong></p>
+        <p>
+          في النسخة الحالية من الموقع تُحفظ هذه البيانات على جهازك ولا تصل إلى خوادمنا: المفضلة، وتقدّم القراءة، والتقييمات، والتعليقات،
+          والرسائل، والمكافآت والإنجازات، وإعدادات القارئ، وخيارات المظهر. حذفك لبيانات المتصفح يمسحها.
+        </p>
+
+        <p><Strong>ما لا نجمعه</Strong></p>
+        <p>
+          لا نستخدم أدوات تحليل أو تتبّع أو إعلانات، ولا نجمع موقعك الجغرافي، ولا نعالج مدفوعات حالياً. الخطوط مستضافة ضمن الموقع
+          ولا تُطلب من خدمات خارجية، والصورة الرمزية الافتراضية نرسمها نحن ولا تُجلب من أي موقع آخر.
+        </p>
+      </LegalSection>
+
+      <LegalSection title="لماذا نستخدم بياناتك">
+        <LegalList>
+          <li>تشغيل حسابك وتسجيل دخولك وتقديم الخدمة التي طلبتها.</li>
+          <li>حماية الحسابات والموقع والمحتوى من الاحتيال والقرصنة، وذلك من مصلحتنا المشروعة في الأمان.</li>
+          <li>حفظ تفضيلاتك، وذلك بموافقتك.</li>
+          <li>التواصل معك بشأن حسابك، والالتزام بالقانون عند الطلب.</li>
+        </LegalList>
+        <p><Strong>لا نبيع بياناتك ولا نؤجّرها ولا نستخدمها للإعلان.</Strong></p>
+      </LegalSection>
+
+      <LegalSection title="ملفات تعريف الارتباط والتخزين المحلي">
+        <p>
+          نستخدم فئتين فقط. <Strong>الضرورية</Strong> لا يعمل الموقع بدونها ولا يمكن إيقافها. و<Strong>الاختيارية</Strong> لا تُحفظ إلا بموافقتك.
+        </p>
+
+        <div className="panel overflow-x-auto">
+          <table className="w-full min-w-[34rem] text-start text-sm">
+            <thead>
+              <tr className="border-b border-border text-white">
+                <th className="p-3 text-start font-bold">الاسم</th>
+                <th className="p-3 text-start font-bold">الغرض</th>
+                <th className="p-3 text-start font-bold">المدة</th>
+                <th className="p-3 text-start font-bold">النوع</th>
+              </tr>
+            </thead>
+            <tbody>
+              {COOKIES.map((c) => (
+                <tr key={c.name} className="border-b border-border/60 last:border-0">
+                  <td className="p-3 font-mono text-xs text-primary-300" dir="ltr">{c.name}</td>
+                  <td className="p-3">{c.purpose}</td>
+                  <td className="whitespace-nowrap p-3">{c.duration}</td>
+                  <td className="whitespace-nowrap p-3">{c.essential ? "ضروري" : "اختياري"}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+
+        <p>إضافةً إلى الكوكيز، يحفظ الموقع بيانات في التخزين المحلي لمتصفحك:</p>
+        <LegalList>
+          <li>
+            <Strong>ضرورية:</Strong> معرّف عشوائي للجهاز لأغراض الأمان وحماية المحتوى، وبيانات الميزات التي تستخدمها (المفضلة، وتقدّم
+            القراءة، والتقييمات، والتعليقات، والرسائل، والمكافآت).
+          </li>
+          <li>
+            <Strong>اختيارية:</Strong> النمط والألوان، وإعدادات قارئ المانهوا وقارئ الروايات، وتفضيل تنبيهات الفصول الجديدة.
+          </li>
+        </LegalList>
+        <p>
+          تستطيع تغيير اختيارك في أي وقت من رابط{" "}
+          <CookieSettingsButton className="font-medium text-primary-300 underline-offset-2 hover:underline" /> أسفل الموقع. اختيار
+          «الضرورية فقط» يحذف الكوكيز والتفضيلات الاختيارية المحفوظة. ويمكنك أيضاً حذفها من إعدادات متصفحك.
+        </p>
+      </LegalSection>
+
+      <LegalSection title="مع من نشارك بياناتك">
+        <LegalList>
+          <li>
+            <Strong>مزوّد الاستضافة:</Strong> يشغّل الموقع وقاعدة بياناته (حالياً Railway) ويعالج البيانات نيابةً عنا، وقد تقع خوادمه
+            خارج بلدك. قد ننقل الموقع إلى استضافة أخرى وسنحدّث هذه الصفحة عندها.
+          </li>
+          <li>
+            <Strong>Discord وGoogle:</Strong> فقط إذا اخترت الدخول بهما، وتخضع بياناتك لديهم لسياساتهم.
+          </li>
+          <li>الجهات القانونية المختصة، عند طلب رسمي ملزم فقط.</li>
+        </LegalList>
+        <p>لا نشارك بياناتك مع معلنين أو وسطاء بيانات.</p>
+      </LegalSection>
+
+      <LegalSection title="مدة الاحتفاظ بالبيانات">
+        <p>
+          لا نحتفظ ببيانات أطول من اللازم. تُحذف السجلات التقنية التي تحوي عنوان IP تلقائياً بعد المدد التالية، دون حاجة إلى طلب منك:
+        </p>
+
+        <div className="panel overflow-x-auto">
+          <table className="w-full min-w-[30rem] text-start text-sm">
+            <thead>
+              <tr className="border-b border-border text-white">
+                <th className="p-3 text-start font-bold">البيانات</th>
+                <th className="p-3 text-start font-bold">مدة الاحتفاظ</th>
+              </tr>
+            </thead>
+            <tbody>
+              {RETENTION.map((r) => (
+                <tr key={r.data} className="border-b border-border/60 last:border-0">
+                  <td className="p-3">{r.data}</td>
+                  <td className="p-3 font-medium text-white">{r.period}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+
+        <p>
+          <Strong>عند حذف حسابك</Strong> نحذف فوراً بياناتك الشخصية وجلساتك وأجهزتك والحسابات المرتبطة وإشعاراتك وسجل دخولك. أما سجل
+          الوصول للفصول وسجل الإجراءات الأمنية فيبقيان حتى تنتهي مدتهما أعلاه ثم يُحذفان تلقائياً، لأننا نحتاجهما لتتبّع أي تسريب أو إساءة
+          بعد وقوعها. ولا يحتويان اسمك ولا بريدك، بل معرّفاً داخلياً لم يعد مرتبطاً بأي حساب.
+        </p>
+      </LegalSection>
+
+      <LegalSection title="أمان بياناتك">
+        <LegalList>
+          <li>كلمات المرور محفوظة كبصمة مشفّرة قوية، ولا نراها ولا نستطيع استرجاعها.</li>
+          <li>ملفات الجلسة لا تقرؤها سكربتات الصفحة، وعمرها قصير.</li>
+          <li>الاتصال بالموقع مشفّر (HTTPS)، ومفاتيح عرض صفحات الفصول قصيرة الأجل.</li>
+        </LegalList>
+        <p>مع ذلك لا توجد وسيلة نقل أو تخزين آمنة بنسبة 100%، لذا نرجو منك استخدام كلمة مرور قوية لا تستعملها في مواقع أخرى.</p>
+      </LegalSection>
+
+      <LegalSection title="حقوقك">
+        <p>تستطيع ممارسة أهم حقوقك بنفسك ومباشرةً من <Link href="/profile/settings" className="font-medium text-primary-300 underline-offset-2 hover:underline">إعدادات حسابك</Link>:</p>
+        <LegalList>
+          <li><Strong>الاطلاع والتصحيح:</Strong> عدّل اسمك ونبذتك وصورتك واسم المستخدم وكلمة المرور.</li>
+          <li>
+            <Strong>نسخة من بياناتك:</Strong> زر «تنزيل بياناتي» يعطيك ملف JSON بكل ما نحفظه عنك، ويشمل آخر 1000 سجل من كل نوع من سجلات الدخول والوصول.
+          </li>
+          <li>
+            <Strong>حذف الحساب:</Strong> زر «حذف حسابي» يحذف حسابك نهائياً وفق ما هو موضّح في قسم مدة الاحتفاظ. ويلزمك تأكيد كلمة
+            المرور (أو كتابة اسم المستخدم إن كان دخولك عبر Discord أو Google).
+          </li>
+          <li>
+            <Strong>الكوكيز الاختيارية:</Strong> تستطيع سحب موافقتك في أي وقت من رابط «إعدادات الكوكيز» أسفل الموقع.
+          </li>
+        </LegalList>
+        <p>
+          ولك أيضاً الاعتراض على معالجة بياناتك أو طلب تقييدها. لهذه الطلبات، أو إن واجهتك مشكلة في الأزرار أعلاه، تواصل معنا وسنرد عليك.
+          وبيانات المتصفح المحلية (المفضلة والتعليقات...) تحذفها أنت من متصفحك، وتُمسح كذلك تلقائياً عند حذف حسابك من هذا المتصفح.
+        </p>
+      </LegalSection>
+
+      <LegalSection title="تغييرات على هذه السياسة">
+        <p>
+          قد نحدّث هذه السياسة مع تطوّر الموقع وإضافة ميزات جديدة، كنقل بيانات مثل التعليقات والرسائل إلى خوادمنا. سنغيّر تاريخ «آخر
+          تحديث» أعلاه، وللتغييرات الجوهرية سنضع إشعاراً في الموقع.
+        </p>
+      </LegalSection>
+
+      <LegalSection title="تواصل معنا">
+        <p>
+          لأي سؤال أو طلب يخص بياناتك، تواصل معنا عبر خادم{" "}
+          <a
+            href={CONTACT_DISCORD_URL}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="font-medium text-primary-300 underline-offset-2 hover:underline"
+          >
+            Discord الرسمي للفريق
+          </a>
+          .
+        </p>
+      </LegalSection>
+    </LegalPage>
+  );
+}

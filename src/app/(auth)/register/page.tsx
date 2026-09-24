@@ -48,7 +48,7 @@ export default function RegisterPage() {
       return;
     }
     if (!agree) {
-      setError("يجب الموافقة على الشروط والأحكام.");
+      setError("يجب الموافقة على الشروط والأحكام وسياسة الخصوصية.");
       return;
     }
     setLoading(true);
@@ -142,7 +142,7 @@ export default function RegisterPage() {
 
           <label className="flex items-start gap-2 text-xs text-lunex-gray">
             <Checkbox checked={agree} onCheckedChange={(v) => setAgree(v === true)} className="mt-0.5" />
-            أوافق على <Link href="#" className="text-primary-300 hover:underline">الشروط والأحكام</Link> وسياسة الخصوصية
+            أوافق على <Link href="/terms" target="_blank" className="text-primary-300 hover:underline">الشروط والأحكام</Link> و<Link href="/privacy" target="_blank" className="text-primary-300 hover:underline">سياسة الخصوصية</Link>
           </label>
 
           {error && <p className="text-sm text-red-400">{error}</p>}

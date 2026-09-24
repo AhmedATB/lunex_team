@@ -1,5 +1,6 @@
 import { clsx, type ClassValue } from "clsx";
 import { twMerge } from "tailwind-merge";
+import { generatedAvatarUri } from "./generated-avatar";
 
 export function cn(...inputs: ClassValue[]) {
   return twMerge(clsx(inputs));
@@ -25,8 +26,9 @@ export function timeAgo(iso: string): string {
   return `منذ ${Math.floor(months / 12)} سنة`;
 }
 
+/** The default avatar for a seed — drawn locally (see generated-avatar.ts), so nothing about the user is sent to another site. */
 export function avatarUrl(seed: string): string {
-  return `https://i.pravatar.cc/150?u=${encodeURIComponent(seed)}`;
+  return generatedAvatarUri(seed);
 }
 
 /**
