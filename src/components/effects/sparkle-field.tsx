@@ -21,8 +21,8 @@ function paletteFor(style: StyleId) {
 
 /**
  * Fixed points on the page, not on the screen. Every star and crystal has its own spot in the background: it
- * scrolls away with the content like anything else on the page, instead of following the reader down the screen,
- * and it does not twinkle, drift or blink (readers found the moving ones distracting, 2026-09-25 and 2026-09-26).
+ * scrolls away with the content like anything else on the page, instead of following the reader down the screen
+ * (readers found that distracting, 2026-09-25 and 2026-09-26). Each one still twinkles or pulses — in place, never moving.
  *
  * The spots hug the left and right edges — inside the page's side margin, which is 16 px on a phone — so they stay out
  * from behind text and cards, and the layer sits before the content in the DOM, so text is always painted over it.
@@ -59,6 +59,9 @@ const LAYOUT = Array.from({ length: GROUPS }).flatMap((_, group) =>
     id: `${group}-${i}`,
     // each repeat sits a little higher or lower so the pattern does not look stamped (deterministic: server and client must agree)
     top: group * GROUP_HEIGHT_PX + point.top + ((group * 5 + i * 3) % 7) * 20 - 60,
+    // when and how fast it pulses; deterministic, so the stars do not all blink together and server and client agree
+    delay: `${(((group * 8 + i) * 37) % 50) / 10}s`,
+    duration: `${2.2 + (((group * 8 + i) * 13) % 20) / 10}s`,
   }))
 );
 
@@ -70,7 +73,7 @@ export function SparkleField({ initialStyle }: { initialStyle: StyleId }) {
 
   return (
     // No negative z-index — see AppShell's decorative-layer comment; it rendered invisible at this position.
-    // `absolute` inside the page (not `fixed`): the points belong to the page and scroll with it. Nothing here animates.
+    // `absolute` inside the page (not `fixed`): the points belong to the page and scroll with it. They pulse in place only.
     <div className="pointer-events-none absolute inset-0 overflow-hidden opacity-60" aria-hidden="true">
       {LAYOUT.map((p) => {
         const colors = p.kind === "star" ? palette.stars : palette.crystals;
@@ -78,8 +81,11 @@ export function SparkleField({ initialStyle }: { initialStyle: StyleId }) {
         return (
           <svg
             key={p.id}
-            className="absolute"
+            className={p.kind === "star" ? "sparkle-star" : "sparkle-pulse"}
             style={{
+              position: "absolute",
+              animationDelay: p.delay,
+              animationDuration: p.duration,
               top: p.top,
               [p.side === "start" ? "left" : "right"]: p.edge,
               width: p.size,

@@ -104,7 +104,7 @@ export default function SeriesDetailPage() {
         <div className="absolute inset-0 bg-gradient-to-t from-[#09090B] via-[#09090B]/70 to-[#09090B]/30" />
         <div className="pointer-events-none absolute inset-0 opacity-60">
           <div className="ambient-blob start-[10%] top-[-20%] h-64 w-64 bg-primary-600/40" />
-          <div className="ambient-blob end-[15%] top-[10%] h-56 w-56 bg-pink-500/30" />
+          <div className="ambient-blob end-[15%] top-[10%] h-56 w-56 bg-pink-500/30" style={{ animationDelay: "-5s" }} />
         </div>
       </div>
 

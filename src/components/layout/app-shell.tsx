@@ -22,7 +22,7 @@ export function AppShell({ children, initialStyle }: { children: ReactNode; init
       <AchievementWatcher />
       {/*
         Everything decorative below is `absolute` inside the page's own `relative` root: it belongs to the page and
-        scrolls with it, never following the reader down the screen, and none of it animates. The glows sit at the page
+        scrolls with it, never following the reader down the screen; the glows and sparkles pulse in place, nothing drifts. The glows sit at the page
         edges (half off-screen) and the sparkles along the margins, so they stay out from behind text.
 
         No negative z-index here (or on anything nested inside it) — deliberately. Verified
@@ -36,9 +36,9 @@ export function AppShell({ children, initialStyle }: { children: ReactNode; init
       {/* Cut from 6 blobs to 4 (perf pass, 2026-09-19) — each is a continuously-animated filter:blur(70px) element, real ongoing compositing cost for as long as the page is open. Positions kept spread top/mid/bottom so the page still reads as decorated end to end. */}
       <div className="pointer-events-none absolute inset-0 overflow-hidden">
         <div className="ambient-blob start-[-8%] top-[-4%] h-[28rem] w-[28rem] bg-primary-600/35" />
-        <div className="ambient-blob end-[-10%] top-[18%] h-[26rem] w-[26rem] bg-secondary/30" />
-        <div className="ambient-blob start-[-12%] top-[55%] h-[22rem] w-[22rem] bg-accent/25" />
-        <div className="ambient-blob end-[-8%] top-[96%] h-[24rem] w-[24rem] bg-secondary/25" />
+        <div className="ambient-blob end-[-10%] top-[18%] h-[26rem] w-[26rem] bg-secondary/30" style={{ animationDelay: "-6s" }} />
+        <div className="ambient-blob start-[-12%] top-[55%] h-[22rem] w-[22rem] bg-accent/25" style={{ animationDelay: "-11s" }} />
+        <div className="ambient-blob end-[-8%] top-[96%] h-[24rem] w-[24rem] bg-secondary/25" style={{ animationDelay: "-14s" }} />
         <SparkleField initialStyle={initialStyle} />
         {/* Neon Cyber only: anchored to the top of the page (its horizon grid), scrolls away with it. */}
         <NeonBackdrop initialStyle={initialStyle} />

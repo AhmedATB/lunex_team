@@ -37,11 +37,11 @@ export function NeonBackdrop({ initialStyle }: { initialStyle: StyleId }) {
       <div className="ambient-blob start-[5%] top-[-10%] h-[420px] w-[420px] bg-primary-500/25" />
       <div
         className="ambient-blob end-[0%] top-[35%] h-[380px] w-[380px]"
-        style={{ background: "rgb(var(--lunex-purple) / 0.22)" }}
+        style={{ background: "rgb(var(--lunex-purple) / 0.22)", animationDelay: "-6s" }}
       />
       <div
         className="ambient-blob start-[20%] bottom-[-5%] h-[320px] w-[320px]"
-        style={{ background: "rgb(var(--primary-400) / 0.15)" }}
+        style={{ background: "rgb(var(--primary-400) / 0.15)", animationDelay: "-11s" }}
       />
       <div
         className="absolute inset-0 opacity-[0.04]"

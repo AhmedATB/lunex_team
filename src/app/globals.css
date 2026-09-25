@@ -228,8 +228,15 @@
     position: absolute;
     border-radius: 9999px;
     filter: blur(70px);
+    will-change: opacity;
     pointer-events: none;
-    /* Static: a glow stays where it is placed. (It used to drift and pulse, which readers found distracting, and a blurred element that never stops animating is a standing compositing cost.) */
+    /* Pulses in place (opacity only). It no longer drifts: a glow stays where it is placed. */
+    animation: pulse-glow 5s ease-in-out infinite;
+  }
+
+  /* A slow pulse for the background crystals — same in-place breathing as the glows. */
+  .sparkle-pulse {
+    animation: pulse-glow 4.5s ease-in-out infinite;
   }
 
 
@@ -519,6 +526,7 @@
   .ambient-blob,
   .sparkle,
   .sparkle-star,
+  .sparkle-pulse,
   .float-slow,
   .magic-border::before,
   .section-title::after,
@@ -541,6 +549,7 @@
 .is-scrolling .ambient-blob,
 .is-scrolling .sparkle,
 .is-scrolling .sparkle-star,
+.is-scrolling .sparkle-pulse,
 .is-scrolling .float-slow {
   animation-play-state: paused;
 }

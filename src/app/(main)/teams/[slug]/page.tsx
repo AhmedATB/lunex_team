@@ -91,7 +91,7 @@ export default function TeamDetailPage() {
       >
         <div className="pointer-events-none absolute inset-0 opacity-70">
           <div className="ambient-blob start-[-10%] top-[-20%] h-56 w-56 bg-primary-600/40" />
-          <div className="ambient-blob end-[10%] top-[10%] h-48 w-48 bg-pink-500/25" />
+          <div className="ambient-blob end-[10%] top-[10%] h-48 w-48 bg-pink-500/25" style={{ animationDelay: "-4s" }} />
         </div>
         <div className="relative flex flex-col items-center gap-4 text-center sm:flex-row sm:text-start">
           <div
