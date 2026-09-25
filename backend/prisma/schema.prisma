@@ -332,7 +332,10 @@ model ReadingProgress {
 
 /// One moderation action against an account: a warning (no effect on its own),
 /// a timeout (cannot comment or message until `expiresAt`) or a ban (cannot
-/// sign in; `expiresAt` null = permanent). User.mutedUntil / bannedUntil /
+/// sign in; `expiresAt` null = permanent). One-off staff actions are recorded
+/// here too so the history is complete: `profile_reset` (details = which parts
+/// were cleared) and `comments_removed` (details = how many). They have no
+/// lasting effect to lift. User.mutedUntil / bannedUntil /
 /// isBanned hold the CURRENT effect so hot paths need no join; this table is
 /// the history — who, why, when, and whether it was lifted early.
 /// `createdById` / `revokedById` are plain strings, not foreign keys: the
@@ -343,6 +346,8 @@ model Sanction {
   user        User      @relation(fields: [userId], references: [id], onDelete: Cascade)
   type        String // "warning" | "timeout" | "ban"
   reason      String
+  /// Structured extra info for one-off actions (see above); null for the rest.
+  details     String?
   createdById String?
   createdAt   DateTime  @default(now())
   expiresAt   DateTime?

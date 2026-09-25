@@ -74,6 +74,11 @@ function build(users: UserRow[]) {
     findSanction: jest.fn(),
     listSanctions: jest.fn().mockResolvedValue([]),
     findUsernames: jest.fn().mockResolvedValue(new Map()),
+    clearProfileParts: jest.fn().mockResolvedValue(undefined),
+    recordAction: jest.fn(async (_params: unknown) => ({ id: "rec1" })),
+    revokeAllSessions: jest.fn().mockResolvedValue({ count: 2 }),
+    removeAllComments: jest.fn().mockResolvedValue(3),
+    accountInfo: jest.fn().mockResolvedValue({ email: "person@example.com", comments: 3 }),
     writeAuditLog: jest.fn().mockResolvedValue(undefined),
   };
   const notifications = { notify: jest.fn().mockResolvedValue(undefined) };
@@ -239,6 +244,86 @@ describe("ModerationService.revokeSanction", () => {
   });
 });
 
+describe("ModerationService.resetProfile", () => {
+  it("clears only the chosen parts, records it, audits it and tells the person what was removed", async () => {
+    const { service, repo, notifications } = build(roster());
+    const result = await service.resetProfile("mod", "reader", { parts: ["avatar", "bio"], reason: "offensive picture" }, CTX);
+    expect(repo.clearProfileParts).toHaveBeenCalledWith("reader", { avatar: true, bio: true, displayName: false });
+    expect(repo.recordAction).toHaveBeenCalledWith(
+      expect.objectContaining({ userId: "reader", type: "profile_reset", details: "avatar,bio", createdById: "mod" })
+    );
+    expect(repo.writeAuditLog).toHaveBeenCalledWith(expect.objectContaining({ action: "moderation.profile_reset" }));
+    expect(notifications.notify).toHaveBeenCalledWith("reader", "moderation", expect.any(String), expect.stringContaining("offensive picture"), "/terms");
+    expect(result).toEqual({ cleared: ["avatar", "bio"] });
+  });
+
+  it("obeys the same rank rules as a sanction", async () => {
+    const { service, repo } = build(roster());
+    await expect(service.resetProfile("reader", "other", { parts: ["bio"], reason: "nope nope" }, CTX)).rejects.toBeInstanceOf(ForbiddenException);
+    await expect(service.resetProfile("mod", "mod2", { parts: ["bio"], reason: "peer" }, CTX)).rejects.toMatchObject({ response: { code: "cannot_sanction_equal_or_higher" } });
+    await expect(service.resetProfile("admin", "owner", { parts: ["bio"], reason: "owner" }, CTX)).rejects.toMatchObject({ response: { code: "cannot_sanction_owner" } });
+    await expect(service.resetProfile("mod", "mod", { parts: ["bio"], reason: "myself" }, CTX)).rejects.toMatchObject({ response: { code: "cannot_sanction_self" } });
+    expect(repo.clearProfileParts).not.toHaveBeenCalled();
+  });
+});
+
+describe("ModerationService.removeAllComments", () => {
+  it("hides every comment, records how many, and tells the person", async () => {
+    const { service, repo, notifications } = build(roster());
+    const result = await service.removeAllComments("mod", "reader", { reason: "spam account" }, CTX);
+    expect(result).toEqual({ removed: 3 });
+    expect(repo.removeAllComments).toHaveBeenCalledWith("reader", "mod");
+    expect(repo.recordAction).toHaveBeenCalledWith(expect.objectContaining({ type: "comments_removed", details: "3" }));
+    expect(notifications.notify).toHaveBeenCalledWith("reader", "moderation", expect.any(String), expect.stringContaining("3"), "/terms");
+  });
+
+  it("does nothing, and records nothing, when there is nothing to remove", async () => {
+    const { service, repo, notifications } = build(roster());
+    repo.removeAllComments.mockResolvedValue(0);
+    expect(await service.removeAllComments("mod", "reader", { reason: "just checking" }, CTX)).toEqual({ removed: 0 });
+    expect(repo.recordAction).not.toHaveBeenCalled();
+    expect(notifications.notify).not.toHaveBeenCalled();
+  });
+
+  it("is staff-only and rank-limited", async () => {
+    const { service, repo } = build(roster());
+    await expect(service.removeAllComments("other", "reader", { reason: "nope nope" }, CTX)).rejects.toBeInstanceOf(ForbiddenException);
+    await expect(service.removeAllComments("mod", "admin", { reason: "uppity" }, CTX)).rejects.toBeInstanceOf(ForbiddenException);
+    expect(repo.removeAllComments).not.toHaveBeenCalled();
+  });
+});
+
+describe("ModerationService.signOutEverywhere", () => {
+  it("ends every session and audits it, without notifying or recording a penalty", async () => {
+    const { service, repo, notifications } = build(roster());
+    expect(await service.signOutEverywhere("mod", "reader", CTX)).toEqual({ sessionsEnded: 2 });
+    expect(repo.revokeAllSessions).toHaveBeenCalledWith("reader");
+    expect(repo.writeAuditLog).toHaveBeenCalledWith(expect.objectContaining({ action: "moderation.sign_out" }));
+    expect(repo.recordAction).not.toHaveBeenCalled();
+    expect(notifications.notify).not.toHaveBeenCalled();
+  });
+
+  it("obeys the rank rules", async () => {
+    const { service, repo } = build(roster());
+    await expect(service.signOutEverywhere("mod", "admin", CTX)).rejects.toBeInstanceOf(ForbiddenException);
+    await expect(service.signOutEverywhere("other", "reader", CTX)).rejects.toBeInstanceOf(ForbiddenException);
+    expect(repo.revokeAllSessions).not.toHaveBeenCalled();
+  });
+});
+
+describe("one-off actions in the history", () => {
+  it("cannot be lifted and never read as active", async () => {
+    const { service, repo } = build(roster());
+    const now = new Date();
+    const record = { id: "r1", userId: "reader", type: "profile_reset", reason: "x", details: "bio", createdById: "mod", createdAt: now, expiresAt: null, revokedAt: null, revokedById: null };
+    repo.findSanction.mockResolvedValue(record);
+    await expect(service.revokeSanction("mod", "reader", "r1", CTX)).rejects.toMatchObject({ response: { code: "sanction_not_revocable" } });
+    repo.listSanctions.mockResolvedValue([record]);
+    const listed = await service.listForUser("mod", "reader");
+    expect(listed.sanctions[0]).toMatchObject({ type: "profile_reset", details: "bio", active: false });
+  });
+});
+
 describe("ModerationService.listForUser", () => {
   it("is staff only", async () => {
     const { service } = build(roster());
@@ -254,6 +339,8 @@ describe("ModerationService.listForUser", () => {
     expect(asMod.canBan).toBe(false);
     const asAdmin = await service.listForUser("admin", "muted");
     expect(asAdmin.canBan).toBe(true);
+    expect(asAdmin.account).toMatchObject({ email: "person@example.com" });
+    expect(asMod.account).toBeNull();
     const peer = await service.listForUser("mod", "mod2");
     expect(peer.canSanction).toBe(false);
   });

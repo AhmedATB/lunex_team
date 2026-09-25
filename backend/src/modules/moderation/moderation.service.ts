@@ -11,11 +11,14 @@ import { NotificationsService } from "../notifications/notifications.service";
 import type { CreateSanctionDto } from "./dto/create-sanction.dto";
 import { ModerationRepository } from "./moderation.repository";
 import { activeBannedUntil, activeMutedUntil, isEffectivelyBanned, type SanctionType } from "./moderation.util";
+import { PROFILE_PARTS, type RemoveCommentsDto, type ResetProfileDto } from "./dto/staff-actions.dto";
 
 const HOUR_MS = 60 * 60 * 1000;
 /** Moderators may time someone out for at most this long; longer punishments belong to the administrators. */
 const MODERATOR_MAX_TIMEOUT_HOURS = 24 * 30;
 const HISTORY_LIMIT = 100;
+/** Sanctions with a lasting effect that can be lifted; `profile_reset` and `comments_removed` are one-off records. */
+const LASTING_TYPES = new Set(["warning", "timeout", "ban"]);
 
 interface Actor {
   id: string;
@@ -99,6 +102,9 @@ export class ModerationService {
     if (!sanction || sanction.userId !== target.id) {
       throw new NotFoundException({ code: "sanction_not_found", message: "Sanction not found." });
     }
+    if (!LASTING_TYPES.has(sanction.type)) {
+      throw new ConflictException({ code: "sanction_not_revocable", message: "This action was a one-off and cannot be lifted." });
+    }
     const now = new Date();
     if (sanction.revokedAt || (sanction.expiresAt !== null && sanction.expiresAt <= now)) {
       throw new ConflictException({ code: "sanction_not_active", message: "This sanction is no longer in effect." });
@@ -127,6 +133,85 @@ export class ModerationService {
       "تم رفع العقوبة",
       sanction.type === "warning" ? "سحبت الإدارة التحذير الموجّه إليك." : "رفعت الإدارة العقوبة عن حسابك."
     );
+  }
+
+  /**
+   * Clears an offensive picture, bio or display name. Same rank rules as a
+   * sanction (no self, no owner, nobody of equal or higher rank). The person is
+   * told what was removed and why, and it goes on their moderation record.
+   */
+  async resetProfile(actorId: string, targetId: string, dto: ResetProfileDto, ctx: RequestContext) {
+    const actor = await this.requireModerator(actorId);
+    const target = await this.requireTarget(actor, targetId);
+
+    const parts = { avatar: dto.parts.includes("avatar"), bio: dto.parts.includes("bio"), displayName: dto.parts.includes("displayName") };
+    const reason = dto.reason.trim();
+    const cleared = PROFILE_PARTS.filter((p) => dto.parts.includes(p));
+
+    await this.repo.clearProfileParts(target.id, parts);
+    const record = await this.repo.recordAction({
+      userId: target.id,
+      type: "profile_reset",
+      reason,
+      details: cleared.join(","),
+      createdById: actor.id,
+    });
+    await this.repo.writeAuditLog({
+      actorId: actor.id,
+      action: "moderation.profile_reset",
+      target: `${target.id}:${record.id}:${cleared.join(",")}`,
+      ip: ctx.ip,
+    });
+    const labels = { avatar: "الصورة الرمزية", bio: "النبذة", displayName: "الاسم المعروض" } as const;
+    await this.notifications.notify(
+      target.id,
+      "moderation",
+      "تم تعديل ملفك الشخصي من قبل الإدارة",
+      `أُزيل: ${cleared.map((p) => labels[p]).join("، ")}. السبب: ${reason}`,
+      "/terms"
+    );
+    return { cleared };
+  }
+
+  /** Hides every comment the account has posted: the answer to a spam or harassment account. Soft, audited, and the person is told. */
+  async removeAllComments(actorId: string, targetId: string, dto: RemoveCommentsDto, ctx: RequestContext) {
+    const actor = await this.requireModerator(actorId);
+    const target = await this.requireTarget(actor, targetId);
+    const reason = dto.reason.trim();
+
+    const removed = await this.repo.removeAllComments(target.id, actor.id);
+    if (removed === 0) return { removed };
+
+    const record = await this.repo.recordAction({
+      userId: target.id,
+      type: "comments_removed",
+      reason,
+      details: String(removed),
+      createdById: actor.id,
+    });
+    await this.repo.writeAuditLog({
+      actorId: actor.id,
+      action: "moderation.comments_removed",
+      target: `${target.id}:${record.id}:${removed}`,
+      ip: ctx.ip,
+    });
+    await this.notifications.notify(
+      target.id,
+      "moderation",
+      "تم حذف تعليقاتك",
+      `حذفت الإدارة ${removed} من تعليقاتك. السبب: ${reason}`,
+      "/terms"
+    );
+    return { removed };
+  }
+
+  /** Ends every session of the account (a hijacked login, a shared device). No record or notice: it is a security measure, not a penalty. */
+  async signOutEverywhere(actorId: string, targetId: string, ctx: RequestContext) {
+    const actor = await this.requireModerator(actorId);
+    const target = await this.requireTarget(actor, targetId);
+    const { count } = await this.repo.revokeAllSessions(target.id);
+    await this.repo.writeAuditLog({ actorId: actor.id, action: "moderation.sign_out", target: `${target.id}:${count}`, ip: ctx.ip });
+    return { sessionsEnded: count };
   }
 
   /**
@@ -164,9 +249,11 @@ export class ModerationService {
         bannedUntil: activeBannedUntil(target, now),
         mutedUntil: activeMutedUntil(target, now),
       },
-      /** What THIS staff member may do to this account — the UI shows only these. */
+      /** What THIS staff member may do to this account, so the UI shows only those. */
       canSanction: this.canSanctionRank(actor, target.role, target.id),
       canBan: BAN_ROLES.has(actor.role),
+      /** Email, sign-in and session facts: administrators only. A moderator judging a comment does not need someone's address. */
+      account: BAN_ROLES.has(actor.role) ? await this.repo.accountInfo(target.id) : null,
       sanctions: rows.map((r) => this.toPublicSanction(r, usernames)),
     };
   }
@@ -230,6 +317,7 @@ export class ModerationService {
       id: string;
       type: string;
       reason: string;
+      details: string | null;
       createdById: string | null;
       createdAt: Date;
       expiresAt: Date | null;
@@ -243,13 +331,14 @@ export class ModerationService {
       id: s.id,
       type: s.type,
       reason: s.reason,
+      details: s.details,
       createdAt: s.createdAt,
       expiresAt: s.expiresAt,
       revokedAt: s.revokedAt,
       createdBy: s.createdById ? (usernames.get(s.createdById) ?? null) : null,
       revokedBy: s.revokedById ? (usernames.get(s.revokedById) ?? null) : null,
       /** A warning stays "active" until retracted; a timeout or ban until it expires or is lifted. */
-      active: !s.revokedAt && (s.expiresAt === null || s.expiresAt > now),
+      active: LASTING_TYPES.has(s.type) && !s.revokedAt && (s.expiresAt === null || s.expiresAt > now),
     };
   }
 }
