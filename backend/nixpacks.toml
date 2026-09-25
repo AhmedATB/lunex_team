@@ -1,0 +1,5 @@
+# The build (`nest build`) needs the dev dependencies — the Nest CLI and TypeScript are devDependencies. Railway can build
+# with NODE_ENV=production set, and a plain `npm ci` then skips them: the build dies with `sh: nest: not found` (exit 127).
+# Asking for them explicitly makes the install the same whatever the environment says.
+[phases.install]
+cmds = ["npm ci --include=dev"]
