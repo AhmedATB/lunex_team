@@ -68,7 +68,9 @@ export default function LoginPage() {
       setUser(body.user);
       useRealUsers.getState().upsertProfile(synthesizeProfile(body.user));
       mergeRealUsers(useRealUsers.getState().profiles);
-      router.push("/profile");
+      // ?next=/series/... brings the reader back to the chapter they were trying to open; only a path on this site is accepted.
+      const next = new URLSearchParams(window.location.search).get("next");
+      router.push(next && next.startsWith("/") && !next.startsWith("//") ? next : "/profile");
       router.refresh();
     } catch {
       setError("تعذر الاتصال بالخادم، حاول مرة أخرى.");

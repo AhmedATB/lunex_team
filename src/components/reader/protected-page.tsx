@@ -50,12 +50,15 @@ export function ProtectedPage({
   alt,
   priority = false,
   className,
+  onLoginRequired,
 }: {
   chapterId: string;
   pageNumber: number;
   alt: string;
   priority?: boolean;
   className?: string;
+  /** Called when the server says this visitor is not signed in (page images are only issued to signed-in readers). */
+  onLoginRequired?: () => void;
 }) {
   const containerRef = useRef<HTMLDivElement>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
@@ -87,6 +90,10 @@ export function ProtectedPage({
     async function load() {
       try {
         const tokenRes = await fetch(`/api/chapters/${chapterId}/pages/${pageNumber}/token`, { method: "POST" });
+        if (tokenRes.status === 401) {
+          if (!cancelled) onLoginRequired?.();
+          throw new Error("login_required");
+        }
         if (!tokenRes.ok) throw new Error("token_failed");
         const { token } = await tokenRes.json();
         const { assetId, bundleKey } = decodeTokenPayload(token);
@@ -142,13 +149,15 @@ export function ProtectedPage({
     return () => {
       cancelled = true;
     };
+    // onLoginRequired is a plain notification; re-running the load because its identity changed would re-download the page.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [started, chapterId, pageNumber]);
 
   return (
     <div
       ref={containerRef}
       className={className}
-      style={{ position: "relative", minHeight: state === "loading" ? 480 : undefined }}
+      style={{ position: "relative", minHeight: state === "loading" ? 480 : state === "error" ? 160 : undefined }}
     >
       <canvas
         ref={canvasRef}

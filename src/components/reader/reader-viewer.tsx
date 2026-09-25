@@ -1,13 +1,15 @@
 "use client";
 
 import { useEffect, useMemo, useRef, useState, useCallback } from "react";
-import { useRouter } from "next/navigation";
-import { ChevronLeft, ChevronRight } from "lucide-react";
+import Link from "next/link";
+import { usePathname, useRouter } from "next/navigation";
+import { ChevronLeft, ChevronRight, Lock } from "lucide-react";
 import { useReaderSettings, useReadingProgress } from "@/store/reader-settings";
 import { useReaderChrome } from "@/store/reader-chrome";
 import { useRewards, chapterKey } from "@/store/rewards";
 import { ProtectedImage } from "@/components/reader/protected-image";
 import { ProtectedPage } from "@/components/reader/protected-page";
+import { Button } from "@/components/ui/button";
 import type { Chapter } from "@/lib/types";
 
 export function ReaderViewer({
@@ -27,7 +29,10 @@ export function ReaderViewer({
   const setProgress = useReadingProgress((s) => s.setProgress);
   const toggleToolbar = useReaderChrome((s) => s.toggleToolbar);
   const router = useRouter();
+  const pathname = usePathname();
   const [pageIndex, setPageIndex] = useState(0);
+  // Page images are issued only to signed-in readers (they carry the reader's id for leak tracing), so a visitor without an account gets a prompt, not a blank page.
+  const [loginRequired, setLoginRequired] = useState(false);
   const containerRef = useRef<HTMLDivElement>(null);
 
   // A chapter uploaded through the real pipeline (admin/chapters) has a
@@ -42,6 +47,7 @@ export function ReaderViewer({
   useEffect(() => {
     let cancelled = false;
     setCheckedReal(false);
+    setLoginRequired(false);
     setRealChapterId(null);
     setRealPageCount(0);
 
@@ -170,6 +176,22 @@ export function ReaderViewer({
 
       {!checkedReal ? (
         <div className="mx-auto w-full max-w-3xl animate-pulse rounded-lg bg-white/5 py-4" style={{ minHeight: 480 }} />
+      ) : loginRequired ? (
+        <div className="mx-auto flex max-w-md flex-col items-center gap-4 px-4 py-24 text-center">
+          <Lock className="h-12 w-12 text-primary-300" />
+          <h2 className="font-display text-xl font-bold text-white">سجّل الدخول لقراءة هذا الفصل</h2>
+          <p className="text-sm leading-relaxed text-lunex-gray">
+            صفحات الفصول متاحة للأعضاء المسجّلين فقط. الحساب مجاني ويحفظ تقدّمك في القراءة ومفضّلتك.
+          </p>
+          <div className="flex flex-wrap justify-center gap-2">
+            <Button asChild>
+              <Link href={`/login?next=${encodeURIComponent(pathname)}`}>تسجيل الدخول</Link>
+            </Button>
+            <Button asChild variant="outline">
+              <Link href="/register">إنشاء حساب</Link>
+            </Button>
+          </div>
+        </div>
       ) : mode === "vertical" ? (
         <div
           ref={containerRef}
@@ -186,6 +208,7 @@ export function ReaderViewer({
                   alt={`صفحة ${i + 1}`}
                   priority={i < 2}
                   className={fitClass}
+                  onLoginRequired={() => setLoginRequired(true)}
                 />
               ) : (
                 <ProtectedImage
@@ -220,6 +243,7 @@ export function ReaderViewer({
                 alt={`صفحة ${pageIndex + 1}`}
                 priority
                 className={fitClass}
+                onLoginRequired={() => setLoginRequired(true)}
               />
             ) : (
               <ProtectedImage
