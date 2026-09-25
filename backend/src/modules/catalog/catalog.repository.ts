@@ -324,6 +324,16 @@ export class CatalogRepository {
     return rows;
   }
 
+  /** Headline numbers for the admin overview. */
+  async platformCounts() {
+    const [members, comments, chapters] = await Promise.all([
+      this.prisma.user.count(),
+      this.prisma.comment.count({ where: { deletedAt: null } }),
+      this.prisma.chapter.count({ where: { isPublished: true } }),
+    ]);
+    return { members, comments, chapters };
+  }
+
   // ---- images --------------------------------------------------------------
 
   findAsset(id: string) {

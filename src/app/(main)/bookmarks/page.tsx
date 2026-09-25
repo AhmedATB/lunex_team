@@ -3,7 +3,7 @@
 import { useEffect, useMemo } from "react";
 import { Bookmark } from "lucide-react";
 import { useBookmarks } from "@/store/reader-settings";
-import { getMockDatabase } from "@/lib/mock/generate";
+import { useCatalog } from "@/components/catalog-provider";
 import { SeriesCard } from "@/components/shared/series-card";
 
 export default function BookmarksPage() {
@@ -11,7 +11,7 @@ export default function BookmarksPage() {
     document.title = "مفضلتي | LUNEX TEAM";
   }, []);
   const bookmarkIds = useBookmarks((s) => s.bookmarks);
-  const allSeries = useMemo(() => getMockDatabase().series, []);
+  const allSeries = useCatalog().series;
   const bookmarked = useMemo(
     () => allSeries.filter((s) => bookmarkIds.includes(s.id)),
     [allSeries, bookmarkIds]

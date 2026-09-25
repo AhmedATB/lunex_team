@@ -4,7 +4,7 @@ import { useEffect, useMemo } from "react";
 import Link from "next/link";
 import Image from "next/image";
 import { Users, Crown, Trophy, Plus, Sparkle } from "lucide-react";
-import { getMockDatabase } from "@/lib/mock/generate";
+import { useCatalog } from "@/components/catalog-provider";
 import { useTeamManagement, applyTeamOverride } from "@/store/team-management";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -16,7 +16,7 @@ export default function TeamsPage() {
     document.title = "الفرق | LUNEX TEAM";
   }, []);
 
-  const db = useMemo(() => getMockDatabase(), []);
+  const db = useCatalog();
   const createdTeams = useTeamManagement((s) => s.createdTeams);
   const teamInfoOverrides = useTeamManagement((s) => s.teamInfoOverrides);
 

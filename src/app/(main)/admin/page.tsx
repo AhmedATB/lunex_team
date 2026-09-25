@@ -1,6 +1,6 @@
 import type { Metadata } from "next";
 import { Layers, BookOpen, Users, MessageSquare, Eye, Activity } from "lucide-react";
-import { getMockDatabase } from "@/lib/mock/generate";
+import { loadCatalog } from "@/lib/catalog-server";
 import { getPlatformStats } from "@/lib/mock/repo";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { ChaptersOverTimeChart, StatusPieChart, TeamActivityBarChart } from "@/components/admin/charts";
@@ -18,7 +18,7 @@ const STATUS_LABEL: Record<string, string> = {
 };
 
 export default async function AdminDashboardPage() {
-  const db = getMockDatabase();
+  const db = await loadCatalog();
   const stats = await getPlatformStats();
 
   const now = Date.now();

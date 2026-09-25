@@ -1,9 +1,9 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useState } from "react";
 import Image from "next/image";
 import { Search, MoreVertical, Pencil, Trash2, Plus } from "lucide-react";
-import { getMockDatabase } from "@/lib/mock/generate";
+import { useCatalog } from "@/components/catalog-provider";
 import { useSession } from "@/store/session";
 import { useTeamManagement } from "@/store/team-management";
 import type { SeriesStatus, SeriesType } from "@/lib/types";
@@ -47,7 +47,7 @@ export default function AdminSeriesPage() {
     document.title = "إدارة السلاسل | LUNEX TEAM";
   }, []);
   const [query, setQuery] = useState("");
-  const db = useMemo(() => getMockDatabase(), []);
+  const db = useCatalog();
   const currentUserId = useSession((s) => s.currentUserId);
   const store = useTeamManagement();
   const teamMap = new Map([...db.teams, ...store.createdTeams].map((t) => [t.id, t]));

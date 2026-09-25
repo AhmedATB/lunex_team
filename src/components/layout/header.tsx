@@ -24,7 +24,7 @@ import { useProfile, effectiveAvatarSeed } from "@/store/profile";
 import { useRewards } from "@/store/rewards";
 import { useMessages } from "@/store/messages";
 import { useNavigation } from "@/store/navigation";
-import { getMockDatabase } from "@/lib/mock/generate";
+import { useCatalog } from "@/components/catalog-provider";
 import { GLOBAL_ROLE_LABELS, can } from "@/lib/rbac";
 import { resolveAvatarUrl, cn } from "@/lib/utils";
 
@@ -44,7 +44,7 @@ export function Header() {
     return () => window.removeEventListener("scroll", onScroll);
   }, []);
 
-  const db = useMemo(() => getMockDatabase(), []);
+  const db = useCatalog();
   const currentUser = useMemo(
     () => db.users.find((u) => u.id === currentUserId),
     [db, currentUserId]

@@ -6,7 +6,8 @@ import Image from "next/image";
 import { useRouter, useSearchParams } from "next/navigation";
 import { Search as SearchIcon, Users, Crown, Trophy, BookOpen, User as UserIcon } from "lucide-react";
 import type { Genre, Team, User } from "@/lib/types";
-import { getMockDatabase } from "@/lib/mock/generate";
+import { useCatalog } from "@/components/catalog-provider";
+import type { Catalog } from "@/lib/catalog-types";
 import { useTeamManagement, applyTeamOverride } from "@/store/team-management";
 import { useProfile, effectiveAvatarSeed } from "@/store/profile";
 import { GLOBAL_ROLE_LABELS } from "@/lib/rbac";
@@ -37,7 +38,7 @@ export function UnifiedSearch({ genres }: { genres: Genre[] }) {
     router.replace(`/search${params.toString() ? `?${params.toString()}` : ""}`);
   }
 
-  const db = useMemo(() => getMockDatabase(), []);
+  const db = useCatalog();
   const createdTeams = useTeamManagement((s) => s.createdTeams);
   const teamInfoOverrides = useTeamManagement((s) => s.teamInfoOverrides);
   const avatarOverrides = useProfile((s) => s.avatarOverrides);
@@ -201,7 +202,7 @@ function EmptySection({ text }: { text: string }) {
   return <div className="panel p-6 text-center text-sm text-lunex-gray">{text}</div>;
 }
 
-function TeamResultCard({ team, db }: { team: Team; db: ReturnType<typeof getMockDatabase> }) {
+function TeamResultCard({ team, db }: { team: Team; db: Catalog }) {
   const seriesCount = db.series.filter((s) => s.teamId === team.id).length;
   return (
     <Link

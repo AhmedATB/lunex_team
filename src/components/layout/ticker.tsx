@@ -3,18 +3,18 @@
 import { useMemo } from "react";
 import Link from "next/link";
 import { Zap } from "lucide-react";
-import { getMockDatabase } from "@/lib/mock/generate";
+import { useCatalog } from "@/components/catalog-provider";
 
 export function Ticker() {
+  const db = useCatalog();
   const items = useMemo(() => {
-    const db = getMockDatabase();
     const seriesMap = new Map(db.series.map((s) => [s.id, s]));
-    return [...db.chapters]
+    return [...db.recentChapters]
       .sort((a, b) => +new Date(b.releasedAt) - +new Date(a.releasedAt))
       .slice(0, 10)
       .map((c) => ({ chapter: c, series: seriesMap.get(c.seriesId) }))
       .filter((i) => i.series);
-  }, []);
+  }, [db.series, db.recentChapters]);
 
   if (items.length === 0) return null;
 

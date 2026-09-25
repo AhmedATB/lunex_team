@@ -1,6 +1,12 @@
-import { getMockDatabase } from "@/lib/mock/generate";
+import type { Genre } from "@/lib/types";
 
-export const genreNameById = new Map(getMockDatabase().genres.map((g) => [g.id, g.nameAr]));
+/** Id -> Arabic name for the genre chips. CatalogProvider keeps it in step with whichever catalogue is showing. */
+export const genreNameById = new Map<string, string>();
+
+export function registerGenres(genres: Genre[]) {
+  genreNameById.clear();
+  for (const g of genres) genreNameById.set(g.id, g.nameAr);
+}
 
 export const GENRE_CHIP_STYLES = [
   "bg-primary-600/90 text-white",

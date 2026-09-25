@@ -14,7 +14,7 @@ import {
   getTopReaders,
   getPlatformStats,
 } from "@/lib/mock/repo";
-import { getMockDatabase } from "@/lib/mock/generate";
+import { loadCatalog } from "@/lib/catalog-server";
 import { EditorialHome } from "@/components/home/layouts/editorial-home";
 
 export default async function HomePage() {
@@ -50,7 +50,7 @@ export default async function HomePage() {
     getPlatformStats(),
   ]);
 
-  const db = getMockDatabase();
+  const db = await loadCatalog();
   const latestComments = [...db.comments]
     .sort((a, b) => +new Date(b.createdAt) - +new Date(a.createdAt))
     .slice(0, 6);

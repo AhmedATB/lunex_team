@@ -16,7 +16,7 @@ import {
 } from "lucide-react";
 import { useSession } from "@/store/session";
 import { useProfile, avatarSrcFor } from "@/store/profile";
-import { getMockDatabase } from "@/lib/mock/generate";
+import { useCatalog } from "@/components/catalog-provider";
 import { GLOBAL_ROLE_LABELS, TEAM_ROLE_LABELS } from "@/lib/rbac";
 import { VISIBILITY_LABELS, type ServerProfile } from "@/lib/profile-types";
 import type { GlobalRole, Series, User } from "@/lib/types";
@@ -35,7 +35,7 @@ export default function PublicProfilePage() {
   const params = useParams<{ username: string }>();
   const username = safeDecodeURIComponent(params.username);
 
-  const db = useMemo(() => getMockDatabase(), []);
+  const db = useCatalog();
   const mockUser = db.users.find((u) => u.username === username);
 
   // Real accounts live on the server; the demo catalogue's members only exist in the local dataset. The server is asked first.
@@ -219,7 +219,7 @@ function EmptyNote({ text }: { text: string }) {
 
 /** The demo catalogue's members — they only exist in the local dataset, so this is the pre-existing view unchanged. */
 function MockProfileView({ user }: { user: User }) {
-  const db = useMemo(() => getMockDatabase(), []);
+  const db = useCatalog();
   const team = db.teams.find((t) => t.id === user.teamId);
   const currentUserId = useSession((s) => s.currentUserId);
   const avatarOverrides = useProfile((s) => s.avatarOverrides);

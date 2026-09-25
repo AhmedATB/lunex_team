@@ -7,6 +7,8 @@ import { CookieConsent } from "@/components/consent/cookie-consent";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { StoreHydration } from "@/components/store-hydration";
 import { LibrarySync } from "@/components/library-sync";
+import { CatalogProvider } from "@/components/catalog-provider";
+import { loadCatalogSeed } from "@/lib/catalog-server";
 import { ThemeApplier } from "@/components/theme-applier";
 import { getServerSession } from "@/lib/server-session";
 import { getInitialStyle } from "@/lib/theme-cookie";
@@ -57,10 +59,11 @@ export const metadata: Metadata = {
 };
 
 export default async function RootLayout({ children }: { children: React.ReactNode }) {
-  const [initialUser, initialStyle, initialConsent] = await Promise.all([
+  const [initialUser, initialStyle, initialConsent, catalogSeed] = await Promise.all([
     getServerSession(),
     getInitialStyle(),
     getInitialConsent(),
+    loadCatalogSeed(),
   ]);
 
   return (
@@ -78,7 +81,9 @@ export default async function RootLayout({ children }: { children: React.ReactNo
         <Suspense fallback={null}>
           <NavigationProgress />
         </Suspense>
-        <TooltipProvider delayDuration={200}>{children}</TooltipProvider>
+        <CatalogProvider seed={catalogSeed}>
+          <TooltipProvider delayDuration={200}>{children}</TooltipProvider>
+        </CatalogProvider>
         <CookieConsent initialChoice={initialConsent} />
       </body>
     </html>

@@ -4,7 +4,7 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import Image from "next/image";
 import Link from "next/link";
 import { AlertCircle, Check, Flag, Loader2, Trash2 } from "lucide-react";
-import { getMockDatabase } from "@/lib/mock/generate";
+import { useCatalog } from "@/components/catalog-provider";
 import { useProfile, avatarSrcFor } from "@/store/profile";
 import { useSession } from "@/store/session";
 import { authorAsUser, commentApi, commentErrorMessage, type ServerComment } from "@/lib/server-comments";
@@ -28,7 +28,8 @@ const STAFF_ROLES = new Set(["owner", "super_administrator", "moderator"]);
 export function ReportedComments() {
   const role = useSession((s) => s.user?.role);
   const avatarOverrides = useProfile((s) => s.avatarOverrides);
-  const seriesById = useMemo(() => new Map(getMockDatabase().series.map((s) => [s.id, s])), []);
+  const catalog = useCatalog();
+  const seriesById = useMemo(() => new Map(catalog.series.map((s) => [s.id, s])), [catalog.series]);
   const [items, setItems] = useState<QueueItem[] | null>(null);
   const [busy, setBusy] = useState<string | null>(null);
   const [error, setError] = useState("");

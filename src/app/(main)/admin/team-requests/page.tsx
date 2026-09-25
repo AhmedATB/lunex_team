@@ -3,7 +3,7 @@
 import { useEffect, useMemo, useState } from "react";
 import Image from "next/image";
 import { Check, X, MessageSquareWarning, PauseCircle, Archive } from "lucide-react";
-import { getMockDatabase } from "@/lib/mock/generate";
+import { useCatalog } from "@/components/catalog-provider";
 import { useTeamManagement } from "@/store/team-management";
 import { useSession } from "@/store/session";
 import { Card, CardContent } from "@/components/ui/card";
@@ -44,7 +44,7 @@ export default function AdminTeamRequestsPage() {
     document.title = "طلبات إنشاء الفرق | LUNEX TEAM";
   }, []);
 
-  const db = useMemo(() => getMockDatabase(), []);
+  const db = useCatalog();
   const currentUserId = useSession((s) => s.currentUserId);
   const submittedRequests = useTeamManagement((s) => s.submittedRequests);
   const requestOverrides = useTeamManagement((s) => s.requestOverrides);

@@ -4,7 +4,7 @@ import { Suspense, useEffect, useMemo, useState } from "react";
 import Image from "next/image";
 import { useSearchParams } from "next/navigation";
 import { Send, MessageCircle } from "lucide-react";
-import { getMockDatabase } from "@/lib/mock/generate";
+import { useCatalog } from "@/components/catalog-provider";
 import { useSession } from "@/store/session";
 import { useMessages, conversationId } from "@/store/messages";
 import { useProfile, avatarSrcFor } from "@/store/profile";
@@ -31,7 +31,7 @@ function MessagesPageInner() {
   const searchParams = useSearchParams();
   const targetUserId = searchParams.get("to");
 
-  const db = useMemo(() => getMockDatabase(), []);
+  const db = useCatalog();
   const currentUserId = useSession((s) => s.currentUserId);
   const conversations = useMessages((s) => s.conversations);
   const unreadBy = useMessages((s) => s.unreadBy);

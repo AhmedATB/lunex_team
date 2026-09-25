@@ -3,7 +3,8 @@
 import { useEffect, useMemo, useState } from "react";
 import Image from "next/image";
 import { Search, MoreVertical, Ban, ShieldCheck, Loader2 } from "lucide-react";
-import { getMockDatabase, mergeRealUsers } from "@/lib/mock/generate";
+import { mergeRealUsers } from "@/lib/mock/generate";
+import { useCatalog } from "@/components/catalog-provider";
 import { GLOBAL_ROLE_LABELS } from "@/lib/rbac";
 import type { GlobalRole, User } from "@/lib/types";
 import { useRealUsers, synthesizeProfile } from "@/store/real-users";
@@ -42,7 +43,8 @@ export default function AdminUsersPage() {
   }, []);
   const [query, setQuery] = useState("");
   const [role, setRole] = useState<GlobalRole | "all">("all");
-  const [users, setUsers] = useState<User[]>(() => getMockDatabase().users);
+  const catalog = useCatalog();
+  const [users, setUsers] = useState<User[]>(() => catalog.users);
   const realProfiles = useRealUsers((s) => s.profiles);
   const avatarOverrides = useProfile((s) => s.avatarOverrides);
   const currentUserId = useSession((s) => s.currentUserId);

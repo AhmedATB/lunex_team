@@ -14,7 +14,7 @@ import { useSession } from "@/store/session";
 import { useTeamManagement, applyTeamOverride } from "@/store/team-management";
 import { getTeamAuthRoles, getEffectiveCustomRoles } from "@/lib/team-auth";
 import { canInTeam } from "@/lib/rbac";
-import { getMockDatabase } from "@/lib/mock/generate";
+import { useCatalog } from "@/components/catalog-provider";
 import { ChapterAdminMenu } from "@/components/series/chapter-admin-menu";
 
 export function ChapterList({ seriesSlug, chapters, teamId }: { seriesSlug: string; chapters: Chapter[]; teamId: string }) {
@@ -27,7 +27,7 @@ export function ChapterList({ seriesSlug, chapters, teamId }: { seriesSlug: stri
 
   const store = useTeamManagement();
   const currentUserId = useSession((s) => s.currentUserId);
-  const db = useMemo(() => getMockDatabase(), []);
+  const db = useCatalog();
   const currentUser = db.users.find((u) => u.id === currentUserId);
   const rawTeam = [...db.teams, ...store.createdTeams].find((t) => t.id === teamId);
   const team = rawTeam ? applyTeamOverride(rawTeam, store.teamInfoOverrides) : undefined;

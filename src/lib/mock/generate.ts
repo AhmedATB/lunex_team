@@ -68,7 +68,7 @@ function slugify(s: string, fallback: string) {
   return base || fallback;
 }
 
-interface MockDatabase {
+export interface MockDatabase {
   genres: Genre[];
   teams: Team[];
   users: User[];

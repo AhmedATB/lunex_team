@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { UploadCloud, Trash2, Search, Plus, BookText, ShieldCheck, X, GripVertical } from "lucide-react";
-import { getMockDatabase } from "@/lib/mock/generate";
+import { useCatalog } from "@/components/catalog-provider";
 import { useSession } from "@/store/session";
 import { useTeamManagement } from "@/store/team-management";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -52,7 +52,7 @@ export default function AdminChaptersPage() {
   const [droppedFiles, setDroppedFiles] = useState<File[] | undefined>();
   const [selected, setSelected] = useState<Set<string>>(new Set());
   const [realChapters, setRealChapters] = useState<RealChapter[]>([]);
-  const db = useMemo(() => getMockDatabase(), []);
+  const db = useCatalog();
   const currentUserId = useSession((s) => s.currentUserId);
   const store = useTeamManagement();
   const seriesMap = useMemo(() => new Map([...db.series, ...store.addedSeries].map((s) => [s.id, s])), [db.series, store.addedSeries]);

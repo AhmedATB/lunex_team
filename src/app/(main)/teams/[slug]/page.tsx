@@ -1,12 +1,12 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useState } from "react";
 import Link from "next/link";
 import { useParams } from "next/navigation";
 import { notFound } from "next/navigation";
 import Image from "next/image";
 import { Users, ExternalLink, Crown, MessageCircle, UserPlus } from "lucide-react";
-import { getMockDatabase } from "@/lib/mock/generate";
+import { useCatalog } from "@/components/catalog-provider";
 import { useSession } from "@/store/session";
 import { useTeamManagement, applyTeamOverride } from "@/store/team-management";
 import { useProfile, avatarSrcFor } from "@/store/profile";
@@ -33,7 +33,7 @@ export default function TeamDetailPage() {
   const params = useParams<{ slug: string }>();
   const slug = safeDecodeURIComponent(params.slug);
 
-  const db = useMemo(() => getMockDatabase(), []);
+  const db = useCatalog();
   const store = useTeamManagement();
   const currentUserId = useSession((s) => s.currentUserId);
   const avatarOverrides = useProfile((s) => s.avatarOverrides);

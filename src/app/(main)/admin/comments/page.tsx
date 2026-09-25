@@ -1,9 +1,9 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useState } from "react";
 import Image from "next/image";
 import { Pin, PinOff, Trash2, EyeOff, ThumbsUp, ThumbsDown, Flag, X } from "lucide-react";
-import { getMockDatabase } from "@/lib/mock/generate";
+import { useCatalog } from "@/components/catalog-provider";
 import { useSession } from "@/store/session";
 import { useTeamManagement, applyTeamOverride } from "@/store/team-management";
 import { useComments, mergeComments } from "@/store/comments";
@@ -20,7 +20,7 @@ export default function AdminCommentsPage() {
   useEffect(() => {
     document.title = "إدارة التعليقات | LUNEX TEAM";
   }, []);
-  const db = useMemo(() => getMockDatabase(), []);
+  const db = useCatalog();
   const avatarOverrides = useProfile((s) => s.avatarOverrides);
   const currentUserId = useSession((s) => s.currentUserId);
   const currentUser = db.users.find((u) => u.id === currentUserId);

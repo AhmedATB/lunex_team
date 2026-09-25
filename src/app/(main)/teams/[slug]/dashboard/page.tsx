@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useState } from "react";
 import { useParams } from "next/navigation";
 import Link from "next/link";
 import Image from "next/image";
@@ -8,7 +8,7 @@ import {
   Users, Layers, BookOpen, Star, ShieldAlert, ArrowUp, ArrowDown, Trash2,
   Plus, Check, X, HandHeart, Clock, ClipboardList, Crown, Settings, MessageCircle,
 } from "lucide-react";
-import { getMockDatabase } from "@/lib/mock/generate";
+import { useCatalog } from "@/components/catalog-provider";
 import { useSession } from "@/store/session";
 import { useTeamManagement, applyTeamOverride } from "@/store/team-management";
 import { getTeamAuthRoles, getEffectiveCustomRoles } from "@/lib/team-auth";
@@ -78,7 +78,7 @@ export default function TeamDashboardPage() {
   const params = useParams<{ slug: string }>();
   const slug = safeDecodeURIComponent(params.slug);
 
-  const db = useMemo(() => getMockDatabase(), []);
+  const db = useCatalog();
   const store = useTeamManagement();
   const avatarOverrides = useProfile((s) => s.avatarOverrides);
   const rawTeam = [...db.teams, ...store.createdTeams].find((t) => t.slug === slug);

@@ -1,9 +1,9 @@
 import type { MetadataRoute } from "next";
-import { getMockDatabase } from "@/lib/mock/generate";
+import { loadCatalog } from "@/lib/catalog-server";
 import { SITE_URL as BASE_URL } from "@/lib/site";
 
-export default function sitemap(): MetadataRoute.Sitemap {
-  const db = getMockDatabase();
+export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
+  const db = await loadCatalog();
 
   const staticRoutes: MetadataRoute.Sitemap = [
     { url: BASE_URL, changeFrequency: "hourly", priority: 1 },

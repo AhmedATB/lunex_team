@@ -1,11 +1,11 @@
 "use client";
 
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import Image from "next/image";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { Settings2, Trash2, ShieldCheck, ImagePlus } from "lucide-react";
-import { getMockDatabase } from "@/lib/mock/generate";
+import { useCatalog } from "@/components/catalog-provider";
 import { useSession } from "@/store/session";
 import { useTeamManagement, applyTeamOverride } from "@/store/team-management";
 import { getTeamAuthRoles, getEffectiveCustomRoles } from "@/lib/team-auth";
@@ -50,7 +50,7 @@ export function SeriesAdminControls({
   initialBanner: string;
 }) {
   const router = useRouter();
-  const db = useMemo(() => getMockDatabase(), []);
+  const db = useCatalog();
   const currentUserId = useSession((s) => s.currentUserId);
   const store = useTeamManagement();
 
@@ -350,7 +350,7 @@ export function SeriesBannerImage({
 export function SeriesCollaboratorTeams({ seriesId }: { seriesId: string }) {
   const collaboratorTeamIds = useTeamManagement((s) => s.seriesCollaboratorTeamIds[seriesId]) ?? [];
   const createdTeams = useTeamManagement((s) => s.createdTeams);
-  const db = useMemo(() => getMockDatabase(), []);
+  const db = useCatalog();
   if (collaboratorTeamIds.length === 0) return null;
   const teams = [...db.teams, ...createdTeams].filter((t) => collaboratorTeamIds.includes(t.id));
   return (

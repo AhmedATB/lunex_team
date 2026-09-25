@@ -1,8 +1,8 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useState } from "react";
 import { useParams, notFound } from "next/navigation";
-import { getMockDatabase } from "@/lib/mock/generate";
+import { useCatalog } from "@/components/catalog-provider";
 import { useTeamManagement } from "@/store/team-management";
 import { ReaderToolbar } from "@/components/reader/reader-toolbar";
 import { ReaderViewer } from "@/components/reader/reader-viewer";
@@ -30,7 +30,7 @@ export default function ReaderPage() {
   const slug = safeDecodeURIComponent(params.slug);
   const chapterParam = params.chapter;
 
-  const db = useMemo(() => getMockDatabase(), []);
+  const db = useCatalog();
   const store = useTeamManagement();
 
   // Persisted stores rehydrate after mount (see StoreHydration), so a chapter added

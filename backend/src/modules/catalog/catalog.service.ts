@@ -61,7 +61,7 @@ export class CatalogService {
   }
 
   async bootstrap() {
-    const [tagRows, teamRows, seriesRows, chapterRows, newsRows, activity, readers] = await Promise.all([
+    const [tagRows, teamRows, seriesRows, chapterRows, newsRows, activity, readers, counts] = await Promise.all([
       this.repo.listTags(),
       this.repo.listTeams(),
       this.repo.listApprovedSeries(),
@@ -69,6 +69,7 @@ export class CatalogService {
       this.repo.listNews(NEWS_ON_BOOTSTRAP),
       this.repo.teamActivity(),
       this.repo.topReaders(TOP_READERS),
+      this.repo.platformCounts(),
     ]);
 
     const stats = await this.repo.statsFor(seriesRows.map((s) => s.id));
@@ -92,6 +93,7 @@ export class CatalogService {
       series: seriesRows.map((s) => toSeriesDto(s as SeriesRow, stats.get(s.id) ?? EMPTY_STATS)),
       recentChapters: chapterRows.map(toChapterDto),
       news: newsRows.map(toNewsDto),
+      stats: counts,
       topReaders: readers.flatMap((r) => {
         const person = personDtos.find((p) => p.id === r.userId);
         return person ? [person] : [];

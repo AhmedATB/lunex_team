@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useState } from "react";
 import Link from "next/link";
 import Image from "next/image";
 import { Award, BookOpen, MessageSquare, Bookmark as BookmarkIcon, Bell, Settings2, Lock } from "lucide-react";
@@ -11,7 +11,7 @@ import { useRewards, computeStreak } from "@/store/rewards";
 import { useComments } from "@/store/comments";
 import { useAchievements } from "@/store/achievements";
 import { ACHIEVEMENTS, type AchievementMetric } from "@/lib/achievements";
-import { getMockDatabase } from "@/lib/mock/generate";
+import { useCatalog } from "@/components/catalog-provider";
 import { GLOBAL_ROLE_LABELS, TEAM_ROLE_LABELS } from "@/lib/rbac";
 import { resolveAvatarUrl, formatNumber, timeAgo, cn } from "@/lib/utils";
 import type { AppNotification } from "@/lib/notification-types";
@@ -27,7 +27,7 @@ export default function ProfilePage() {
     document.title = "الملف الشخصي | LUNEX TEAM";
   }, []);
   const currentUserId = useSession((s) => s.currentUserId);
-  const db = useMemo(() => getMockDatabase(), []);
+  const db = useCatalog();
   const user = db.users.find((u) => u.id === currentUserId);
   const team = db.teams.find((t) => t.id === user?.teamId);
   const avatarOverrides = useProfile((s) => s.avatarOverrides);

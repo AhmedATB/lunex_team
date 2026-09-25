@@ -5,13 +5,14 @@ import { LayoutDashboard } from "lucide-react";
 import { useSession } from "@/store/session";
 import { useTeamManagement } from "@/store/team-management";
 import { getTeamAuthRoles } from "@/lib/team-auth";
-import { getMockDatabase } from "@/lib/mock/generate";
+import { useCatalog } from "@/components/catalog-provider";
 import { Button } from "@/components/ui/button";
 
 export function TeamDashboardLink({ teamId, teamSlug, leaderId }: { teamId: string; teamSlug: string; leaderId: string }) {
   const currentUserId = useSession((s) => s.currentUserId);
   const memberRoleOverrides = useTeamManagement((s) => s.memberRoleOverrides);
-  const user = getMockDatabase().users.find((u) => u.id === currentUserId);
+  const db = useCatalog();
+  const user = db.users.find((u) => u.id === currentUserId);
   const { isGlobalAdmin, isLeader, isAssistantLeader } = getTeamAuthRoles({ id: teamId, leaderId }, user, memberRoleOverrides);
 
   // Dashboard access is restricted to the team leader, their assistant leader, and

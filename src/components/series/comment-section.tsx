@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useState } from "react";
 import Image from "next/image";
 import Link from "next/link";
 import { ThumbsUp, ThumbsDown, Pin, PinOff, Send, Pencil, Trash2, EyeOff, AlertTriangle, AlertCircle, Check, X, Flag, Loader2 } from "lucide-react";
@@ -22,7 +22,7 @@ import { useTeamManagement, applyTeamOverride } from "@/store/team-management";
 import { useComments, mergeComments } from "@/store/comments";
 import { getTeamAuthRoles, getEffectiveCustomRoles } from "@/lib/team-auth";
 import { canInTeam } from "@/lib/rbac";
-import { getMockDatabase } from "@/lib/mock/generate";
+import { useCatalog } from "@/components/catalog-provider";
 import { useMuteStatus } from "@/lib/use-mute-status";
 import {
   authorAsUser,
@@ -72,11 +72,11 @@ export function CommentSection({
   const currentUserId = useSession((s) => s.currentUserId);
   const viewerRole = useSession((s) => s.user?.role);
   const isStaff = viewerRole !== undefined && STAFF_ROLES.has(viewerRole);
-  const currentUser = getMockDatabase().users.find((u) => u.id === currentUserId);
+  const db = useCatalog();
+  const currentUser = db.users.find((u) => u.id === currentUserId);
   const avatarOverrides = useProfile((s) => s.avatarOverrides);
   const userMap = new Map(users.map((u) => [u.id, u]));
 
-  const db = useMemo(() => getMockDatabase(), []);
   const teamStore = useTeamManagement();
   const commentsStore = useComments();
 
@@ -296,7 +296,7 @@ export function CommentSection({
       <div className="space-y-3">
         {comments.map((c) => {
           const user: Person | undefined =
-            c.server && c.author ? authorAsUser(c.author) : (userMap.get(c.userId) ?? getMockDatabase().users.find((u) => u.id === c.userId));
+            c.server && c.author ? authorAsUser(c.author) : (userMap.get(c.userId) ?? db.users.find((u) => u.id === c.userId));
           if (!user) return null;
           const reaction = c.server ? (c.myReaction ?? undefined) : commentsStore.reactions[c.id];
           const likes = c.server ? c.likes : c.likes + (reaction === "like" ? 1 : 0);

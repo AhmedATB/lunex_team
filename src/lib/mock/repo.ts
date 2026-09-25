@@ -1,38 +1,37 @@
-import { getMockDatabase } from "./generate";
+import { loadCatalog } from "../catalog-server";
 import type { Series, Chapter, Genre, Team, User, Comment, NewsItem } from "../types";
 
 /**
- * Data-access layer. Every function is async and returns plain data so the
- * mock in-memory implementation can be swapped for Prisma/Postgres later
- * without touching call sites.
+ * Data-access layer for server components: every function is async and reads
+ * the catalogue (the database, or the built-in sample data while it is empty).
  */
 
-function db() {
-  return getMockDatabase();
+async function db() {
+  return loadCatalog();
 }
 
 export async function getGenres(): Promise<Genre[]> {
-  return db().genres;
+  return (await db()).genres;
 }
 
 export async function getTeams(): Promise<Team[]> {
-  return db().teams;
+  return (await db()).teams;
 }
 
 export async function getTeamBySlug(slug: string): Promise<Team | undefined> {
-  return db().teams.find((t) => t.slug === slug);
+  return (await db()).teams.find((t) => t.slug === slug);
 }
 
 export async function getUserById(id: string): Promise<User | undefined> {
-  return db().users.find((u) => u.id === id);
+  return (await db()).users.find((u) => u.id === id);
 }
 
 export async function getUserByUsername(username: string): Promise<User | undefined> {
-  return db().users.find((u) => u.username === username);
+  return (await db()).users.find((u) => u.username === username);
 }
 
 export async function getTopReaders(limit = 10): Promise<User[]> {
-  return [...db().users].sort((a, b) => b.readCount - a.readCount).slice(0, limit);
+  return (await db()).topReaders.slice(0, limit);
 }
 
 export interface SeriesFilters {
@@ -48,7 +47,7 @@ export interface SeriesFilters {
 }
 
 export async function getSeriesList(filters: SeriesFilters = {}): Promise<{ items: Series[]; total: number }> {
-  let items = [...db().series];
+  let items = [...(await db()).series];
 
   if (filters.genre) items = items.filter((s) => s.genreIds.includes(filters.genre!));
   if (filters.status) items = items.filter((s) => s.status === filters.status);
@@ -87,27 +86,27 @@ export async function getSeriesList(filters: SeriesFilters = {}): Promise<{ item
 }
 
 export async function getSeriesBySlug(slug: string): Promise<Series | undefined> {
-  return db().series.find((s) => s.slug === slug);
+  return (await db()).series.find((s) => s.slug === slug);
 }
 
 export async function getSeriesById(id: string): Promise<Series | undefined> {
-  return db().series.find((s) => s.id === id);
+  return (await db()).series.find((s) => s.id === id);
 }
 
 export async function getChaptersBySeries(seriesId: string): Promise<Chapter[]> {
-  return db()
+  return (await db())
     .chapters.filter((c) => c.seriesId === seriesId)
     .sort((a, b) => b.number - a.number);
 }
 
 export async function getChapter(seriesId: string, number: number): Promise<Chapter | undefined> {
-  return db().chapters.find((c) => c.seriesId === seriesId && c.number === number);
+  return (await db()).chapters.find((c) => c.seriesId === seriesId && c.number === number);
 }
 
 export async function getLatestChapters(limit = 18): Promise<(Chapter & { series: Series })[]> {
-  const { chapters, series } = db();
+  const { recentChapters, series } = await db();
   const seriesMap = new Map(series.map((s) => [s.id, s]));
-  return [...chapters]
+  return [...recentChapters]
     .sort((a, b) => +new Date(b.releasedAt) - +new Date(a.releasedAt))
     .slice(0, limit)
     .map((c) => ({ ...c, series: seriesMap.get(c.seriesId)! }))
@@ -115,73 +114,73 @@ export async function getLatestChapters(limit = 18): Promise<(Chapter & { series
 }
 
 export async function getTrendingSeries(limit = 10): Promise<Series[]> {
-  return [...db().series].sort((a, b) => b.views - a.views).slice(0, limit);
+  return [...(await db()).series].sort((a, b) => b.views - a.views).slice(0, limit);
 }
 
 export async function getPopularToday(limit = 10): Promise<Series[]> {
-  const rng = [...db().series];
+  const rng = [...(await db()).series];
   return rng.sort((a, b) => b.likes - a.likes).slice(0, limit);
 }
 
 export async function getRecentlyUpdated(limit = 12): Promise<Series[]> {
-  return [...db().series]
+  return [...(await db()).series]
     .sort((a, b) => +new Date(b.updatedAt) - +new Date(a.updatedAt))
     .slice(0, limit);
 }
 
 export async function getNewReleases(limit = 12): Promise<Series[]> {
-  return [...db().series].sort((a, b) => b.year - a.year).slice(0, limit);
+  return [...(await db()).series].sort((a, b) => b.year - a.year).slice(0, limit);
 }
 
 export async function getCompletedSeries(limit = 12): Promise<Series[]> {
-  return db().series.filter((s) => s.status === "completed").slice(0, limit);
+  return (await db()).series.filter((s) => s.status === "completed").slice(0, limit);
 }
 
 export async function getOngoingSeries(limit = 12): Promise<Series[]> {
-  return db().series.filter((s) => s.status === "ongoing").slice(0, limit);
+  return (await db()).series.filter((s) => s.status === "ongoing").slice(0, limit);
 }
 
 export async function getRecommendedSeries(limit = 12): Promise<Series[]> {
-  return db().series.filter((s) => s.isRecommended).slice(0, limit);
+  return (await db()).series.filter((s) => s.isRecommended).slice(0, limit);
 }
 
 export async function getFeaturedSeries(limit = 6): Promise<Series[]> {
-  return db().series.filter((s) => s.isFeatured).slice(0, limit);
+  return (await db()).series.filter((s) => s.isFeatured).slice(0, limit);
 }
 
 export async function getRandomPick(): Promise<Series> {
-  const { series } = db();
+  const { series } = await db();
   const idx = Math.floor((Date.now() / 86_400_000) % series.length);
   return series[idx];
 }
 
 export async function getCommentsForSeries(seriesId: string): Promise<Comment[]> {
-  return db()
+  return (await db())
     .comments.filter((c) => c.seriesId === seriesId)
     .sort((a, b) => (b.isPinned ? 1 : 0) - (a.isPinned ? 1 : 0) || b.likes - a.likes);
 }
 
 export async function getNews(limit = 6): Promise<NewsItem[]> {
-  return [...db().news]
+  return [...(await db()).news]
     .sort((a, b) => +new Date(b.createdAt) - +new Date(a.createdAt))
     .slice(0, limit);
 }
 
 export async function getPlatformStats() {
-  const { series, chapters, users, comments } = db();
+  const { series, stats } = await db();
   return {
     totalSeries: series.length,
-    totalChapters: chapters.length,
-    totalUsers: users.length,
-    totalComments: comments.length,
+    totalChapters: stats.chapters,
+    totalUsers: stats.members,
+    totalComments: stats.comments,
     totalViews: series.reduce((s, x) => s + x.views, 0),
   };
 }
 
 export async function getKanbanTasksForTeam(teamId: string) {
-  return db().kanbanTasks.filter((t) => t.teamId === teamId);
+  return (await db()).kanbanTasks.filter((t) => t.teamId === teamId);
 }
 
 export async function getSeriesForTeam(teamId: string) {
-  return db().series.filter((s) => s.teamId === teamId);
+  return (await db()).series.filter((s) => s.teamId === teamId);
 }

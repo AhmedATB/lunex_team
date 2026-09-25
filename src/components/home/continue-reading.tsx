@@ -6,14 +6,14 @@ import Link from "next/link";
 import { Play } from "lucide-react";
 import type { Series } from "@/lib/types";
 import { useReadingProgress } from "@/store/reader-settings";
-import { getMockDatabase } from "@/lib/mock/generate";
+import { useCatalog } from "@/components/catalog-provider";
 
 export function ContinueReading() {
   const progress = useReadingProgress((s) => s.progress);
+  const db = useCatalog();
   const [items, setItems] = useState<{ series: Series; chapter: number }[]>([]);
 
   useEffect(() => {
-    const db = getMockDatabase();
     const entries = Object.entries(progress);
     const list = entries
       .map(([seriesId, chapter]) => {
@@ -22,7 +22,7 @@ export function ContinueReading() {
       })
       .filter(Boolean) as { series: Series; chapter: number }[];
     setItems(list.slice(0, 6));
-  }, [progress]);
+  }, [progress, db.series]);
 
   if (items.length === 0) return null;
 

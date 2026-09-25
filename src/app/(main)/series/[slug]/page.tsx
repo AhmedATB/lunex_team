@@ -1,10 +1,11 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useState } from "react";
 import { useParams, notFound } from "next/navigation";
 import Link from "next/link";
 import { Star, Eye, Bookmark, Heart, BookOpen, Calendar, User as UserIcon } from "lucide-react";
-import { getMockDatabase } from "@/lib/mock/generate";
+import { useCatalog } from "@/components/catalog-provider";
+import { useSeriesChapters } from "@/lib/use-series-chapters";
 import { useTeamManagement } from "@/store/team-management";
 import { useReadingProgress } from "@/store/reader-settings";
 import { useRatings, getEffectiveRating } from "@/store/ratings";
@@ -34,7 +35,7 @@ export default function SeriesDetailPage() {
   const params = useParams<{ slug: string }>();
   const slug = safeDecodeURIComponent(params.slug);
 
-  const db = useMemo(() => getMockDatabase(), []);
+  const db = useCatalog();
   const store = useTeamManagement();
 
   // Persisted stores rehydrate after mount (see StoreHydration), so client-created
@@ -45,6 +46,7 @@ export default function SeriesDetailPage() {
 
   const allSeries = [...db.series, ...store.addedSeries];
   const series = allSeries.find((s) => s.slug === slug);
+  const serverChapters = useSeriesChapters(series?.id, series?.slug);
   const seriesRatings = useRatings((s) => s.ratings[series?.id ?? ""]);
   const lastRead = useReadingProgress((s) => s.getProgress(series?.id ?? ""));
 
@@ -57,7 +59,7 @@ export default function SeriesDetailPage() {
     notFound();
   }
 
-  const allChapters = [...db.chapters, ...store.addedChapters].filter((c) => c.seriesId === series.id);
+  const allChapters = [...serverChapters, ...store.addedChapters].filter((c) => c.seriesId === series.id);
   const chapters = [...allChapters].sort((a, b) => b.number - a.number);
   // Smallest chapter number not yet read — undefined means either no progress
   // at all (start from the beginning) or every chapter is already read.
