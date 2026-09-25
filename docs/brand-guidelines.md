@@ -65,8 +65,8 @@ linear-gradient(135deg, rgb(109,40,217) 0%, rgb(168,85,247) 50%, rgb(216,180,254
 
 | Style ID | Arabic name | Accent |
 |---|---|---|
-| `neon-cyber` (default) | نيون سايبر | cyan `#22d3ee` |
-| `violet-night` | البنفسجي الليلي | violet `#a855f7` — **brand primary** |
+| `neon-cyber` | نيون سايبر | cyan `#22d3ee` |
+| `violet-night` (default) | البنفسجي الليلي | violet `#a855f7` — **brand primary** |
 | `ink-paper` | حبر وورق | warm sepia + red `#dc2626` |
 | `hero-sunset` | غروب الأبطال | orange `#f97316` |
 | `blue-moon` | قمر أزرق | blue `#3b82f6` |

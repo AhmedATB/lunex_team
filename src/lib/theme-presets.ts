@@ -22,14 +22,14 @@ export const STYLE_PRESETS: StylePreset[] = [
   {
     id: "violet-night",
     nameAr: "البنفسجي الليلي",
-    descriptionAr: "الطابع الأصلي للموقع — بنفسجي داكن فاخر.",
+    descriptionAr: "الطابع الافتراضي وهوية لونكس — بنفسجي داكن فاخر.",
     swatchBg: "#0d0616",
     swatchAccent: "#a855f7",
   },
   {
     id: "neon-cyber",
     nameAr: "نيون سايبر",
-    descriptionAr: "الطابع الافتراضي — أزرق سماوي متوهج على خلفية شبه سوداء.",
+    descriptionAr: "أزرق سماوي متوهج على خلفية شبه سوداء.",
     swatchBg: "#050a0d",
     swatchAccent: "#22d3ee",
   },
@@ -63,4 +63,4 @@ export const STYLE_PRESETS: StylePreset[] = [
   },
 ];
 
-export const DEFAULT_STYLE: StyleId = "neon-cyber";
+export const DEFAULT_STYLE: StyleId = "violet-night";

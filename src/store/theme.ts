@@ -36,6 +36,14 @@ export const useTheme = create<ThemeState>()(
     }),
     {
       name: "lunex-theme",
+      // v1: the default changed from Neon Cyber to Violet Night. The old default was saved for everyone who accepted
+      // preference storage (whether or not they ever opened the picker), so a stored "neon-cyber" moves to the new
+      // default once; every other choice is kept.
+      version: 1,
+      migrate: (persisted) => {
+        const state = persisted as Partial<ThemeState> | undefined;
+        return state?.style === "neon-cyber" ? { ...state, style: DEFAULT_STYLE } : (state as ThemeState);
+      },
       storage: createJSONStorage(() => preferenceStorage),
       skipHydration: true,
       onRehydrateStorage: () => (state) => {
