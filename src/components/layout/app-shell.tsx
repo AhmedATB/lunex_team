@@ -21,10 +21,9 @@ export function AppShell({ children, initialStyle }: { children: ReactNode; init
       <ToastHost />
       <AchievementWatcher />
       {/*
-        The blobs below are `absolute` inside the page's own `relative` root, so they stretch to
-        the FULL scrollable page height and are distributed all the way down a long page.
-        SparkleField is the exception: it is `fixed` (viewport-anchored) so the number of stars
-        on screen is the same on a short settings page and on the homepage.
+        Everything decorative below is `absolute` inside the page's own `relative` root: it belongs to the page and
+        scrolls with it, never following the reader down the screen, and none of it animates. The glows sit at the page
+        edges (half off-screen) and the sparkles along the margins, so they stay out from behind text.
 
         No negative z-index here (or on anything nested inside it) — deliberately. Verified
         empirically that a `z-index: -10` element painted fully invisible in this exact
@@ -37,11 +36,11 @@ export function AppShell({ children, initialStyle }: { children: ReactNode; init
       {/* Cut from 6 blobs to 4 (perf pass, 2026-09-19) — each is a continuously-animated filter:blur(70px) element, real ongoing compositing cost for as long as the page is open. Positions kept spread top/mid/bottom so the page still reads as decorated end to end. */}
       <div className="pointer-events-none absolute inset-0 overflow-hidden">
         <div className="ambient-blob start-[-8%] top-[-4%] h-[28rem] w-[28rem] bg-primary-600/35" />
-        <div className="ambient-blob end-[-10%] top-[18%] h-[26rem] w-[26rem] bg-secondary/30" style={{ animationDelay: "-6s" }} />
-        <div className="ambient-blob start-[15%] top-[55%] h-[22rem] w-[22rem] bg-accent/25" style={{ animationDelay: "-11s" }} />
-        <div className="ambient-blob end-[8%] top-[100%] h-[24rem] w-[24rem] bg-secondary/25" style={{ animationDelay: "-14s" }} />
+        <div className="ambient-blob end-[-10%] top-[18%] h-[26rem] w-[26rem] bg-secondary/30" />
+        <div className="ambient-blob start-[-12%] top-[55%] h-[22rem] w-[22rem] bg-accent/25" />
+        <div className="ambient-blob end-[-8%] top-[96%] h-[24rem] w-[24rem] bg-secondary/25" />
         <SparkleField initialStyle={initialStyle} />
-        {/* fixed (not absolute) so it stays anchored to the viewport and is always on-screen, not scattered across the full scroll height like the siblings above. */}
+        {/* Neon Cyber only: anchored to the top of the page (its horizon grid), scrolls away with it. */}
         <NeonBackdrop initialStyle={initialStyle} />
         <div
           className="absolute inset-0 opacity-40"

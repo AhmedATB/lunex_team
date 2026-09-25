@@ -19,51 +19,48 @@ function paletteFor(style: StyleId) {
   return { stars: DEFAULT_STAR_COLORS, crystals: DEFAULT_CRYSTAL_COLORS };
 }
 
-function makeRand(seed: number) {
-  let s = seed;
-  return () => {
-    s = (s * 16807) % 2147483647;
-    return (s - 1) / 2147483646;
-  };
+/**
+ * Fixed points on the page, not on the screen. Every star and crystal has its own spot in the background: it
+ * scrolls away with the content like anything else on the page, instead of following the reader down the screen,
+ * and it does not twinkle, drift or blink (readers found the moving ones distracting, 2026-09-25 and 2026-09-26).
+ *
+ * The spots hug the left and right edges — inside the page's side margin, which is 16 px on a phone — so they stay out
+ * from behind text and cards, and the layer sits before the content in the DOM, so text is always painted over it.
+ * The pattern is one 1500 px "screenful" of eight points, repeated down the page.
+ */
+const GROUP_HEIGHT_PX = 1500;
+const GROUPS = 6;
+
+interface Point {
+  /** Distance from the left (`side: "start"`) or right (`"end"`) edge of the page, in px. edge + size stays within 16. */
+  edge: number;
+  side: "start" | "end";
+  /** Distance from the top of the group, in px. */
+  top: number;
+  size: number;
+  kind: "star" | "crystal";
+  color: number;
 }
 
-/**
- * Deterministic per-item randomness (position/size/timing) so both server
- * and client render the same layout — only the COLOR varies by style,
- * picked at render time from the palette above.
- *
- * Counts: 70/18 originally, 30/10 after the perf pass (2026-09-19: real
- * mobile lag), now 10/3 — readers found even 30/10 "far too many and
- * distracting" (2026-09-25), because that count was spread over the whole
- * scroll height, so a short page like account settings packed all of it
- * into one screen. The layer is now anchored to the viewport (see the root
- * element below), so this is the number on screen at any moment, on every page.
- */
-const STAR_LAYOUT = Array.from({ length: 10 }).map((_, i) => {
-  const rand = makeRand(i * 9301 + 49297);
-  return {
-    id: `star-${i}`,
-    top: `${rand() * 100}%`,
-    left: `${rand() * 100}%`,
-    size: 6 + rand() * 8,
-    delay: `${rand() * 5}s`,
-    duration: `${1.8 + rand() * 2.8}s`,
-    colorIndex: Math.floor(rand() * DEFAULT_STAR_COLORS.length),
-  };
-});
+const POINTS: Point[] = [
+  { edge: 3, side: "start", top: 140, size: 10, kind: "star", color: 0 },
+  { edge: 4, side: "end", top: 260, size: 8, kind: "star", color: 1 },
+  { edge: 3, side: "start", top: 470, size: 10, kind: "crystal", color: 0 },
+  { edge: 2, side: "end", top: 640, size: 10, kind: "star", color: 2 },
+  { edge: 5, side: "start", top: 860, size: 8, kind: "star", color: 3 },
+  { edge: 3, side: "end", top: 1010, size: 10, kind: "crystal", color: 1 },
+  { edge: 2, side: "start", top: 1210, size: 10, kind: "star", color: 4 },
+  { edge: 5, side: "end", top: 1380, size: 8, kind: "star", color: 0 },
+];
 
-const CRYSTAL_LAYOUT = Array.from({ length: 3 }).map((_, i) => {
-  const rand = makeRand(i * 6151 + 12007);
-  return {
-    id: `crystal-${i}`,
-    top: `${rand() * 100}%`,
-    left: `${rand() * 100}%`,
-    size: 9 + rand() * 7,
-    delay: `${rand() * 6}s`,
-    duration: `${5 + rand() * 3}s`,
-    colorIndex: rand() > 0.5 ? 0 : 1,
-  };
-});
+const LAYOUT = Array.from({ length: GROUPS }).flatMap((_, group) =>
+  POINTS.map((point, i) => ({
+    ...point,
+    id: `${group}-${i}`,
+    // each repeat sits a little higher or lower so the pattern does not look stamped (deterministic: server and client must agree)
+    top: group * GROUP_HEIGHT_PX + point.top + ((group * 5 + i * 3) % 7) * 20 - 60,
+  }))
+);
 
 export function SparkleField({ initialStyle }: { initialStyle: StyleId }) {
   const liveStyle = useTheme((s) => s.style);
@@ -73,52 +70,32 @@ export function SparkleField({ initialStyle }: { initialStyle: StyleId }) {
 
   return (
     // No negative z-index — see AppShell's decorative-layer comment; it rendered invisible at this position.
-    // `fixed` keeps the density constant on every page (a few stars on screen, whatever the page length) and, unlike the
-    // `absolute` layers around it, doesn't get repainted on every scroll frame. `opacity-70` caps the twinkle's peak brightness.
-    <div className="pointer-events-none fixed inset-0 overflow-hidden opacity-70" aria-hidden="true">
-      {STAR_LAYOUT.map((s) => {
-        const color = palette.stars[s.colorIndex % palette.stars.length];
+    // `absolute` inside the page (not `fixed`): the points belong to the page and scroll with it. Nothing here animates.
+    <div className="pointer-events-none absolute inset-0 overflow-hidden opacity-60" aria-hidden="true">
+      {LAYOUT.map((p) => {
+        const colors = p.kind === "star" ? palette.stars : palette.crystals;
+        const color = colors[p.color % colors.length];
         return (
           <svg
-            key={s.id}
-            className="sparkle-star absolute"
+            key={p.id}
+            className="absolute"
             style={{
-              top: s.top,
-              left: s.left,
-              width: s.size,
-              height: s.size,
+              top: p.top,
+              [p.side === "start" ? "left" : "right"]: p.edge,
+              width: p.size,
+              height: p.size,
               color,
-              animationDelay: s.delay,
-              animationDuration: s.duration,
-              filter: `drop-shadow(0 0 ${s.size / 3}px ${color})`,
+              opacity: p.kind === "crystal" ? 0.5 : 0.9,
+              filter: `drop-shadow(0 0 ${p.size / 3}px ${color})`,
             }}
             viewBox="0 0 24 24"
             fill="currentColor"
           >
-            <path d="M12 0c0 6.075 5.925 12 12 12-6.075 0-12 5.925-12 12 0-6.075-5.925-12-12-12C6.075 12 12 6.075 12 0z" />
-          </svg>
-        );
-      })}
-      {CRYSTAL_LAYOUT.map((c) => {
-        const color = palette.crystals[c.colorIndex % palette.crystals.length];
-        return (
-          <svg
-            key={c.id}
-            className="float-slow absolute opacity-50"
-            style={{
-              top: c.top,
-              left: c.left,
-              width: c.size,
-              height: c.size,
-              color,
-              animationDelay: c.delay,
-              animationDuration: c.duration,
-              filter: `drop-shadow(0 0 ${c.size / 3}px ${color})`,
-            }}
-            viewBox="0 0 24 24"
-            fill="currentColor"
-          >
-            <path d="M12 1 L20 8 L12 23 L4 8 Z" />
+            {p.kind === "star" ? (
+              <path d="M12 0c0 6.075 5.925 12 12 12-6.075 0-12 5.925-12 12 0-6.075-5.925-12-12-12C6.075 12 12 6.075 12 0z" />
+            ) : (
+              <path d="M12 1 L20 8 L12 23 L4 8 Z" />
+            )}
           </svg>
         );
       })}

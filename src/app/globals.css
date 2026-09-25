@@ -228,9 +228,8 @@
     position: absolute;
     border-radius: 9999px;
     filter: blur(70px);
-    will-change: filter, opacity, transform;
     pointer-events: none;
-    animation: drift 16s ease-in-out infinite, pulse-glow 5s ease-in-out infinite;
+    /* Static: a glow stays where it is placed. (It used to drift and pulse, which readers found distracting, and a blurred element that never stops animating is a standing compositing cost.) */
   }
 
 
