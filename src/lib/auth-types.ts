@@ -12,6 +12,8 @@ export interface BackendPublicUser {
   /** Set only when a real uploaded avatar exists — see resolveAvatarUrl in lib/utils. */
   avatarVersion: string | null;
   isBanned: boolean;
+  /** ISO end of a running timeout (cannot comment or message), else null. */
+  mutedUntil: string | null;
   /** false for a Discord/Google-only account (no password to type). */
   hasPassword: boolean;
   /** Who may open each part of the profile — see lib/profile-types. */

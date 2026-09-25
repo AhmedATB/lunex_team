@@ -8,8 +8,9 @@ import {
 } from "@nestjs/common";
 import sharp from "sharp";
 import type { RequestContext } from "../../common/middleware/request-context.middleware";
-import { AuthService } from "../auth/auth.service";
 import { verifyPassword } from "../auth/crypto/password.util";
+import { ModerationService } from "../moderation/moderation.service";
+import { activeMutedUntil, isEffectivelyBanned } from "../moderation/moderation.util";
 import { NotificationsService } from "../notifications/notifications.service";
 import { UsersRepository } from "./users.repository";
 import type { DeleteAccountDto } from "./dto/delete-account.dto";
@@ -32,7 +33,7 @@ export class UsersService {
   constructor(
     private readonly repo: UsersRepository,
     private readonly notifications: NotificationsService,
-    private readonly auth: AuthService
+    private readonly moderation: ModerationService
   ) {}
 
   async changeRole(actorId: string, targetUserId: string, newRole: string, ctx: RequestContext) {
@@ -101,18 +102,15 @@ export class UsersService {
       throw new ForbiddenException({ code: "cannot_ban_owner", message: "The owner account cannot be banned." });
     }
 
-    const updated = await this.repo.updateBanned(targetUserId, isBanned);
+    // The record, the enforcement and the session revocation all live in ModerationService now, so this legacy
+    // ban/unban toggle and the new sanctions API can never disagree about who is banned.
     if (isBanned) {
-      await this.auth.revokeAllSessionsForUser(targetUserId);
+      await this.moderation.applySanction(actorId, targetUserId, { type: "ban", reason: "Banned by an administrator." }, ctx);
+    } else {
+      await this.moderation.liftBan(actorId, targetUserId, ctx);
     }
-    await this.repo.writeAuditLog({
-      actorId,
-      action: isBanned ? "user.banned" : "user.unbanned",
-      target: targetUserId,
-      ip: ctx.ip,
-    });
 
-    return { id: updated.id, isBanned: updated.isBanned };
+    return { id: target.id, isBanned };
   }
 
   /** The only reliable way to see every banned real account — the admin UI's own user list is otherwise limited to whatever it has locally cached (see mergeRealUsers). */
@@ -228,6 +226,7 @@ export class UsersService {
       sessions: data.sessions,
       loginHistory: data.loginEvents,
       unlockedChapters: data.chapterUnlocks,
+      moderationHistory: data.sanctions,
       favorites: data.bookmarks,
       readingHistory: data.readingProgress,
       notifications: data.notifications,
@@ -254,6 +253,8 @@ export class UsersService {
     bio: string | null;
     avatarImage: Buffer | Uint8Array | null;
     isBanned: boolean;
+    bannedUntil: Date | null;
+    mutedUntil: Date | null;
     passwordHash: string | null;
     profileVisibility: string;
     historyVisibility: string;
@@ -268,7 +269,8 @@ export class UsersService {
       displayName: user.displayName,
       bio: user.bio,
       avatarVersion: user.avatarImage ? user.updatedAt.toISOString() : null,
-      isBanned: user.isBanned,
+      isBanned: isEffectivelyBanned(user),
+      mutedUntil: activeMutedUntil(user),
       hasPassword: user.passwordHash !== null,
       profileVisibility: user.profileVisibility,
       historyVisibility: user.historyVisibility,

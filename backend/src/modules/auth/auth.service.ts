@@ -7,6 +7,7 @@ import { AuthRepository } from "./auth.repository";
 import { getDummyHash, hashPassword, verifyPassword } from "./crypto/password.util";
 import type { RequestContext } from "../../common/middleware/request-context.middleware";
 import { NotificationsService } from "../notifications/notifications.service";
+import { activeMutedUntil, isEffectivelyBanned } from "../moderation/moderation.util";
 
 const ACCESS_TOKEN_TTL = "10m";
 const REFRESH_TOKEN_TTL_MS = 7 * 24 * 60 * 60 * 1000; // 7 days
@@ -26,7 +27,10 @@ export interface PublicUser {
   displayName: string | null;
   bio: string | null;
   avatarVersion: string | null;
+  /** true only while a ban is in force — a temporary ban that has run out reads false. */
   isBanned: boolean;
+  /** ISO end of a running timeout (cannot comment or message), else null. */
+  mutedUntil: string | null;
   /** false for a Discord/Google-only account — tells the UI which confirmation an irreversible action needs (password vs. retyping the username). The hash itself never leaves the server. */
   hasPassword: boolean;
   /** Who may open each part of the profile: "public" | "members" | "private". */
@@ -98,9 +102,9 @@ export class AuthService {
 
     // Checked only after the password is confirmed correct — a wrong-password
     // guess must never reveal whether an account happens to be banned.
-    if (user.isBanned) {
+    if (isEffectivelyBanned(user)) {
       await this.repo.recordLoginEvent({ userId: user.id, email, ip: ctx.ip, outcome: "banned" });
-      throw new ForbiddenException({ code: "account_banned", message: "This account has been banned." });
+      throw new ForbiddenException({ code: "account_banned", message: this.bannedMessage(user.bannedUntil) });
     }
 
     await this.repo.recordLoginEvent({ userId: user.id, email, ip: ctx.ip, outcome: "success" });
@@ -143,8 +147,8 @@ export class AuthService {
     // A ban revokes every session up front, but this bounds the case where a
     // refresh was already in flight (or the revoke hasn't landed yet) from
     // still minting a fresh session for a banned account.
-    if (user.isBanned) {
-      throw new UnauthorizedException({ code: "account_banned", message: "This account has been banned." });
+    if (isEffectivelyBanned(user)) {
+      throw new UnauthorizedException({ code: "account_banned", message: this.bannedMessage(user.bannedUntil) });
     }
 
     return this.issueSession(user.id, user.role, ctx, session.familyId);
@@ -168,8 +172,8 @@ export class AuthService {
    */
   async issueSessionForUser(userId: string, role: string, ctx: RequestContext): Promise<SessionTokens> {
     const user = await this.repo.findUserById(userId);
-    if (user?.isBanned) {
-      throw new ForbiddenException({ code: "account_banned", message: "This account has been banned." });
+    if (user && isEffectivelyBanned(user)) {
+      throw new ForbiddenException({ code: "account_banned", message: this.bannedMessage(user.bannedUntil) });
     }
     return this.issueSession(userId, role, ctx);
   }
@@ -286,6 +290,13 @@ export class AuthService {
     return createHmac("sha256", this.refreshPepper).update(raw).digest("hex");
   }
 
+  /** Carries the end date of a temporary ban in the message so the sign-in page can show it. */
+  private bannedMessage(bannedUntil: Date | null): string {
+    return bannedUntil
+      ? `This account is banned until ${bannedUntil.toISOString()}.`
+      : "This account has been banned.";
+  }
+
   /** Strips passwordHash (and the avatar bytes themselves) — never let either leave this service, even accidentally via a spread. */
   private toPublicUser(user: PrismaUser): PublicUser {
     return {
@@ -297,7 +308,8 @@ export class AuthService {
       displayName: user.displayName,
       bio: user.bio,
       avatarVersion: user.avatarImage ? user.updatedAt.toISOString() : null,
-      isBanned: user.isBanned,
+      isBanned: isEffectivelyBanned(user),
+      mutedUntil: activeMutedUntil(user),
       hasPassword: user.passwordHash !== null,
       profileVisibility: user.profileVisibility,
       historyVisibility: user.historyVisibility,

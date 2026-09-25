@@ -26,6 +26,7 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Progress } from "@/components/ui/progress";
 import { SeriesCard } from "@/components/shared/series-card";
+import { ModerationPanel } from "@/components/moderation/moderation-panel";
 import { ProfileSkeleton } from "@/components/shared/skeletons";
 
 type Lookup = { status: "loading" } | { status: "ready"; profile: ServerProfile | null };
@@ -77,6 +78,8 @@ function ServerProfileView({ profile, series }: { profile: ServerProfile; series
   const avatarOverrides = useProfile((s) => s.avatarOverrides);
   const src = avatarSrcFor({ id: profile.id, avatarSeed: profile.id, avatarVersion: profile.avatarVersion }, avatarOverrides);
   const byId = useMemo(() => new Map(series.map((s) => [s.id, s])), [series]);
+  const viewerRole = useSession((s) => s.user?.role);
+  const canModerate = !profile.isSelf && (viewerRole === "owner" || viewerRole === "super_administrator" || viewerRole === "moderator");
 
   const favorites = (profile.bookmarks ?? []).map((id) => byId.get(id)).filter((s): s is Series => Boolean(s));
   const history = (profile.history ?? []).flatMap((h) => {
@@ -133,6 +136,8 @@ function ServerProfileView({ profile, series }: { profile: ServerProfile; series
           </div>
         </CardContent>
       </Card>
+
+      {canModerate && <ModerationPanel userId={profile.id} />}
 
       {profile.restricted ? (
         <PrivateNotice title="هذا الملف الشخصي خاص" text="اختار صاحب الحساب ألا يشارك تفاصيل ملفه." />

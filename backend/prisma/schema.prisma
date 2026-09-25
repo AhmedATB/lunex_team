@@ -36,6 +36,12 @@ model User {
   role         String   @default("reader")
   isBanned     Boolean  @default(false)
   bannedAt     DateTime?
+  /// Temporary ban: while `isBanned` is true and this is in the future the ban
+  /// applies; once it passes the account is effectively unbanned with no job
+  /// needed (every check goes through isEffectivelyBanned). null = permanent.
+  bannedUntil  DateTime?
+  /// Timeout: while in the future the account cannot comment or message.
+  mutedUntil   DateTime?
   createdAt    DateTime @default(now())
   updatedAt    DateTime @updatedAt
 
@@ -56,6 +62,7 @@ model User {
   chapterUnlocks  ChapterUnlock[]
   bookmarks       Bookmark[]
   readingProgress ReadingProgress[]
+  sanctions       Sanction[]
 
   @@map("users")
 }
@@ -318,4 +325,27 @@ model ReadingProgress {
   @@unique([userId, seriesId])
   @@index([userId, lastReadAt])
   @@map("reading_progress")
+}
+
+/// One moderation action against an account: a warning (no effect on its own),
+/// a timeout (cannot comment or message until `expiresAt`) or a ban (cannot
+/// sign in; `expiresAt` null = permanent). User.mutedUntil / bannedUntil /
+/// isBanned hold the CURRENT effect so hot paths need no join; this table is
+/// the history — who, why, when, and whether it was lifted early.
+/// `createdById` / `revokedById` are plain strings, not foreign keys: the
+/// record must outlive a staff account that is later deleted.
+model Sanction {
+  id          String    @id @default(uuid())
+  userId      String
+  user        User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  type        String // "warning" | "timeout" | "ban"
+  reason      String
+  createdById String?
+  createdAt   DateTime  @default(now())
+  expiresAt   DateTime?
+  revokedAt   DateTime?
+  revokedById String?
+
+  @@index([userId, createdAt])
+  @@map("sanctions")
 }

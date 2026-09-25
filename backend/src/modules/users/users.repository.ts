@@ -20,13 +20,12 @@ export class UsersRepository {
     return this.prisma.user.update({ where: { id }, data: { role } });
   }
 
-  updateBanned(id: string, isBanned: boolean) {
-    return this.prisma.user.update({ where: { id }, data: { isBanned, bannedAt: isBanned ? new Date() : null } });
-  }
-
   /** Real accounts only — this is the one place an admin can reliably find every banned user, since the admin UI otherwise only knows about real accounts it has locally cached. */
   listBanned() {
-    return this.prisma.user.findMany({ where: { isBanned: true }, orderBy: { bannedAt: "desc" } });
+    return this.prisma.user.findMany({
+      where: { isBanned: true, OR: [{ bannedUntil: null }, { bannedUntil: { gt: new Date() } }] },
+      orderBy: { bannedAt: "desc" },
+    });
   }
 
   updateProfile(id: string, patch: { username?: string; displayName?: string; bio?: string }) {
@@ -65,6 +64,7 @@ export class UsersRepository {
       activity,
       bookmarks,
       readingProgress,
+      sanctions,
     ] = await Promise.all([
         this.prisma.user.findUnique({
           where: { id: userId },
@@ -136,6 +136,11 @@ export class UsersRepository {
           orderBy: { lastReadAt: "desc" },
           select: { seriesId: true, chapterNumber: true, lastReadAt: true },
         }),
+        this.prisma.sanction.findMany({
+          where: { userId },
+          orderBy: { createdAt: "desc" },
+          select: { type: true, reason: true, createdAt: true, expiresAt: true, revokedAt: true },
+        }),
       ]);
 
     return {
@@ -150,6 +155,7 @@ export class UsersRepository {
       activity,
       bookmarks,
       readingProgress,
+      sanctions,
     };
   }
 

@@ -9,6 +9,8 @@ import { useSession } from "@/store/session";
 import { useMessages, conversationId } from "@/store/messages";
 import { useProfile, avatarSrcFor } from "@/store/profile";
 import { cn, timeAgo } from "@/lib/utils";
+import { useMuteStatus } from "@/lib/use-mute-status";
+import { MuteNotice } from "@/components/moderation/mute-notice";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { GridPageSkeleton } from "@/components/shared/skeletons";
@@ -34,6 +36,7 @@ function MessagesPageInner() {
   const conversations = useMessages((s) => s.conversations);
   const unreadBy = useMessages((s) => s.unreadBy);
   const sendMessage = useMessages((s) => s.sendMessage);
+  const mute = useMuteStatus();
   const markRead = useMessages((s) => s.markRead);
   const avatarOverrides = useProfile((s) => s.avatarOverrides);
 
@@ -81,7 +84,7 @@ function MessagesPageInner() {
 
   function submit(e: React.FormEvent) {
     e.preventDefault();
-    if (!selectedUserId || !draft.trim()) return;
+    if (!selectedUserId || !draft.trim() || mute.muted) return;
     sendMessage(currentUserId!, selectedUserId, draft);
     setDraft("");
   }
@@ -159,17 +162,21 @@ function MessagesPageInner() {
                 })}
               </div>
 
-              <form onSubmit={submit} className="flex items-center gap-2 border-t border-white/10 p-3">
-                <Input
-                  value={draft}
-                  onChange={(e) => setDraft(e.target.value)}
-                  placeholder="اكتب رسالتك..."
-                  className="flex-1"
-                />
-                <Button type="submit" size="icon" aria-label="إرسال" disabled={!draft.trim()}>
-                  <Send className="h-4 w-4" />
-                </Button>
-              </form>
+              <div className="border-t border-white/10 p-3">
+                <MuteNotice className="mb-2" />
+                <form onSubmit={submit} className="flex items-center gap-2">
+                  <Input
+                    value={draft}
+                    onChange={(e) => setDraft(e.target.value)}
+                    placeholder="اكتب رسالتك..."
+                    className="flex-1"
+                    disabled={mute.muted}
+                  />
+                  <Button type="submit" size="icon" aria-label="إرسال" disabled={!draft.trim() || mute.muted}>
+                    <Send className="h-4 w-4" />
+                  </Button>
+                </form>
+              </div>
             </>
           )}
         </div>

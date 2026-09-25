@@ -23,6 +23,8 @@ import { useComments, mergeComments } from "@/store/comments";
 import { getTeamAuthRoles, getEffectiveCustomRoles } from "@/lib/team-auth";
 import { canInTeam } from "@/lib/rbac";
 import { getMockDatabase } from "@/lib/mock/generate";
+import { useMuteStatus } from "@/lib/use-mute-status";
+import { MuteNotice } from "@/components/moderation/mute-notice";
 
 const REPORT_REASONS = ["محتوى غير مناسب", "تحرش أو إساءة", "معلومات مضللة", "سبام", "أخرى"];
 
@@ -72,8 +74,10 @@ export function CommentSection({
     return +new Date(b.createdAt) - +new Date(a.createdAt);
   });
 
+  const mute = useMuteStatus();
+
   function post() {
-    if (!draft.trim() || !currentUser) return;
+    if (!draft.trim() || !currentUser || mute.muted) return;
     commentsStore.postComment({
       seriesId,
       userId: currentUser.id,
@@ -117,11 +121,13 @@ export function CommentSection({
             <Image src={avatarSrcFor(currentUser, avatarOverrides)} alt={currentUser.displayName} fill sizes="40px" className="object-cover" />
           </div>
           <div className="flex-1 space-y-2">
+            <MuteNotice />
             <Textarea
               value={draft}
               onChange={(e) => setDraft(e.target.value)}
               placeholder="شارك رأيك حول هذا العمل..."
               rows={2}
+              disabled={mute.muted}
             />
             <div className="flex items-center justify-between">
               <label className="flex items-center gap-1.5 text-xs text-lunex-gray">
@@ -133,7 +139,7 @@ export function CommentSection({
                 />
                 هذا التعليق فيه حرق (سيظهر مشوشاً للآخرين)
               </label>
-              <Button size="sm" onClick={post} disabled={!draft.trim()}>
+              <Button size="sm" onClick={post} disabled={!draft.trim() || mute.muted}>
                 <Send className="h-3.5 w-3.5" /> نشر
               </Button>
             </div>

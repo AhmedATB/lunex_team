@@ -15,6 +15,18 @@ import { mergeRealUsers } from "@/lib/mock/generate";
 import { getDeviceFingerprint } from "@/lib/device-fingerprint";
 import { fetchAndSolvePow } from "@/lib/pow-client";
 
+/** The backend's messages are English; the ban one carries the end date of a temporary ban ("... until <ISO>."). */
+function loginErrorMessage(body: { code?: string; message?: string } | null): string {
+  if (body?.code === "account_banned") {
+    const until = /until (\S+?)\.?$/.exec(body.message ?? "")?.[1];
+    const date = until ? new Date(until) : null;
+    return date && !Number.isNaN(date.getTime())
+      ? `تم حظر هذا الحساب مؤقتاً حتى ${new Intl.DateTimeFormat("ar", { dateStyle: "medium", timeStyle: "short" }).format(date)}.`
+      : "تم حظر هذا الحساب. تواصل مع الإدارة عبر Discord إن كنت تراه خطأً.";
+  }
+  return body?.message ?? "فشل تسجيل الدخول.";
+}
+
 export default function LoginPage() {
   const router = useRouter();
   const setUser = useSession((s) => s.setUser);
@@ -50,7 +62,7 @@ export default function LoginPage() {
       });
       const body = await res.json();
       if (!res.ok) {
-        setError(body?.message ?? "فشل تسجيل الدخول.");
+        setError(loginErrorMessage(body));
         return;
       }
       setUser(body.user);

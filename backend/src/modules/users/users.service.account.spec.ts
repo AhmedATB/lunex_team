@@ -1,6 +1,6 @@
 import { BadRequestException, ForbiddenException, NotFoundException, UnauthorizedException } from "@nestjs/common";
 import { hashPassword } from "../auth/crypto/password.util";
-import type { AuthService } from "../auth/auth.service";
+import type { ModerationService } from "../moderation/moderation.service";
 import type { NotificationsService } from "../notifications/notifications.service";
 import type { UsersRepository } from "./users.repository";
 import { UsersService } from "./users.service";
@@ -24,7 +24,7 @@ function build(user: ReturnType<typeof baseUser> | null) {
     deleteAccount: jest.fn().mockResolvedValue(undefined),
     collectExport: jest.fn(),
   };
-  const service = new UsersService(repo as unknown as UsersRepository, {} as NotificationsService, {} as AuthService);
+  const service = new UsersService(repo as unknown as UsersRepository, {} as NotificationsService, {} as ModerationService);
   return { service, repo };
 }
 
@@ -99,6 +99,7 @@ describe("UsersService.exportData", () => {
     activity: [],
     bookmarks: [],
     readingProgress: [],
+    sanctions: [],
   };
 
   it("returns the caller's data with a hasCustomAvatar flag instead of the mime type", async () => {

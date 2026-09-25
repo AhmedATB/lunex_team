@@ -26,3 +26,6 @@ export const rankOf = (role: string): number => ROLE_RANK[role] ?? 0;
  * Banning stays with the narrower ROLE_MANAGER_ROLES set in UsersService.
  */
 export const MODERATOR_ROLES: ReadonlySet<string> = new Set(["owner", "super_administrator", "moderator"]);
+
+/** May ban and unban. Same set as UsersService's role/ban managers (the frontend's `manage_users` permission). */
+export const BAN_ROLES: ReadonlySet<string> = new Set(["owner", "super_administrator"]);
