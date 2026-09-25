@@ -64,7 +64,7 @@ describe("username availability", () => {
 describe("register", () => {
   it("rejects a look-alike of an existing name without saying which field clashed", async () => {
     const { service, repo } = build([{ username: "Qays", email: "qays@example.com" }]);
-    await expect(service.register("other@example.com", "correct-horse-battery", "q_ays", CTX)).rejects.toMatchObject({
+    await expect(service.register("other@example.com", "correct-horse-battery", "q_ays", "Someone", CTX)).rejects.toMatchObject({
       response: { code: "registration_failed" },
     });
     expect(repo.createUser).not.toHaveBeenCalled();
@@ -72,21 +72,35 @@ describe("register", () => {
 
   it("rejects a reserved name", async () => {
     const { service, repo } = build();
-    await expect(service.register("a@example.com", "correct-horse-battery", "Adm1n", CTX)).rejects.toBeInstanceOf(ConflictException);
+    await expect(service.register("a@example.com", "correct-horse-battery", "Adm1n", "Someone", CTX)).rejects.toBeInstanceOf(ConflictException);
     expect(repo.createUser).not.toHaveBeenCalled();
   });
 
-  it("creates the account for a free name", async () => {
+  it("rejects a display name that would pass for the team, and says why", async () => {
     const { service, repo } = build();
-    const result = await service.register("new@example.com", "correct-horse-battery", "kaito_92", CTX);
-    expect(repo.createUser).toHaveBeenCalledWith("new@example.com", "kaito_92", expect.any(String));
+    await expect(service.register("a@example.com", "correct-horse-battery", "kaito_92", "LUNEX Admin", CTX)).rejects.toMatchObject({
+      response: { code: "display_name_reserved" },
+    });
+    expect(repo.createUser).not.toHaveBeenCalled();
+  });
+
+  it("creates the account for a free name and stores the display name beside it", async () => {
+    const { service, repo } = build();
+    const result = await service.register("new@example.com", "correct-horse-battery", "kaito_92", "قيس أحمد", CTX);
+    expect(repo.createUser).toHaveBeenCalledWith("new@example.com", "kaito_92", expect.any(String), "قيس أحمد");
     expect(result.user.username).toBe("kaito_92");
+  });
+
+  it("still works without a display name (older clients): the account then shows its username", async () => {
+    const { service, repo } = build();
+    await service.register("new@example.com", "correct-horse-battery", "kaito_92", undefined, CTX);
+    expect(repo.createUser).toHaveBeenCalledWith("new@example.com", "kaito_92", expect.any(String), undefined);
   });
 
   it("turns the database's unique-index refusal (two sign-ups at once) into the same answer", async () => {
     const { service, repo } = build();
     repo.createUser.mockRejectedValueOnce(new Prisma.PrismaClientKnownRequestError("dup", { code: "P2002", clientVersion: "test" }));
-    await expect(service.register("new@example.com", "correct-horse-battery", "kaito_92", CTX)).rejects.toMatchObject({
+    await expect(service.register("new@example.com", "correct-horse-battery", "kaito_92", "Kaito", CTX)).rejects.toMatchObject({
       response: { code: "registration_failed" },
     });
   });

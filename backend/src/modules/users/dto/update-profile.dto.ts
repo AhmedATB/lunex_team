@@ -1,4 +1,6 @@
+import { Transform } from "class-transformer";
 import { IsOptional, IsString, Matches, MaxLength, MinLength } from "class-validator";
+import { DISPLAY_NAME_MAX, DISPLAY_NAME_MIN, DISPLAY_NAME_PATTERN, normalizeDisplayName } from "../username.util";
 
 export class UpdateProfileDto {
   @IsOptional()
@@ -9,8 +11,11 @@ export class UpdateProfileDto {
   username?: string;
 
   @IsOptional()
+  @Transform(({ value }) => normalizeDisplayName(value))
   @IsString()
-  @MaxLength(40)
+  @MinLength(DISPLAY_NAME_MIN)
+  @MaxLength(DISPLAY_NAME_MAX)
+  @Matches(DISPLAY_NAME_PATTERN, { message: "displayName may only contain letters, numbers, spaces, and . _ ' -" })
   displayName?: string;
 
   @IsOptional()

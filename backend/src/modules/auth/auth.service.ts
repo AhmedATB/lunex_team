@@ -8,7 +8,7 @@ import { getDummyHash, hashPassword, verifyPassword } from "./crypto/password.ut
 import type { RequestContext } from "../../common/middleware/request-context.middleware";
 import { NotificationsService } from "../notifications/notifications.service";
 import { activeMutedUntil, isEffectivelyBanned } from "../moderation/moderation.util";
-import { isReservedUsername, USERNAME_PATTERN } from "../users/username.util";
+import { isReservedDisplayName, isReservedUsername, USERNAME_PATTERN } from "../users/username.util";
 
 const ACCESS_TOKEN_TTL = "10m";
 const REFRESH_TOKEN_TTL_MS = 7 * 24 * 60 * 60 * 1000; // 7 days
@@ -74,7 +74,12 @@ export class AuthService {
     return exact || lookalike ? { available: false, reason: "taken" } : { available: true };
   }
 
-  async register(email: string, password: string, username: string, ctx: RequestContext): Promise<AuthResponse> {
+  async register(email: string, password: string, username: string, displayName: string | undefined, ctx: RequestContext): Promise<AuthResponse> {
+    // Said plainly (unlike a taken name): nothing here reveals another account, and the person needs to know to pick another.
+    if (displayName && isReservedDisplayName(displayName)) {
+      throw new ConflictException({ code: "display_name_reserved", message: "This display name is not available." });
+    }
+
     const [existingEmail, availability] = await Promise.all([this.repo.findUserByEmail(email), this.usernameAvailability(username)]);
     if (existingEmail || !availability.available) {
       // Generic message either way — do not reveal WHICH field collided via
@@ -86,7 +91,7 @@ export class AuthService {
     const passwordHash = await hashPassword(password);
     let user: PrismaUser;
     try {
-      user = await this.repo.createUser(email, username, passwordHash);
+      user = await this.repo.createUser(email, username, passwordHash, displayName);
     } catch (err) {
       // Two sign-ups for the same name (or look-alike) at once: the unique index lets one through.
       if (err instanceof Prisma.PrismaClientKnownRequestError && err.code === "P2002") {

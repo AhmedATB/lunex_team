@@ -3,7 +3,7 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { AlertCircle, ArrowLeft, ArrowRight, Check, Eye, EyeOff, Loader2, Lock, Mail, Stamp, User } from "lucide-react";
+import { AlertCircle, ArrowLeft, ArrowRight, AtSign, Check, Eye, EyeOff, Loader2, Lock, Mail, Stamp, User } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Button } from "@/components/ui/button";
@@ -13,6 +13,7 @@ import { useSession } from "@/store/session";
 import { useRealUsers, synthesizeProfile } from "@/store/real-users";
 import { mergeRealUsers } from "@/lib/mock/generate";
 import { getDeviceFingerprint } from "@/lib/device-fingerprint";
+import { cleanDisplayName, displayNameProblem } from "@/lib/display-name";
 import { fetchAndSolvePow } from "@/lib/pow-client";
 import { nextPathFrom } from "@/lib/safe-next";
 import { cn } from "@/lib/utils";
@@ -20,7 +21,7 @@ import { cn } from "@/lib/utils";
 type Step = 1 | 2 | 3;
 
 const STEPS: { id: Step; label: string }[] = [
-  { id: 1, label: "الاسم" },
+  { id: 1, label: "الاسمان" },
   { id: 2, label: "المفتاح" },
   { id: 3, label: "الختم" },
 ];
@@ -118,19 +119,19 @@ export default function RegisterPage() {
   const router = useRouter();
   const setUser = useSession((s) => s.setUser);
   const [step, setStep] = useState<Step>(1);
-  const [form, setForm] = useState({ username: "", email: "", password: "" });
+  const [form, setForm] = useState({ displayName: "", username: "", email: "", password: "" });
   const [showPassword, setShowPassword] = useState(false);
   const [agree, setAgree] = useState(false);
   const [loading, setLoading] = useState(false);
   const [sealed, setSealed] = useState(false);
   const [error, setError] = useState("");
 
-  const usernameRef = useRef<HTMLInputElement>(null);
+  const displayNameRef = useRef<HTMLInputElement>(null);
   const emailRef = useRef<HTMLInputElement>(null);
   const agreeRef = useRef<HTMLButtonElement>(null);
   const mounted = useRef(false);
 
-  useReaderPass({ username: form.username, stage: sealed ? "sealed" : loading ? "minting" : "draft" });
+  useReaderPass({ username: form.username, displayName: cleanDisplayName(form.displayName), stage: sealed ? "sealed" : loading ? "minting" : "draft" });
 
   useEffect(() => {
     const params = new URLSearchParams(window.location.search);
@@ -144,9 +145,11 @@ export default function RegisterPage() {
       mounted.current = true;
       return;
     }
-    (step === 1 ? usernameRef : step === 2 ? emailRef : agreeRef).current?.focus();
+    (step === 1 ? displayNameRef : step === 2 ? emailRef : agreeRef).current?.focus();
   }, [step]);
 
+  const shownNameProblem = displayNameProblem(form.displayName);
+  const shownNameValid = cleanDisplayName(form.displayName).length >= 2 && !shownNameProblem;
   const nameProblem = usernameProblem(form.username);
   const nameValid = form.username.length >= 3 && !nameProblem;
 
@@ -175,7 +178,7 @@ export default function RegisterPage() {
   const emailValid = EMAIL_PATTERN.test(form.email);
   const score = useMemo(() => passwordScore(form.password), [form.password]);
   const passwordValid = form.password.length >= 12;
-  const stepValid = step === 1 ? nameValid && !nameBlocked : step === 2 ? emailValid && passwordValid : agree;
+  const stepValid = step === 1 ? shownNameValid && nameValid && !nameBlocked : step === 2 ? emailValid && passwordValid : agree;
 
   function goTo(target: Step) {
     setError("");
@@ -194,11 +197,16 @@ export default function RegisterPage() {
           "x-device-fingerprint": getDeviceFingerprint(),
           "x-pow-solution": powSolution,
         },
-        body: JSON.stringify({ email: form.email, username: form.username, password: form.password }),
+        body: JSON.stringify({ email: form.email, username: form.username, displayName: cleanDisplayName(form.displayName), password: form.password }),
       });
       const body = await res.json();
       if (!res.ok) {
         const message: string = body?.message ?? "تعذر إنشاء الحساب.";
+        if (body?.code === "display_name_reserved") {
+          setStep(1);
+          setError("هذا الاسم الظاهر محجوز للفريق، اختر اسماً آخر.");
+          return;
+        }
         if (body?.code === "registration_failed") {
           // The server does not say which of the two clashed. The name can be asked about; if it is fine, the email is the one.
           const again = await checkUsername(form.username);
@@ -238,6 +246,7 @@ export default function RegisterPage() {
     if (loading || sealed) return;
     setError("");
     if (step === 1) {
+      if (!shownNameValid) return setError(shownNameProblem ?? "اكتب الاسم الذي يراه القرّاء (حرفان على الأقل).");
       if (!nameValid) return setError(nameProblem ?? "اكتب اسم مستخدم من ٣ أحرف على الأقل.");
       return goTo(2);
     }
@@ -269,15 +278,43 @@ export default function RegisterPage() {
             <>
               <div>
                 <h2 className="font-display text-lg font-bold text-white">بماذا نناديك؟</h2>
-                <p className="text-xs text-lunex-gray">هذا اسمك في التعليقات وعلى ملفك الشخصي. راقب بطاقتك وهي تتشكّل.</p>
+                <p className="text-xs text-lunex-gray">اسمك الظاهر يراه القرّاء في التعليقات وعلى ملفك، واسم المستخدم هو معرّفك الفريد. راقب بطاقتك وهي تتشكّل.</p>
+              </div>
+              <div className="space-y-1.5">
+                <Label htmlFor="displayName">الاسم الظاهر</Label>
+                <div className="relative">
+                  <User className="pointer-events-none absolute start-3 top-1/2 h-4 w-4 -translate-y-1/2 text-lunex-gray" />
+                  <Input
+                    id="displayName"
+                    ref={displayNameRef}
+                    dir="auto"
+                    value={form.displayName}
+                    onChange={(e) => setForm((f) => ({ ...f, displayName: e.target.value.replace(/^\s+/, "").replace(/\s{2,}/g, " ") }))}
+                    placeholder="مثال: قيس أحمد"
+                    autoComplete="nickname"
+                    maxLength={40}
+                    aria-invalid={Boolean(shownNameProblem)}
+                    aria-describedby="display-name-note"
+                    disabled={busy}
+                    className="h-12 ps-9 text-start text-base"
+                  />
+                </div>
+                {shownNameProblem ? (
+                  <FieldMessage id="display-name-note" tone="error">
+                    {shownNameProblem}
+                  </FieldMessage>
+                ) : (
+                  <FieldMessage id="display-name-note" tone="hint">
+                    بأي لغة، ويمكنك تغييره لاحقاً. لا يُشترط أن يكون فريداً.
+                  </FieldMessage>
+                )}
               </div>
               <div className="space-y-1.5">
                 <Label htmlFor="username">اسم المستخدم</Label>
                 <div className="relative">
-                  <User className="pointer-events-none absolute start-3 top-1/2 h-4 w-4 -translate-y-1/2 text-lunex-gray" />
+                  <AtSign className="pointer-events-none absolute start-3 top-1/2 h-4 w-4 -translate-y-1/2 text-lunex-gray" />
                   <Input
                     id="username"
-                    ref={usernameRef}
                     dir="ltr"
                     value={form.username}
                     onChange={(e) => setForm((f) => ({ ...f, username: e.target.value.trim() }))}
@@ -332,7 +369,7 @@ export default function RegisterPage() {
                   </FieldMessage>
                 ) : (
                   <FieldMessage id="username-note" tone="hint">
-                    ٣–٢٤ حرفاً: إنجليزية وأرقام و _
+                    ٣–٢٤ حرفاً: إنجليزية وأرقام و _ — يظهر في رابط ملفك ولا يتكرر.
                   </FieldMessage>
                 )}
               </div>
@@ -423,13 +460,14 @@ export default function RegisterPage() {
               </div>
               <dl className="divide-y divide-white/10 rounded-2xl border border-white/10 bg-black/20 text-sm">
                 {[
-                  { label: "الاسم", value: form.username, back: 1 as Step },
-                  { label: "البريد", value: form.email, back: 2 as Step },
+                  { label: "الاسم الظاهر", value: cleanDisplayName(form.displayName), dir: "auto" as const, back: 1 as Step },
+                  { label: "اسم المستخدم", value: `@${form.username}`, dir: "ltr" as const, back: 1 as Step },
+                  { label: "البريد", value: form.email, dir: "ltr" as const, back: 2 as Step },
                 ].map((row) => (
                   <div key={row.label} className="flex items-center justify-between gap-3 px-4 py-3">
-                    <dt className="text-lunex-gray">{row.label}</dt>
+                    <dt className="shrink-0 text-lunex-gray">{row.label}</dt>
                     <dd className="flex min-w-0 items-center gap-3">
-                      <span dir="ltr" className="truncate font-semibold text-white">
+                      <span dir={row.dir} className="truncate font-semibold text-white">
                         {row.value}
                       </span>
                       <button type="button" onClick={() => goTo(row.back)} disabled={busy} className="shrink-0 text-xs font-bold text-primary-300 hover:text-primary-200 focus-visible:outline-none focus-visible:underline">

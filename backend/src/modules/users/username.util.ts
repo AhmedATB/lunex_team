@@ -54,3 +54,41 @@ export function isReservedUsername(username: string): boolean {
   const key = usernameKey(username);
   return RESERVED.has(key) || RESERVED_PREFIXES.some((prefix) => key.startsWith(prefix));
 }
+
+/**
+ * The display name is what people actually see next to a comment, so it needs the same protection as the handle:
+ * without it, `@kaito_92` could show up as "LUNEX Admin". Letters (any script), marks, digits, spaces and . _ ' -
+ * only — no control, zero-width or right-to-left-override characters, which are how a name is made to look like another.
+ */
+export const DISPLAY_NAME_PATTERN = /^(?=.*[\p{L}\p{N}])[\p{L}\p{M}\p{N} ._'-]+$/u;
+export const DISPLAY_NAME_MIN = 2;
+export const DISPLAY_NAME_MAX = 40;
+
+/** Trimmed, with runs of whitespace collapsed to one space; anything that is not a string is returned as it came, for the validators to refuse. */
+export function normalizeDisplayName<T>(value: T): T | string {
+  return typeof value === "string" ? value.trim().replace(/\s+/g, " ") : value;
+}
+
+/** Arabic spellings of the same staff titles, compared after the usual normalisation (hamza forms, ta marbuta, diacritics). */
+function foldArabic(text: string): string {
+  return text
+    .replace(/[ً-ٰٟـ]/g, "")
+    .replace(/[أإآ]/g, "ا")
+    .replace(/ى/g, "ي")
+    .replace(/ة/g, "ه");
+}
+
+const ARABIC_RESERVED = new Set(["ادارة", "الادارة", "مشرف", "المشرف", "مدير", "المدير", "الدعم", "دعم"].map(foldArabic));
+const ARABIC_RESERVED_PREFIXES = ["لونكس"].map(foldArabic);
+
+/**
+ * Would this display name pass for the team or its staff? Spaces and punctuation are ignored and the same look-alikes
+ * as usernames are folded, so `L U N E X`, `Lunex.Team` and `Adm1n` are all caught. Two people may share an ordinary
+ * display name — only these are held back.
+ */
+export function isReservedDisplayName(displayName: string): boolean {
+  const letters = displayName.replace(/[^\p{L}\p{M}\p{N}]/gu, "");
+  if (isReservedUsername(letters)) return true;
+  const arabic = foldArabic(letters);
+  return ARABIC_RESERVED.has(arabic) || ARABIC_RESERVED_PREFIXES.some((prefix) => arabic.startsWith(prefix));
+}

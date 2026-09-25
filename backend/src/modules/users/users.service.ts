@@ -13,7 +13,7 @@ import { ModerationService } from "../moderation/moderation.service";
 import { activeMutedUntil, isEffectivelyBanned } from "../moderation/moderation.util";
 import { NotificationsService } from "../notifications/notifications.service";
 import { UsersRepository } from "./users.repository";
-import { isReservedUsername } from "./username.util";
+import { isReservedDisplayName, isReservedUsername } from "./username.util";
 import type { DeleteAccountDto } from "./dto/delete-account.dto";
 import type { UpdateProfileDto } from "./dto/update-profile.dto";
 
@@ -127,10 +127,13 @@ export class UsersService {
   /** Self-service — a user editing their own username/displayName/bio. Username uniqueness is pre-checked (matches AuthService.register's approach) rather than caught as a DB constraint error. */
   async updateProfile(userId: string, dto: UpdateProfileDto, ctx: RequestContext) {
     // Only a name that actually changes is checked, so saving other fields never trips over an account's existing name.
-    const current = dto.username ? await this.repo.findById(userId) : null;
+    const current = dto.username || dto.displayName ? await this.repo.findById(userId) : null;
+    // Reserved names are how the team holds its own handles; the people who run the site may take them.
+    const mayTakeReserved = current !== null && ROLE_MANAGER_ROLES.has(current.role);
+    if (dto.displayName && dto.displayName !== current?.displayName && !mayTakeReserved && isReservedDisplayName(dto.displayName)) {
+      throw new ConflictException({ code: "display_name_reserved", message: "This display name is not available." });
+    }
     if (dto.username && dto.username !== current?.username) {
-      // Reserved names are how the team holds its own handles; the people who run the site may take them.
-      const mayTakeReserved = current !== null && ROLE_MANAGER_ROLES.has(current.role);
       if (!mayTakeReserved && isReservedUsername(dto.username)) {
         throw new ConflictException({ code: "username_reserved", message: "This username is not available." });
       }

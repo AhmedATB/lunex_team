@@ -86,8 +86,9 @@ const SPARKLE = "0,-9 2.2,-2.2 9,0 2.2,2.2 0,9 -2.2,2.2 -9,0 -2.2,-2.2";
  * The reader's pass: the sign-up form mints it as the person types. It follows the theme through the
  * primary colour tokens, and everything on it is drawn here (no image is fetched).
  */
-export function ReaderPass({ username, stage = "draft", className }: { username: string; stage?: PassStage; className?: string }) {
+export function ReaderPass({ username, displayName = "", stage = "draft", className }: { username: string; displayName?: string; stage?: PassStage; className?: string }) {
   const name = username.trim();
+  const shown = displayName.trim();
   const number = memberNumber(name);
 
   return (
@@ -98,7 +99,7 @@ export function ReaderPass({ username, stage = "draft", className }: { username:
         className
       )}
       role="img"
-      aria-label={name ? `بطاقة القارئ باسم ${name}، رقم العضوية ${number}` : "بطاقة القارئ، لم يُكتب الاسم بعد"}
+      aria-label={shown || name ? `بطاقة القارئ باسم ${shown || name}${name ? ` (@${name})` : ""}، رقم العضوية ${number}` : "بطاقة القارئ، لم يُكتب الاسم بعد"}
     >
       {/* shade the lower half so the text stays readable on every theme */}
       <div className="absolute inset-0 bg-[linear-gradient(180deg,transparent_25%,rgb(0_0_0/0.5)_100%)]" />
@@ -128,8 +129,11 @@ export function ReaderPass({ username, stage = "draft", className }: { username:
           </span>
           <div className="min-w-0">
             <p className="text-[0.65rem] text-white/75">الاسم</p>
-            <p dir="ltr" className={cn("truncate text-start font-display text-xl font-bold leading-tight sm:text-2xl", !name && "text-white/45")}>
-              {name || "username"}
+            <p dir="auto" className={cn("truncate text-start font-display text-xl font-bold leading-tight sm:text-2xl", !shown && "text-white/45")}>
+              {shown || "اسمك الظاهر"}
+            </p>
+            <p dir="ltr" className={cn("truncate text-start text-[0.7rem] font-semibold", name ? "text-white/80" : "text-white/45")}>
+              @{name || "username"}
             </p>
           </div>
         </div>

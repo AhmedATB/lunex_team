@@ -27,7 +27,7 @@ export class AuthController {
   @HttpCode(HttpStatus.CREATED)
   @Throttle({ default: { limit: 5, ttl: 60_000 } }) // 5 registrations/min/IP — slows bulk fake-account creation
   register(@Body() dto: RegisterDto, @Req() req: Request) {
-    return this.auth.register(dto.email, dto.password, dto.username, req.context);
+    return this.auth.register(dto.email, dto.password, dto.username, dto.displayName, req.context);
   }
 
   /**

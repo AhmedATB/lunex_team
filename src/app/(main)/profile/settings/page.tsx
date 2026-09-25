@@ -9,6 +9,7 @@ import { useRealUsers, synthesizeProfile } from "@/store/real-users";
 import { useProfile, effectiveAvatarSeed } from "@/store/profile";
 import { usePreferences } from "@/store/preferences";
 import { mergeRealUsers } from "@/lib/mock/generate";
+import { cleanDisplayName, displayNameProblem } from "@/lib/display-name";
 import { AVATAR_PRESET_SEEDS } from "@/lib/avatar-presets";
 import { avatarUrl, resolveAvatarUrl, cn } from "@/lib/utils";
 import type { BackendPublicUser } from "@/lib/auth-types";
@@ -107,6 +108,11 @@ function ProfileInfoCard({
       setError("يرجى إدخال اسم عرض.");
       return;
     }
+    const nameProblem = displayNameProblem(displayName);
+    if (nameProblem) {
+      setError(`اسم العرض: ${nameProblem}`);
+      return;
+    }
     if (!usernameValid) {
       setError("اسم المستخدم يجب أن يكون بين 3 و24 حرفاً، ويتكون من أحرف إنجليزية وأرقام و _ فقط.");
       return;
@@ -116,11 +122,11 @@ function ProfileInfoCard({
       const res = await fetch("/api/users/me", {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ username, displayName: displayName.trim(), bio: bio.trim() }),
+        body: JSON.stringify({ username, displayName: cleanDisplayName(displayName), bio: bio.trim() }),
       });
       const body = await res.json();
       if (!res.ok) {
-        setError(body?.message ?? "تعذر حفظ التغييرات.");
+        setError(body?.code === "display_name_reserved" ? "اسم العرض هذا محجوز للفريق، اختر اسماً آخر." : (body?.message ?? "تعذر حفظ التغييرات."));
         return;
       }
       applyUpdatedUser(body);

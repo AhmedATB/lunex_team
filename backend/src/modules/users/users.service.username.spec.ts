@@ -46,3 +46,23 @@ describe("renaming to a reserved name", () => {
     await expect(service.updateProfile("u1", { username: "Taken_One" }, CTX)).rejects.toMatchObject({ response: { code: "username_taken" } });
   });
 });
+
+describe("changing the display name to one that would pass for the team", () => {
+  it("is refused for an ordinary account", async () => {
+    const { service, repo } = build({ id: "u1", username: "reader_one", role: "reader" });
+    for (const name of ["LUNEX Admin", "Lunex Team", "الإدارة"]) {
+      await expect(service.updateProfile("u1", { displayName: name }, CTX)).rejects.toMatchObject({ response: { code: "display_name_reserved" } });
+    }
+    expect(repo.updateProfile).not.toHaveBeenCalled();
+  });
+
+  it("is allowed for the owner, and an ordinary name is fine for anyone", async () => {
+    const owner = build({ id: "u1", username: "boss", role: "owner" });
+    await owner.service.updateProfile("u1", { displayName: "LUNEX Team" }, CTX);
+    expect(owner.repo.updateProfile).toHaveBeenCalledWith("u1", expect.objectContaining({ displayName: "LUNEX Team" }));
+
+    const reader = build({ id: "u2", username: "reader_two", role: "reader" });
+    await reader.service.updateProfile("u2", { displayName: "قيس أحمد" }, CTX);
+    expect(reader.repo.updateProfile).toHaveBeenCalledWith("u2", expect.objectContaining({ displayName: "قيس أحمد" }));
+  });
+});

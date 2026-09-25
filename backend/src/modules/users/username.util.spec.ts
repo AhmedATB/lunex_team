@@ -1,4 +1,4 @@
-import { isReservedUsername, USERNAME_PATTERN, usernameKey } from "./username.util";
+import { DISPLAY_NAME_PATTERN, isReservedDisplayName, isReservedUsername, normalizeDisplayName, USERNAME_PATTERN, usernameKey } from "./username.util";
 
 describe("usernameKey", () => {
   it("ignores case and underscores", () => {
@@ -39,6 +39,38 @@ describe("isReservedUsername", () => {
   it("lets ordinary names through, including ones that merely contain a reserved word", () => {
     for (const name of ["qays_reader", "admin_fan", "mod_hunter", "teamwork", "the_lunex", "ahmed", "ahmad_atb1", "atb_ahmed"]) {
       expect(isReservedUsername(name)).toBe(false);
+    }
+  });
+});
+
+describe("display names", () => {
+  it("are normalised: trimmed, with runs of whitespace collapsed", () => {
+    expect(normalizeDisplayName("  Qays   Ahmed  ")).toBe("Qays Ahmed");
+    expect(normalizeDisplayName("قيس\t أحمد")).toBe("قيس أحمد");
+    expect(normalizeDisplayName(42)).toBe(42); // not a string: left for the validators to refuse
+  });
+
+  it("allow any script, digits, spaces and . _ ' -", () => {
+    for (const name of ["Qays", "قيس أحمد", "Kaito_92", "Anne-Marie O'Neil", "Dr. Who", "田中 太郎", "Sara 2"]) {
+      expect(DISPLAY_NAME_PATTERN.test(name)).toBe(true);
+    }
+  });
+
+  it("refuse markup, control, zero-width and direction-override characters", () => {
+    for (const name of ["<b>hi</b>", "a​b", "evil‮txt", "a\nb", "😀 fun", "name@site", "a/b", "...", "- -"]) {
+      expect(DISPLAY_NAME_PATTERN.test(name)).toBe(false);
+    }
+  });
+
+  it("are held back when they would pass for the team, however they are spaced or spelled", () => {
+    for (const name of ["Admin", "L U N E X", "Lunex.Team", "LUNEX Admin", "Adm1n", "Ahmed ATB", "Support", "لونكس", "لونكس تيم", "الإدارة", "المشرف", "مدير"]) {
+      expect(isReservedDisplayName(name)).toBe(true);
+    }
+  });
+
+  it("let ordinary names through, and two people may share one", () => {
+    for (const name of ["Qays", "قيس أحمد", "Kaito", "Sara", "Mod Hunter", "The Lunex fan", "Ahmed", "ادارة الوقت"]) {
+      expect(isReservedDisplayName(name)).toBe(false);
     }
   });
 });

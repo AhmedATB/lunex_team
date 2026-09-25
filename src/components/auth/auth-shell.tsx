@@ -10,6 +10,7 @@ import { ReaderPass, type PassStage } from "@/components/auth/reader-pass";
 
 interface PassState {
   username: string;
+  displayName?: string;
   stage: PassStage;
 }
 
@@ -19,10 +20,11 @@ const PassContext = createContext<(state: PassState | null) => void>(() => {});
 export function useReaderPass(state: PassState | null) {
   const setPass = useContext(PassContext);
   const username = state?.username;
+  const displayName = state?.displayName;
   const stage = state?.stage;
   useEffect(() => {
-    setPass(username === undefined || stage === undefined ? null : { username, stage });
-  }, [setPass, username, stage]);
+    setPass(username === undefined || stage === undefined ? null : { username, displayName, stage });
+  }, [setPass, username, displayName, stage]);
   useEffect(() => () => setPass(null), [setPass]);
 }
 
@@ -83,7 +85,7 @@ export function AuthShell({ children }: { children: ReactNode }) {
 
             {pass && (
               <div className="mx-auto w-full max-w-[320px] lg:hidden">
-                <ReaderPass username={pass.username} stage={pass.stage} />
+                <ReaderPass username={pass.username} displayName={pass.displayName} stage={pass.stage} />
               </div>
             )}
 
@@ -100,7 +102,7 @@ export function AuthShell({ children }: { children: ReactNode }) {
               {pass && (
                 <div ref={tiltRef} className="w-full max-w-[400px] transition-transform duration-200 ease-out will-change-transform">
                   <div className="animate-bob">
-                    <ReaderPass username={pass.username} stage={pass.stage} />
+                    <ReaderPass username={pass.username} displayName={pass.displayName} stage={pass.stage} />
                   </div>
                 </div>
               )}
