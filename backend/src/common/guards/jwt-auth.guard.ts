@@ -26,10 +26,22 @@ export class JwtAuthGuard implements CanActivate {
       context.getHandler(),
       context.getClass(),
     ]);
-    if (isPublic) return true;
-
     const request = context.switchToHttp().getRequest<Request>();
     const token = this.extractToken(request);
+
+    if (isPublic) {
+      // Public routes stay open to everyone, but a valid token still says WHO is asking, so a route can tailor its answer
+      // (a profile's "members only" sections). A missing, expired or forged token just means anonymous, never an error.
+      if (token) {
+        try {
+          request.user = await this.jwt.verifyAsync<AccessTokenPayload>(token);
+        } catch {
+          // treated as anonymous
+        }
+      }
+      return true;
+    }
+
     if (!token) throw new UnauthorizedException({ code: "missing_token", message: "Authentication required." });
 
     try {

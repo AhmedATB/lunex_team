@@ -218,15 +218,18 @@ export class UsersService {
     if (!data.user) {
       throw new NotFoundException({ code: "user_not_found", message: "Account no longer exists." });
     }
-    const { avatarMimeType, ...account } = data.user;
+    const { avatarMimeType, profileVisibility, historyVisibility, favoritesVisibility, ...account } = data.user;
     return {
       exportedAt: new Date().toISOString(),
       account: { ...account, hasCustomAvatar: avatarMimeType !== null },
+      privacy: { profileVisibility, historyVisibility, favoritesVisibility },
       linkedAccounts: data.oauthAccounts,
       devices: data.devices,
       sessions: data.sessions,
       loginHistory: data.loginEvents,
       unlockedChapters: data.chapterUnlocks,
+      favorites: data.bookmarks,
+      readingHistory: data.readingProgress,
       notifications: data.notifications,
       chapterAccessLog: data.imageAccess,
       accountActivity: data.activity,
@@ -252,6 +255,9 @@ export class UsersService {
     avatarImage: Buffer | Uint8Array | null;
     isBanned: boolean;
     passwordHash: string | null;
+    profileVisibility: string;
+    historyVisibility: string;
+    favoritesVisibility: string;
   }) {
     return {
       id: user.id,
@@ -264,6 +270,9 @@ export class UsersService {
       avatarVersion: user.avatarImage ? user.updatedAt.toISOString() : null,
       isBanned: user.isBanned,
       hasPassword: user.passwordHash !== null,
+      profileVisibility: user.profileVisibility,
+      historyVisibility: user.historyVisibility,
+      favoritesVisibility: user.favoritesVisibility,
     };
   }
 }

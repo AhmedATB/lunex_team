@@ -2,6 +2,7 @@
 
 import { useMemo, useState } from "react";
 import Image from "next/image";
+import Link from "next/link";
 import { ThumbsUp, ThumbsDown, Pin, PinOff, Send, Pencil, Trash2, EyeOff, AlertTriangle, Check, X, Flag } from "lucide-react";
 import type { Comment, User } from "@/lib/types";
 import { Button } from "@/components/ui/button";
@@ -153,12 +154,18 @@ export function CommentSection({
 
           return (
             <div key={c.id} className="panel panel-hover flex gap-3 p-4">
-              <div className="relative h-9 w-9 shrink-0 overflow-hidden rounded-full ring-2 ring-white/10">
+              <Link
+                href={`/profile/${encodeURIComponent(user.username)}`}
+                className="relative h-9 w-9 shrink-0 overflow-hidden rounded-full ring-2 ring-white/10 transition-shadow hover:ring-primary-400/60"
+                aria-label={`الملف الشخصي لـ ${user.displayName}`}
+              >
                 <Image src={avatarSrcFor(user, avatarOverrides)} alt={user.displayName} fill sizes="36px" className="object-cover" />
-              </div>
+              </Link>
               <div className="min-w-0 flex-1">
                 <div className="flex items-center gap-2">
-                  <p className="text-sm font-semibold text-white">{user.displayName}</p>
+                  <Link href={`/profile/${encodeURIComponent(user.username)}`} className="text-sm font-semibold text-white hover:text-primary-300">
+                    {user.displayName}
+                  </Link>
                   {c.isPinned && (
                     <Badge variant="outline" className="flex items-center gap-1 text-[10px]">
                       <Pin className="h-2.5 w-2.5" /> مثبّت

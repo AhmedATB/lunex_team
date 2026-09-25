@@ -85,6 +85,9 @@ describe("UsersService.exportData", () => {
       createdAt: new Date("2026-01-01T00:00:00Z"),
       updatedAt: new Date("2026-02-01T00:00:00Z"),
       avatarMimeType: "image/webp",
+      profileVisibility: "public",
+      historyVisibility: "private",
+      favoritesVisibility: "private",
     },
     oauthAccounts: [{ provider: "discord", providerAccountId: "123", createdAt: new Date("2026-01-02T00:00:00Z") }],
     devices: [],
@@ -94,6 +97,8 @@ describe("UsersService.exportData", () => {
     notifications: [],
     imageAccess: [],
     activity: [],
+    bookmarks: [],
+    readingProgress: [],
   };
 
   it("returns the caller's data with a hasCustomAvatar flag instead of the mime type", async () => {

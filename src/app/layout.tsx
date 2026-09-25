@@ -6,6 +6,7 @@ import { NavigationProgress } from "@/components/navigation-progress";
 import { CookieConsent } from "@/components/consent/cookie-consent";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { StoreHydration } from "@/components/store-hydration";
+import { LibrarySync } from "@/components/library-sync";
 import { ThemeApplier } from "@/components/theme-applier";
 import { getServerSession } from "@/lib/server-session";
 import { getInitialStyle } from "@/lib/theme-cookie";
@@ -72,6 +73,7 @@ export default async function RootLayout({ children }: { children: React.ReactNo
     >
       <body className="font-sans">
         <StoreHydration initialUser={initialUser} />
+        <LibrarySync userId={initialUser?.id ?? null} />
         <ThemeApplier />
         <Suspense fallback={null}>
           <NavigationProgress />

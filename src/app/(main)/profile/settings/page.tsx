@@ -20,6 +20,7 @@ import { Button } from "@/components/ui/button";
 import { Switch } from "@/components/ui/switch";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { DataControlsCard } from "@/components/account/data-controls-card";
+import { PrivacyCard } from "@/components/account/privacy-card";
 
 function FieldMessage({ kind, text }: { kind: "error" | "success"; text: string }) {
   return (
@@ -65,6 +66,7 @@ export default function AccountSettingsPage() {
       <ProfileInfoCard sessionUser={sessionUser} onUpdated={setSessionUser} />
       <PasswordCard />
       <PreferencesCard />
+      <PrivacyCard user={sessionUser} />
       <DataControlsCard user={sessionUser} />
     </div>
   );

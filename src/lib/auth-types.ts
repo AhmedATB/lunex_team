@@ -1,3 +1,5 @@
+import type { ProfileVisibility } from "@/lib/profile-types";
+
 /** Mirrors backend/src/modules/auth/auth.service.ts's PublicUser — kept manually in sync since the two apps don't share a types package (yet; see the infra doc's monorepo/packages/contracts note for the long-term fix). */
 export interface BackendPublicUser {
   id: string;
@@ -12,6 +14,10 @@ export interface BackendPublicUser {
   isBanned: boolean;
   /** false for a Discord/Google-only account (no password to type). */
   hasPassword: boolean;
+  /** Who may open each part of the profile — see lib/profile-types. */
+  profileVisibility: ProfileVisibility;
+  historyVisibility: ProfileVisibility;
+  favoritesVisibility: ProfileVisibility;
 }
 
 export interface BackendAuthResponse {

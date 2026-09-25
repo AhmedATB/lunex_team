@@ -39,12 +39,23 @@ model User {
   createdAt    DateTime @default(now())
   updatedAt    DateTime @updatedAt
 
-  sessions       Session[]
-  devices        Device[]
-  loginEvents    LoginEvent[]
-  oauthAccounts  OAuthAccount[]
-  notifications  Notification[]
-  chapterUnlocks ChapterUnlock[]
+  /// Who may open each part of this profile: "public" (anyone), "members"
+  /// (any signed-in account) or "private" (only the owner and staff). The page
+  /// itself defaults to public — a name and picture are already visible
+  /// wherever the account comments — while the lists default to private until
+  /// the owner opts in. Validated against PROFILE_VISIBILITY in the API layer.
+  profileVisibility   String @default("public")
+  historyVisibility   String @default("private")
+  favoritesVisibility String @default("private")
+
+  sessions        Session[]
+  devices         Device[]
+  loginEvents     LoginEvent[]
+  oauthAccounts   OAuthAccount[]
+  notifications   Notification[]
+  chapterUnlocks  ChapterUnlock[]
+  bookmarks       Bookmark[]
+  readingProgress ReadingProgress[]
 
   @@map("users")
 }
@@ -276,4 +287,35 @@ model Notification {
   @@index([userId, read])
   @@index([userId, createdAt])
   @@map("notifications")
+}
+
+/// A saved ("favorite") series. `seriesId` is a plain string, NOT a foreign key
+/// — the same convention as Chapter.seriesId, since Series is still
+/// frontend-mock data (architecture doc §4).
+model Bookmark {
+  id        String   @id @default(uuid())
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  seriesId  String
+  createdAt DateTime @default(now())
+
+  @@unique([userId, seriesId])
+  @@index([userId, createdAt])
+  @@map("bookmarks")
+}
+
+/// Furthest chapter read per series — the account's "reading history". Like the
+/// client-side store it replaces, `chapterNumber` only ever advances; `lastReadAt`
+/// moves on every read so the history can be listed most-recent-first.
+model ReadingProgress {
+  id            String   @id @default(uuid())
+  userId        String
+  user          User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  seriesId      String
+  chapterNumber Float
+  lastReadAt    DateTime @default(now())
+
+  @@unique([userId, seriesId])
+  @@index([userId, lastReadAt])
+  @@map("reading_progress")
 }

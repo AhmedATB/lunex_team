@@ -29,6 +29,10 @@ export interface PublicUser {
   isBanned: boolean;
   /** false for a Discord/Google-only account — tells the UI which confirmation an irreversible action needs (password vs. retyping the username). The hash itself never leaves the server. */
   hasPassword: boolean;
+  /** Who may open each part of the profile: "public" | "members" | "private". */
+  profileVisibility: string;
+  historyVisibility: string;
+  favoritesVisibility: string;
 }
 
 export interface AuthResponse extends SessionTokens {
@@ -295,6 +299,9 @@ export class AuthService {
       avatarVersion: user.avatarImage ? user.updatedAt.toISOString() : null,
       isBanned: user.isBanned,
       hasPassword: user.passwordHash !== null,
+      profileVisibility: user.profileVisibility,
+      historyVisibility: user.historyVisibility,
+      favoritesVisibility: user.favoritesVisibility,
     };
   }
 }

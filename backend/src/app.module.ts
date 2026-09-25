@@ -14,6 +14,7 @@ import { ChaptersModule } from "./modules/chapters/chapters.module";
 import { ImagesModule } from "./modules/images/images.module";
 import { NotificationsModule } from "./modules/notifications/notifications.module";
 import { OAuthModule } from "./modules/oauth/oauth.module";
+import { ProfilesModule } from "./modules/profiles/profiles.module";
 import { RetentionModule } from "./modules/retention/retention.module";
 import { UsersModule } from "./modules/users/users.module";
 import { PrismaModule } from "./prisma/prisma.module";
@@ -34,6 +35,7 @@ import { PrismaModule } from "./prisma/prisma.module";
     ImagesModule,
     NotificationsModule,
     OAuthModule,
+    ProfilesModule,
     RetentionModule,
     UsersModule,
   ],

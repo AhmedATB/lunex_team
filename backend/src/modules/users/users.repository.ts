@@ -53,8 +53,19 @@ export class UsersRepository {
    * — an export is a copy for the person, not a dump of the whole table.
    */
   async collectExport(userId: string) {
-    const [user, oauthAccounts, devices, sessions, loginEvents, chapterUnlocks, notifications, imageAccess, activity] =
-      await Promise.all([
+    const [
+      user,
+      oauthAccounts,
+      devices,
+      sessions,
+      loginEvents,
+      chapterUnlocks,
+      notifications,
+      imageAccess,
+      activity,
+      bookmarks,
+      readingProgress,
+    ] = await Promise.all([
         this.prisma.user.findUnique({
           where: { id: userId },
           select: {
@@ -68,6 +79,9 @@ export class UsersRepository {
             createdAt: true,
             updatedAt: true,
             avatarMimeType: true,
+            profileVisibility: true,
+            historyVisibility: true,
+            favoritesVisibility: true,
           },
         }),
         this.prisma.oAuthAccount.findMany({
@@ -112,9 +126,31 @@ export class UsersRepository {
           take: EXPORT_LOG_LIMIT,
           select: { at: true, action: true, target: true, ip: true },
         }),
+        this.prisma.bookmark.findMany({
+          where: { userId },
+          orderBy: { createdAt: "desc" },
+          select: { seriesId: true, createdAt: true },
+        }),
+        this.prisma.readingProgress.findMany({
+          where: { userId },
+          orderBy: { lastReadAt: "desc" },
+          select: { seriesId: true, chapterNumber: true, lastReadAt: true },
+        }),
       ]);
 
-    return { user, oauthAccounts, devices, sessions, loginEvents, chapterUnlocks, notifications, imageAccess, activity };
+    return {
+      user,
+      oauthAccounts,
+      devices,
+      sessions,
+      loginEvents,
+      chapterUnlocks,
+      notifications,
+      imageAccess,
+      activity,
+      bookmarks,
+      readingProgress,
+    };
   }
 
   /**
