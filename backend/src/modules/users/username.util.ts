@@ -43,6 +43,14 @@ const RESERVED = new Set(
   ].map(usernameKey)
 );
 
+/**
+ * Held for the owner and the team. Any name that *starts with* one of these (in its folded form) is reserved, so
+ * `Lunex`, `LunexTeam`, `lunex_official`, `LUNEX_fan` and `AhmedATB`, `ahmed_atb2` are all refused to sign-ups.
+ * Add a name here to hold it; an owner or super administrator can still take one by renaming their own account.
+ */
+const RESERVED_PREFIXES = ["lunex", "ahmedatb"].map(usernameKey);
+
 export function isReservedUsername(username: string): boolean {
-  return RESERVED.has(usernameKey(username));
+  const key = usernameKey(username);
+  return RESERVED.has(key) || RESERVED_PREFIXES.some((prefix) => key.startsWith(prefix));
 }

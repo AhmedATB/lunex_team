@@ -55,7 +55,7 @@ describe("username availability", () => {
 
   it("refuses names that would pass for staff", async () => {
     const { service } = build();
-    for (const name of ["admin", "ADMIN", "adm1n", "Owner", "0wner", "lunex", "Lunex_Team", "support"]) {
+    for (const name of ["admin", "ADMIN", "adm1n", "Owner", "0wner", "lunex", "Lunex_Team", "LunexOfficial", "AhmedATB", "ahmed_atb", "support"]) {
       expect(await service.usernameAvailability(name)).toEqual({ available: false, reason: "reserved" });
     }
   });

@@ -129,7 +129,9 @@ export class UsersService {
     // Only a name that actually changes is checked, so saving other fields never trips over an account's existing name.
     const current = dto.username ? await this.repo.findById(userId) : null;
     if (dto.username && dto.username !== current?.username) {
-      if (isReservedUsername(dto.username)) {
+      // Reserved names are how the team holds its own handles; the people who run the site may take them.
+      const mayTakeReserved = current !== null && ROLE_MANAGER_ROLES.has(current.role);
+      if (!mayTakeReserved && isReservedUsername(dto.username)) {
         throw new ConflictException({ code: "username_reserved", message: "This username is not available." });
       }
       // A look-alike of the account's own name (a different case, say) is fine; anyone else's is not.

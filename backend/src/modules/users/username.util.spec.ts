@@ -30,8 +30,14 @@ describe("isReservedUsername", () => {
     }
   });
 
+  it("holds the team's own handles and everything that starts with them", () => {
+    for (const name of ["Lunex", "LunexTeam", "lunex_official", "Lunexteam", "LUNEXFAN", "AhmedATB", "ahmed_atb", "AhmedATB2", "AHMEDATB_official"]) {
+      expect(isReservedUsername(name)).toBe(true);
+    }
+  });
+
   it("lets ordinary names through, including ones that merely contain a reserved word", () => {
-    for (const name of ["qays_reader", "admin_fan", "lunexfan", "mod_hunter", "teamwork"]) {
+    for (const name of ["qays_reader", "admin_fan", "mod_hunter", "teamwork", "the_lunex", "ahmed", "ahmad_atb1", "atb_ahmed"]) {
       expect(isReservedUsername(name)).toBe(false);
     }
   });
