@@ -19,7 +19,7 @@ export default function ForgotPasswordPage() {
   }
 
   return (
-    <Card>
+    <Card className="rounded-3xl border-white/10 bg-card/70 shadow-glow-lg backdrop-blur-xl">
       <CardHeader className="text-center">
         <CardTitle>استعادة كلمة المرور</CardTitle>
         <CardDescription>

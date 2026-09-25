@@ -14,6 +14,7 @@ import { useRealUsers, synthesizeProfile } from "@/store/real-users";
 import { mergeRealUsers } from "@/lib/mock/generate";
 import { getDeviceFingerprint } from "@/lib/device-fingerprint";
 import { fetchAndSolvePow } from "@/lib/pow-client";
+import { nextPathFrom } from "@/lib/safe-next";
 
 /** The backend's messages are English; the ban one carries the end date of a temporary ban ("... until <ISO>."). */
 function loginErrorMessage(body: { code?: string; message?: string } | null): string {
@@ -68,9 +69,8 @@ export default function LoginPage() {
       setUser(body.user);
       useRealUsers.getState().upsertProfile(synthesizeProfile(body.user));
       mergeRealUsers(useRealUsers.getState().profiles);
-      // ?next=/series/... brings the reader back to the chapter they were trying to open; only a path on this site is accepted.
-      const next = new URLSearchParams(window.location.search).get("next");
-      router.push(next && next.startsWith("/") && !next.startsWith("//") ? next : "/profile");
+      // ?next=/series/... brings the reader back to the page they were trying to open; only a path on this site is accepted.
+      router.push(nextPathFrom(window.location.search) ?? "/profile");
       router.refresh();
     } catch {
       setError("تعذر الاتصال بالخادم، حاول مرة أخرى.");
@@ -80,7 +80,7 @@ export default function LoginPage() {
   }
 
   return (
-    <Card>
+    <Card className="rounded-3xl border-white/10 bg-card/70 shadow-glow-lg backdrop-blur-xl">
       <CardHeader className="text-center">
         <CardTitle>تسجيل الدخول</CardTitle>
         <CardDescription>أهلاً بعودتك إلى LUNEX TEAM</CardDescription>

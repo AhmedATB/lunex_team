@@ -291,6 +291,8 @@ export interface Series {
   updatedAt: string;
   isFeatured: boolean;
   isRecommended: boolean;
+  /** Set for series that come from the real catalogue; the built-in sample data has none. */
+  contentRating?: string;
 }
 
 export interface Comment {

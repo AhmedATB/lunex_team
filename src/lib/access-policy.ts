@@ -13,7 +13,10 @@ export const PUBLIC_PAGES = ["/login", "/register", "/forgot-password", "/terms"
 /** Files served as-is (logo, fonts, robots.txt, sitemap.xml ...). They carry no catalogue data. */
 const STATIC_FILE = /\.(?:png|jpe?g|webp|avif|gif|svg|ico|css|js|map|woff2?|ttf|txt|xml|webmanifest)$/i;
 
+/** Series covers are the shop window of the sign-in pages (see components/auth/cover-wall.tsx); they show nothing a visitor could read. */
+const COVER_IMAGE = /^\/api\/catalog\/series\/[^/]+\/cover$/;
+
 export function isPublicPath(pathname: string): boolean {
-  if (STATIC_FILE.test(pathname)) return true;
+  if (STATIC_FILE.test(pathname) || COVER_IMAGE.test(pathname)) return true;
   return PUBLIC_PAGES.some((page) => pathname === page || pathname.startsWith(`${page}/`));
 }

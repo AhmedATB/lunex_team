@@ -545,3 +545,42 @@
 .is-scrolling .float-slow {
   animation-play-state: paused;
 }
+
+/* ===== Front door (sign-in pages): the cover wall, the reader's pass, the sign-up steps ===== */
+@keyframes wall-up {
+  from { transform: translateY(0); }
+  to { transform: translateY(-50%); }
+}
+@keyframes wall-down {
+  from { transform: translateY(-50%); }
+  to { transform: translateY(0); }
+}
+@keyframes pass-sheen {
+  from { transform: translateX(-130%) skewX(-18deg); }
+  to { transform: translateX(420%) skewX(-18deg); }
+}
+@keyframes seal-in {
+  0% { transform: scale(2.6) rotate(-26deg); opacity: 0; }
+  60% { transform: scale(0.9) rotate(-9deg); opacity: 1; }
+  100% { transform: scale(1) rotate(-12deg); opacity: 1; }
+}
+@keyframes step-in {
+  from { opacity: 0; transform: translateY(12px); }
+  to { opacity: 1; transform: none; }
+}
+
+.wall-col-up { animation: wall-up var(--wall-speed, 80s) linear infinite; }
+.wall-col-down { animation: wall-down var(--wall-speed, 90s) linear infinite; }
+.pass-sheen { animation: pass-sheen 1.2s var(--ease-premium) 1 both; }
+.seal-in { animation: seal-in 0.6s var(--ease-bounce) both; }
+.step-in { animation: step-in 0.4s var(--ease-premium) both; }
+
+@media (prefers-reduced-motion: reduce) {
+  .wall-col-up,
+  .wall-col-down,
+  .pass-sheen,
+  .seal-in,
+  .step-in {
+    animation: none;
+  }
+}

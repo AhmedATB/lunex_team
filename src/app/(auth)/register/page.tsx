@@ -1,28 +1,114 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { Mail, Lock, User, Loader2, Check } from "lucide-react";
-import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
+import { AlertCircle, ArrowLeft, ArrowRight, Check, Eye, EyeOff, Loader2, Lock, Mail, Stamp, User } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
-import { Separator } from "@/components/ui/separator";
+import { useReaderPass } from "@/components/auth/auth-shell";
 import { useSession } from "@/store/session";
 import { useRealUsers, synthesizeProfile } from "@/store/real-users";
 import { mergeRealUsers } from "@/lib/mock/generate";
 import { getDeviceFingerprint } from "@/lib/device-fingerprint";
 import { fetchAndSolvePow } from "@/lib/pow-client";
+import { nextPathFrom } from "@/lib/safe-next";
+import { cn } from "@/lib/utils";
+
+type Step = 1 | 2 | 3;
+
+const STEPS: { id: Step; label: string }[] = [
+  { id: 1, label: "الاسم" },
+  { id: 2, label: "المفتاح" },
+  { id: 3, label: "الختم" },
+];
+
+const USERNAME_PATTERN = /^[a-zA-Z0-9_]+$/;
+const EMAIL_PATTERN = /^\S+@\S+\.\S+$/;
+
+/** 0–4: length carries most of the weight; variety adds the rest. Only the 12-character minimum is required (the server enforces it too). */
+function passwordScore(password: string): number {
+  let score = 0;
+  if (password.length >= 12) score++;
+  if (password.length >= 16) score++;
+  if (/[a-z]/.test(password) && /[A-Z]/.test(password)) score++;
+  if (/\d/.test(password) && /[^A-Za-z0-9]/.test(password)) score++;
+  return score;
+}
+const SCORE_LABELS = ["قصيرة", "مقبولة", "جيدة", "قوية", "ممتازة"];
+
+function usernameProblem(username: string): string | null {
+  if (!username) return null;
+  if (!USERNAME_PATTERN.test(username)) return "أحرف إنجليزية وأرقام و _ فقط.";
+  if (username.length < 3) return "٣ أحرف على الأقل.";
+  if (username.length > 24) return "٢٤ حرفاً كحد أقصى.";
+  return null;
+}
+
+function Stepper({ current }: { current: Step }) {
+  return (
+    <ol className="flex items-center gap-2" aria-label="خطوات إنشاء الحساب">
+      {STEPS.map(({ id, label }, index) => {
+        const done = id < current;
+        const active = id === current;
+        return (
+          <li key={id} className="flex flex-1 items-center gap-2" aria-current={active ? "step" : undefined}>
+            <span
+              className={cn(
+                "grid h-8 w-8 shrink-0 place-items-center rounded-full border text-xs font-bold transition-colors duration-300",
+                done && "border-transparent bg-lunex-gradient text-white",
+                active && "border-primary-400 bg-primary-500/20 text-primary-200 shadow-glow",
+                !done && !active && "border-white/15 text-lunex-gray"
+              )}
+            >
+              {done ? <Check className="h-4 w-4" strokeWidth={3} /> : id}
+            </span>
+            <span className={cn("text-xs font-bold", active ? "text-white" : "text-lunex-gray")}>{label}</span>
+            {index < STEPS.length - 1 && (
+              <span className="h-px flex-1 overflow-hidden rounded bg-white/10" aria-hidden>
+                <span className={cn("block h-full bg-lunex-gradient transition-all duration-500", done ? "w-full" : "w-0")} />
+              </span>
+            )}
+          </li>
+        );
+      })}
+    </ol>
+  );
+}
+
+function FieldMessage({ id, tone, children }: { id: string; tone: "hint" | "ok" | "error"; children: React.ReactNode }) {
+  return (
+    <p
+      id={id}
+      aria-live="polite"
+      className={cn("flex min-h-5 items-center gap-1.5 text-xs", tone === "error" ? "text-red-400" : tone === "ok" ? "text-emerald-400" : "text-lunex-gray")}
+    >
+      {tone === "error" && <AlertCircle className="h-3.5 w-3.5 shrink-0" />}
+      {tone === "ok" && <Check className="h-3.5 w-3.5 shrink-0" />}
+      {children}
+    </p>
+  );
+}
 
 export default function RegisterPage() {
   const router = useRouter();
   const setUser = useSession((s) => s.setUser);
+  const [step, setStep] = useState<Step>(1);
   const [form, setForm] = useState({ username: "", email: "", password: "" });
+  const [showPassword, setShowPassword] = useState(false);
   const [agree, setAgree] = useState(false);
   const [loading, setLoading] = useState(false);
+  const [sealed, setSealed] = useState(false);
   const [error, setError] = useState("");
+
+  const usernameRef = useRef<HTMLInputElement>(null);
+  const emailRef = useRef<HTMLInputElement>(null);
+  const agreeRef = useRef<HTMLButtonElement>(null);
+  const mounted = useRef(false);
+
+  useReaderPass({ username: form.username, stage: sealed ? "sealed" : loading ? "minting" : "draft" });
 
   useEffect(() => {
     const params = new URLSearchParams(window.location.search);
@@ -30,28 +116,30 @@ export default function RegisterPage() {
     else if (params.get("error") === "oauth_unavailable") setError("التسجيل عبر هذا المزود غير متاح حاليًا.");
   }, []);
 
-  const passwordStrength = Math.min(4, Math.floor(form.password.length / 3));
+  // Each step puts the cursor where the work is; not on first load, so phones do not open the keyboard unasked.
+  useEffect(() => {
+    if (!mounted.current) {
+      mounted.current = true;
+      return;
+    }
+    (step === 1 ? usernameRef : step === 2 ? emailRef : agreeRef).current?.focus();
+  }, [step]);
 
-  async function submit(e: React.FormEvent) {
-    e.preventDefault();
+  const nameProblem = usernameProblem(form.username);
+  const nameValid = form.username.length >= 3 && !nameProblem;
+  const emailValid = EMAIL_PATTERN.test(form.email);
+  const score = useMemo(() => passwordScore(form.password), [form.password]);
+  const passwordValid = form.password.length >= 12;
+  const stepValid = step === 1 ? nameValid : step === 2 ? emailValid && passwordValid : agree;
+
+  function goTo(target: Step) {
     setError("");
-    if (!form.username || !form.email || !form.password) {
-      setError("يرجى تعبئة جميع الحقول المطلوبة.");
-      return;
-    }
-    if (form.password.length < 12) {
-      setError("يجب أن تتكون كلمة المرور من 12 حرفاً على الأقل.");
-      return;
-    }
-    if (!/^[a-zA-Z0-9_]+$/.test(form.username)) {
-      setError("اسم المستخدم يجب أن يتكون من أحرف إنجليزية وأرقام و _ فقط.");
-      return;
-    }
-    if (!agree) {
-      setError("يجب الموافقة على الشروط والأحكام وسياسة الخصوصية.");
-      return;
-    }
+    setStep(target);
+  }
+
+  async function createAccount() {
     setLoading(true);
+    setError("");
     try {
       const powSolution = await fetchAndSolvePow();
       const res = await fetch("/api/auth/register", {
@@ -65,13 +153,22 @@ export default function RegisterPage() {
       });
       const body = await res.json();
       if (!res.ok) {
-        setError(body?.message ?? "تعذر إنشاء الحساب.");
+        const message: string = body?.message ?? "تعذر إنشاء الحساب.";
+        // The server names the field that is taken; take the person back to it.
+        if (/username/i.test(message)) setStep(1);
+        else if (/email/i.test(message)) setStep(2);
+        setError(message);
         return;
       }
       setUser(body.user);
       useRealUsers.getState().upsertProfile(synthesizeProfile(body.user));
       mergeRealUsers(useRealUsers.getState().profiles);
-      router.push("/profile");
+
+      // Let the seal land before leaving, unless the person asked for less motion.
+      setSealed(true);
+      const calm = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+      await new Promise((resolve) => setTimeout(resolve, calm ? 0 : 1100));
+      router.push(nextPathFrom(window.location.search) ?? "/profile");
       router.refresh();
     } catch {
       setError("تعذر الاتصال بالخادم، حاول مرة أخرى.");
@@ -80,101 +177,254 @@ export default function RegisterPage() {
     }
   }
 
+  function submit(e: React.FormEvent) {
+    e.preventDefault();
+    if (loading || sealed) return;
+    setError("");
+    if (step === 1) {
+      if (!nameValid) return setError(nameProblem ?? "اكتب اسم مستخدم من ٣ أحرف على الأقل.");
+      return goTo(2);
+    }
+    if (step === 2) {
+      if (!emailValid) return setError("اكتب بريداً إلكترونياً صحيحاً.");
+      if (!passwordValid) return setError("يجب أن تتكون كلمة المرور من 12 حرفاً على الأقل.");
+      return goTo(3);
+    }
+    if (!agree) return setError("يجب الموافقة على الشروط والأحكام وسياسة الخصوصية.");
+    void createAccount();
+  }
+
+  const busy = loading || sealed;
+
   return (
-    <Card>
-      <CardHeader className="text-center">
-        <CardTitle>إنشاء حساب جديد</CardTitle>
-        <CardDescription>انضم إلى مجتمع قرّاء LUNEX TEAM</CardDescription>
-      </CardHeader>
-      <CardContent className="space-y-4">
-        <form onSubmit={submit} className="space-y-4">
-          <div className="space-y-1.5">
-            <Label htmlFor="username">اسم المستخدم</Label>
-            <div className="relative">
-              <User className="pointer-events-none absolute start-3 top-1/2 h-4 w-4 -translate-y-1/2 text-lunex-gray" />
-              <Input
-                id="username"
-                value={form.username}
-                onChange={(e) => setForm((f) => ({ ...f, username: e.target.value }))}
-                placeholder="username"
-                className="ps-9"
-              />
-            </div>
-          </div>
-          <div className="space-y-1.5">
-            <Label htmlFor="email">البريد الإلكتروني</Label>
-            <div className="relative">
-              <Mail className="pointer-events-none absolute start-3 top-1/2 h-4 w-4 -translate-y-1/2 text-lunex-gray" />
-              <Input
-                id="email"
-                type="email"
-                value={form.email}
-                onChange={(e) => setForm((f) => ({ ...f, email: e.target.value }))}
-                placeholder="you@example.com"
-                className="ps-9"
-              />
-            </div>
-          </div>
-          <div className="space-y-1.5">
-            <Label htmlFor="password">كلمة المرور</Label>
-            <div className="relative">
-              <Lock className="pointer-events-none absolute start-3 top-1/2 h-4 w-4 -translate-y-1/2 text-lunex-gray" />
-              <Input
-                id="password"
-                type="password"
-                value={form.password}
-                onChange={(e) => setForm((f) => ({ ...f, password: e.target.value }))}
-                placeholder="••••••••"
-                className="ps-9"
-              />
-            </div>
-            <div className="flex gap-1 pt-1">
-              {[0, 1, 2, 3].map((i) => (
-                <div
-                  key={i}
-                  className={`h-1 flex-1 rounded-full ${
-                    i < passwordStrength ? "bg-lunex-gradient" : "bg-white/10"
-                  }`}
-                />
-              ))}
-            </div>
-          </div>
+    <div className="rounded-3xl border border-white/10 bg-card/70 p-6 shadow-glow-lg backdrop-blur-xl sm:p-8">
+      <header className="space-y-1.5">
+        <h1 className="font-display text-2xl font-extrabold text-white sm:text-3xl">أنشئ بطاقة القارئ</h1>
+        <p className="text-sm text-lunex-gray">ثلاث خطوات قصيرة وتُفتح لك البوابة.</p>
+      </header>
 
-          <label className="flex items-start gap-2 text-xs text-lunex-gray">
-            <Checkbox checked={agree} onCheckedChange={(v) => setAgree(v === true)} className="mt-0.5" />
-            أوافق على <Link href="/terms" target="_blank" className="text-primary-300 hover:underline">الشروط والأحكام</Link> و<Link href="/privacy" target="_blank" className="text-primary-300 hover:underline">سياسة الخصوصية</Link>
-          </label>
+      <div className="mt-6">
+        <Stepper current={step} />
+      </div>
 
-          {error && <p className="text-sm text-red-400">{error}</p>}
+      <form onSubmit={submit} className="mt-6 space-y-5" noValidate>
+        <div key={step} className="step-in space-y-5">
+          {step === 1 && (
+            <>
+              <div>
+                <h2 className="font-display text-lg font-bold text-white">بماذا نناديك؟</h2>
+                <p className="text-xs text-lunex-gray">هذا اسمك في التعليقات وعلى ملفك الشخصي. راقب بطاقتك وهي تتشكّل.</p>
+              </div>
+              <div className="space-y-1.5">
+                <Label htmlFor="username">اسم المستخدم</Label>
+                <div className="relative">
+                  <User className="pointer-events-none absolute start-3 top-1/2 h-4 w-4 -translate-y-1/2 text-lunex-gray" />
+                  <Input
+                    id="username"
+                    ref={usernameRef}
+                    dir="ltr"
+                    value={form.username}
+                    onChange={(e) => setForm((f) => ({ ...f, username: e.target.value.trim() }))}
+                    placeholder="username"
+                    autoComplete="username"
+                    autoCapitalize="none"
+                    spellCheck={false}
+                    maxLength={24}
+                    aria-invalid={Boolean(nameProblem)}
+                    aria-describedby="username-note"
+                    disabled={busy}
+                    className="h-12 ps-9 text-start text-base"
+                  />
+                </div>
+                {nameProblem ? (
+                  <FieldMessage id="username-note" tone="error">
+                    {nameProblem}
+                  </FieldMessage>
+                ) : nameValid ? (
+                  <FieldMessage id="username-note" tone="ok">
+                    الاسم مناسب. سنتأكد أنه غير مستخدم عند الختم.
+                  </FieldMessage>
+                ) : (
+                  <FieldMessage id="username-note" tone="hint">
+                    ٣–٢٤ حرفاً: إنجليزية وأرقام و _
+                  </FieldMessage>
+                )}
+              </div>
+            </>
+          )}
 
-          <Button type="submit" className="w-full" disabled={loading}>
-            {loading ? <Loader2 className="h-4 w-4 animate-spin" /> : <Check className="h-4 w-4" />}
-            إنشاء الحساب
-          </Button>
-        </form>
+          {step === 2 && (
+            <>
+              <div>
+                <h2 className="font-display text-lg font-bold text-white">مفتاح بوابتك</h2>
+                <p className="text-xs text-lunex-gray">بريدك لاسترجاع الحساب، وكلمة مرور لا يعرفها أحد غيرك.</p>
+              </div>
+              <div className="space-y-1.5">
+                <Label htmlFor="email">البريد الإلكتروني</Label>
+                <div className="relative">
+                  <Mail className="pointer-events-none absolute start-3 top-1/2 h-4 w-4 -translate-y-1/2 text-lunex-gray" />
+                  <Input
+                    id="email"
+                    ref={emailRef}
+                    type="email"
+                    dir="ltr"
+                    value={form.email}
+                    onChange={(e) => setForm((f) => ({ ...f, email: e.target.value.trim() }))}
+                    placeholder="you@example.com"
+                    autoComplete="email"
+                    inputMode="email"
+                    disabled={busy}
+                    className="h-12 ps-9 text-start text-base"
+                  />
+                </div>
+              </div>
+              <div className="space-y-1.5">
+                <Label htmlFor="password">كلمة المرور</Label>
+                <div className="relative">
+                  <Lock className="pointer-events-none absolute start-3 top-1/2 h-4 w-4 -translate-y-1/2 text-lunex-gray" />
+                  <Input
+                    id="password"
+                    type={showPassword ? "text" : "password"}
+                    dir="ltr"
+                    value={form.password}
+                    onChange={(e) => setForm((f) => ({ ...f, password: e.target.value }))}
+                    placeholder="••••••••••••"
+                    autoComplete="new-password"
+                    maxLength={256}
+                    aria-describedby="password-note"
+                    disabled={busy}
+                    className="h-12 px-9 text-start text-base"
+                  />
+                  <button
+                    type="button"
+                    onClick={() => setShowPassword((v) => !v)}
+                    aria-label={showPassword ? "إخفاء كلمة المرور" : "إظهار كلمة المرور"}
+                    aria-pressed={showPassword}
+                    className="absolute end-1 top-1/2 grid h-10 w-10 -translate-y-1/2 place-items-center rounded-lg text-lunex-gray transition-colors hover:text-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary-400"
+                  >
+                    {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                  </button>
+                </div>
+
+                <div className="flex items-center gap-2 pt-1" aria-hidden>
+                  <div className="flex flex-1 gap-1">
+                    {[0, 1, 2, 3].map((i) => (
+                      <div key={i} className={cn("h-1.5 flex-1 rounded-full transition-colors duration-300", i < score ? "bg-lunex-gradient" : "bg-white/10")} />
+                    ))}
+                  </div>
+                  <span className="w-12 text-end text-[0.7rem] font-bold text-lunex-gray">{form.password ? SCORE_LABELS[score] : ""}</span>
+                </div>
+                <ul id="password-note" aria-live="polite" className="space-y-1 pt-1 text-xs">
+                  {[
+                    { ok: form.password.length >= 12, text: "١٢ حرفاً على الأقل (مطلوب)" },
+                    { ok: /[a-z]/.test(form.password) && /[A-Z]/.test(form.password), text: "حروف كبيرة وصغيرة (يقوّيها)" },
+                    { ok: /\d/.test(form.password) && /[^A-Za-z0-9]/.test(form.password), text: "أرقام ورمز (يقوّيها)" },
+                  ].map((rule) => (
+                    <li key={rule.text} className={cn("flex items-center gap-1.5", rule.ok ? "text-emerald-400" : "text-lunex-gray")}>
+                      <Check className={cn("h-3.5 w-3.5", !rule.ok && "opacity-30")} /> {rule.text}
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            </>
+          )}
+
+          {step === 3 && (
+            <>
+              <div>
+                <h2 className="font-display text-lg font-bold text-white">اختم بطاقتك</h2>
+                <p className="text-xs text-lunex-gray">راجع بياناتك، ثم وافق على القواعد وسنختم البطاقة.</p>
+              </div>
+              <dl className="divide-y divide-white/10 rounded-2xl border border-white/10 bg-black/20 text-sm">
+                {[
+                  { label: "الاسم", value: form.username, back: 1 as Step },
+                  { label: "البريد", value: form.email, back: 2 as Step },
+                ].map((row) => (
+                  <div key={row.label} className="flex items-center justify-between gap-3 px-4 py-3">
+                    <dt className="text-lunex-gray">{row.label}</dt>
+                    <dd className="flex min-w-0 items-center gap-3">
+                      <span dir="ltr" className="truncate font-semibold text-white">
+                        {row.value}
+                      </span>
+                      <button type="button" onClick={() => goTo(row.back)} disabled={busy} className="shrink-0 text-xs font-bold text-primary-300 hover:text-primary-200 focus-visible:outline-none focus-visible:underline">
+                        تعديل
+                      </button>
+                    </dd>
+                  </div>
+                ))}
+              </dl>
+
+              <label className="flex cursor-pointer items-start gap-3 rounded-2xl border border-white/10 p-4 text-sm leading-relaxed text-lunex-gray transition-colors hover:border-white/20">
+                <Checkbox ref={agreeRef} checked={agree} onCheckedChange={(v) => setAgree(v === true)} disabled={busy} className="mt-1 h-5 w-5" />
+                <span>
+                  أوافق على{" "}
+                  <Link href="/terms" target="_blank" className="font-semibold text-primary-300 hover:underline">
+                    الشروط والأحكام
+                  </Link>{" "}
+                  و
+                  <Link href="/privacy" target="_blank" className="font-semibold text-primary-300 hover:underline">
+                    سياسة الخصوصية
+                  </Link>
+                  .
+                </span>
+              </label>
+            </>
+          )}
+        </div>
+
+        {error && (
+          <p className="flex items-start gap-1.5 text-sm text-red-400" role="alert">
+            <AlertCircle className="mt-0.5 h-4 w-4 shrink-0" /> {error}
+          </p>
+        )}
 
         <div className="flex items-center gap-3">
-          <Separator className="flex-1" />
-          <span className="text-xs text-lunex-gray">أو تابع عبر</span>
-          <Separator className="flex-1" />
-        </div>
-
-        <div className="grid grid-cols-2 gap-3">
-          <Button variant="secondary" type="button" asChild>
-            <a href="/api/auth/oauth/google/start">Google</a>
+          {step > 1 && (
+            <Button type="button" variant="secondary" size="lg" onClick={() => goTo((step - 1) as Step)} disabled={busy} className="shrink-0 px-5" aria-label="الخطوة السابقة">
+              <ArrowRight className="h-4 w-4 rtl:rotate-0 ltr:rotate-180" />
+              رجوع
+            </Button>
+          )}
+          <Button type="submit" size="lg" className="flex-1" disabled={busy || !stepValid}>
+            {step < 3 ? (
+              <>
+                التالي <ArrowLeft className="h-4 w-4 rtl:rotate-0 ltr:rotate-180" />
+              </>
+            ) : busy ? (
+              <>
+                <Loader2 className="h-4 w-4 animate-spin" /> {sealed ? "أهلاً بك في LUNEX" : "جاري الختم..."}
+              </>
+            ) : (
+              <>
+                <Stamp className="h-4 w-4" /> اختم بطاقتي
+              </>
+            )}
           </Button>
-          <Button variant="secondary" type="button" asChild>
-            <a href="/api/auth/oauth/discord/start">Discord</a>
-          </Button>
         </div>
+      </form>
 
-        <p className="text-center text-sm text-lunex-gray">
-          لديك حساب بالفعل؟{" "}
-          <Link href="/login" className="font-semibold text-primary-300 hover:text-primary-200">
-            سجّل الدخول
-          </Link>
-        </p>
-      </CardContent>
-    </Card>
+      {step === 1 && (
+        <div className="mt-6 space-y-3">
+          <div className="flex items-center gap-3 text-xs text-lunex-gray" aria-hidden>
+            <span className="h-px flex-1 bg-white/10" /> أو ابدأ بحساب جاهز <span className="h-px flex-1 bg-white/10" />
+          </div>
+          <div className="grid grid-cols-2 gap-3">
+            <Button variant="secondary" type="button" asChild className="h-11">
+              <a href="/api/auth/oauth/google/start">Google</a>
+            </Button>
+            <Button variant="secondary" type="button" asChild className="h-11">
+              <a href="/api/auth/oauth/discord/start">Discord</a>
+            </Button>
+          </div>
+        </div>
+      )}
+
+      <p className="mt-6 text-center text-sm text-lunex-gray">
+        لديك حساب بالفعل؟{" "}
+        <Link href="/login" className="font-semibold text-primary-300 hover:text-primary-200">
+          سجّل الدخول
+        </Link>
+      </p>
+    </div>
   );
 }
