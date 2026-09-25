@@ -6,6 +6,8 @@ import {
   REFRESH_TOKEN_COOKIE,
   setSessionCookies,
 } from "@/lib/session-cookies";
+import { isPublicPath, SITE_REQUIRES_LOGIN } from "@/lib/access-policy";
+import { redirectTo } from "@/lib/request-origin";
 
 const REFRESH_MARGIN_MS = 30_000; // refresh proactively, not just after the token has already died
 const BACKEND_URL = process.env.BACKEND_URL ?? "http://localhost:4000";
@@ -22,9 +24,30 @@ const BACKEND_URL = process.env.BACKEND_URL ?? "http://localhost:4000";
  * persisting the result would rotate the token and then discard it,
  * tripping the backend's reuse-detection on the very next request.
  */
+/**
+ * A visitor with no session: pages go to the sign-in page (remembering where they were headed, so signing in
+ * brings them back), data routes answer 401. `next` is only ever a path on this site.
+ */
+function turnAway(request: NextRequest) {
+  const { pathname, searchParams } = request.nextUrl;
+  if (pathname.startsWith("/api/")) {
+    return NextResponse.json({ code: "login_required", message: "Sign in to continue." }, { status: 401 });
+  }
+  const wanted = new URLSearchParams(searchParams);
+  wanted.delete("_rsc");
+  const query = wanted.toString();
+  const path = pathname + (query ? `?${query}` : "");
+  return redirectTo(request, path === "/" ? "/login" : `/login?next=${encodeURIComponent(path)}`);
+}
+
 export async function middleware(request: NextRequest) {
+  const mustSignIn = SITE_REQUIRES_LOGIN && !isPublicPath(request.nextUrl.pathname);
+
   const refreshToken = request.cookies.get(REFRESH_TOKEN_COOKIE)?.value;
-  if (!refreshToken) return NextResponse.next();
+  if (!refreshToken) {
+    const hasAccessToken = Boolean(request.cookies.get(ACCESS_TOKEN_COOKIE)?.value);
+    return mustSignIn && !hasAccessToken ? turnAway(request) : NextResponse.next();
+  }
 
   const expiresAtRaw = request.cookies.get(ACCESS_TOKEN_EXP_COOKIE)?.value;
   const expiresAtMs = expiresAtRaw ? Number(expiresAtRaw) : 0;
@@ -43,7 +66,7 @@ export async function middleware(request: NextRequest) {
       // Refresh token invalid/expired/reuse-detected — the session is
       // genuinely over, not a transient failure. Clear cookies so the app
       // renders as logged-out instead of stuck retrying a dead token.
-      const response = NextResponse.next();
+      const response = mustSignIn ? turnAway(request) : NextResponse.next();
       clearSessionCookies(response);
       return response;
     }

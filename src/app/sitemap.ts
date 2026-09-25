@@ -1,8 +1,19 @@
 import type { MetadataRoute } from "next";
+import { SITE_REQUIRES_LOGIN } from "@/lib/access-policy";
 import { loadCatalog } from "@/lib/catalog-server";
 import { SITE_URL as BASE_URL } from "@/lib/site";
 
 export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
+  // With sign-in required, the catalogue pages redirect visitors (and crawlers) to the login page, so only the public pages are worth listing.
+  if (SITE_REQUIRES_LOGIN) {
+    return [
+      { url: `${BASE_URL}/login`, changeFrequency: "yearly", priority: 0.5 },
+      { url: `${BASE_URL}/register`, changeFrequency: "yearly", priority: 0.5 },
+      { url: `${BASE_URL}/privacy`, changeFrequency: "yearly", priority: 0.3 },
+      { url: `${BASE_URL}/terms`, changeFrequency: "yearly", priority: 0.3 },
+    ];
+  }
+
   const db = await loadCatalog();
 
   const staticRoutes: MetadataRoute.Sitemap = [
