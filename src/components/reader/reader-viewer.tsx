@@ -173,7 +173,7 @@ export function ReaderViewer({
       ) : mode === "vertical" ? (
         <div
           ref={containerRef}
-          className="reader-protect mx-auto flex max-w-3xl flex-col items-center gap-1 overflow-y-auto py-4"
+          className="reader-protect mx-auto flex max-w-3xl flex-col items-center overflow-y-auto py-4"
           onContextMenu={(e) => e.preventDefault()}
           onClick={toggleToolbar}
         >
