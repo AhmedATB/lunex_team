@@ -15,7 +15,7 @@ export async function GET() {
   const incoming = await headers();
   const forwarded = (incoming.get("x-forwarded-for") ?? "").split(",").map((part) => part.trim()).filter(Boolean);
 
-  const result = await callBackend<{ ip: string; verified: boolean }>("/v1/security/client");
+  const result = await callBackend<{ ip: string; verified: boolean; keyConfigured: boolean; keyPresented: boolean }>("/v1/security/client");
   return NextResponse.json(
     {
       frontend: {
@@ -23,6 +23,7 @@ export async function GET() {
         forwarded,
         realIp: incoming.get("x-real-ip"),
         viaCloudflare: Boolean(incoming.get("cf-connecting-ip")),
+        keyConfigured: Boolean(process.env.BFF_SHARED_KEY),
       },
       backend: result.ok ? result.body : null,
     },

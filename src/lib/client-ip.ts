@@ -28,8 +28,10 @@ function sameSecret(a: string, b: string): boolean {
  * came through Cloudflare — anyone can send it straight to the Railway address. So it is used only when the request
  * also carries `x-lunex-edge` equal to `CF_EDGE_SECRET`, a header Cloudflare adds with a Transform Rule (docs/cloudflare-protection.md).
  *
- * Otherwise the last entry of `X-Forwarded-For`: the one Railway's edge added for the connection it actually saw. The
- * first entries are whatever the visitor chose to send, so they are never used.
+ * Otherwise `X-Real-IP`, then the first `X-Forwarded-For` entry. Railway's edge sets both to the address of the connection it
+ * saw and discards whatever the visitor sent under those names (checked against production, 2026-09-26: a request
+ * carrying a made-up `X-Forwarded-For`/`X-Real-IP` still arrived with its own address). The *last* `X-Forwarded-For`
+ * entry is not the visitor: it is one of Railway's own hops, and it changes from request to request.
  */
 export function resolveClientIp(get: HeaderGetter): string | undefined {
   const edgeSecret = process.env.CF_EDGE_SECRET;
@@ -37,8 +39,10 @@ export function resolveClientIp(get: HeaderGetter): string | undefined {
     const viaCloudflare = get("cf-connecting-ip")?.trim();
     if (viaCloudflare && looksLikeIp(viaCloudflare)) return viaCloudflare;
   }
-  const last = get("x-forwarded-for")?.split(",").pop()?.trim();
-  return last && looksLikeIp(last) ? last : undefined;
+  const realIp = get("x-real-ip")?.trim();
+  if (realIp && looksLikeIp(realIp)) return realIp;
+  const first = get("x-forwarded-for")?.split(",")[0]?.trim();
+  return first && looksLikeIp(first) ? first : undefined;
 }
 
 /** The two headers that identify the visitor to the backend; empty unless `BFF_SHARED_KEY` is set (so deploying this changes nothing by itself). */
