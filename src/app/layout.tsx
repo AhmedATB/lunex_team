@@ -12,7 +12,7 @@ import { loadCatalogSeed } from "@/lib/catalog-server";
 import { ThemeApplier } from "@/components/theme-applier";
 import { getServerSession } from "@/lib/server-session";
 import { getInitialStyle } from "@/lib/theme-cookie";
-import { getInitialAdsConsent, getInitialConsent } from "@/lib/consent-cookie";
+import { getInitialConsent } from "@/lib/consent-cookie";
 import { AdScripts } from "@/components/ads/ad-scripts";
 import { SITE_URL } from "@/lib/site";
 
@@ -60,11 +60,10 @@ export const metadata: Metadata = {
 };
 
 export default async function RootLayout({ children }: { children: React.ReactNode }) {
-  const [initialUser, initialStyle, initialConsent, initialAds, catalogSeed] = await Promise.all([
+  const [initialUser, initialStyle, initialConsent, catalogSeed] = await Promise.all([
     getServerSession(),
     getInitialStyle(),
     getInitialConsent(),
-    getInitialAdsConsent(),
     loadCatalogSeed(),
   ]);
 
@@ -86,7 +85,7 @@ export default async function RootLayout({ children }: { children: React.ReactNo
         <CatalogProvider seed={catalogSeed}>
           <TooltipProvider delayDuration={200}>{children}</TooltipProvider>
         </CatalogProvider>
-        <CookieConsent initialChoice={initialConsent} initialAds={initialAds} />
+        <CookieConsent initialChoice={initialConsent} />
         <AdScripts />
       </body>
     </html>

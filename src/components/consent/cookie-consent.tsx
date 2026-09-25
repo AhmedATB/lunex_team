@@ -7,9 +7,7 @@ import { Button } from "@/components/ui/button";
 import {
   OPEN_COOKIE_SETTINGS_EVENT,
   clearPreferenceStorage,
-  writeAdsConsent,
   writeConsent,
-  type AdsChoice,
   type ConsentChoice,
 } from "@/lib/consent";
 import { useTheme, writeStyleCookie } from "@/store/theme";
@@ -19,13 +17,12 @@ import { usePreferences } from "@/store/preferences";
 /**
  * The cookie notice. `initialChoice` comes from the consent cookie read on
  * the server, so a returning visitor never sees the banner flash in.
- * Accepting turns on the preference tier and advertising; choosing essential-only removes
- * whatever the preference tier had stored and keeps ads off (see lib/consent.ts). A visitor who chose before ads
- * existed (no advertising answer yet) is asked again.
+ * Accepting turns on the preference tier; choosing essential-only removes
+ * whatever that tier had stored (see lib/consent.ts).
  */
-export function CookieConsent({ initialChoice, initialAds }: { initialChoice: ConsentChoice | null; initialAds: AdsChoice | null }) {
+export function CookieConsent({ initialChoice }: { initialChoice: ConsentChoice | null }) {
   const [choice, setChoice] = useState<ConsentChoice | null>(initialChoice);
-  const [open, setOpen] = useState(initialChoice === null || initialAds === null);
+  const [open, setOpen] = useState(initialChoice === null);
 
   useEffect(() => {
     const reopen = () => setOpen(true);
@@ -35,7 +32,6 @@ export function CookieConsent({ initialChoice, initialAds }: { initialChoice: Co
 
   function save(next: ConsentChoice) {
     writeConsent(next);
-    writeAdsConsent(next === "all" ? "yes" : "no");
     if (next === "all") {
       writeStyleCookie(useTheme.getState().style);
       // The stores only write on change; nudge them so what the reader already
@@ -68,20 +64,20 @@ export function CookieConsent({ initialChoice, initialAds }: { initialChoice: Co
       </div>
       <p className="text-sm leading-relaxed text-lunex-gray">
         نستخدم ملفات ضرورية لتسجيل الدخول وحماية حسابك، وأخرى اختيارية لحفظ تفضيلاتك مثل الثيم وإعدادات القارئ.
-        وبموافقتك تظهر إعلانات من شبكة إعلانات خارجية في صفحات التصفح فقط، وقد تضع هذه الشبكة ملفاتها الخاصة؛ لا تُحمَّل في
-        تسجيل الدخول ولا الحساب ولا قارئ الفصول. لا نستخدم ملفات تحليلية.{" "}
+        لا نستخدم ملفات تحليلية. وتُعرض في صفحات التصفح إعلانات من شبكة خارجية تموّل الموقع، وقد تضع ملفاتها الخاصة؛ هذا الشريط لا
+        يتحكم بها.{" "}
         <Link href="/privacy" className="font-medium text-primary-300 underline-offset-2 hover:underline">
           سياسة الخصوصية
         </Link>
       </p>
       {choice && (
         <p className="text-xs text-lunex-gray">
-          اختيارك الحالي: {choice === "all" ? "قبول الكل (مع الإعلانات)" : "الضرورية فقط"}
+          اختيارك الحالي: {choice === "all" ? "قبول الكل" : "الضرورية فقط"}
         </p>
       )}
       <div className="flex gap-2">
         <Button className="flex-1" onClick={() => save("all")}>
-          قبول الكل (مع الإعلانات)
+          قبول الكل
         </Button>
         <Button className="flex-1" variant="secondary" onClick={() => save("essential")}>
           الضرورية فقط

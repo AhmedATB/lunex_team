@@ -2,23 +2,15 @@ import type { StateStorage } from "zustand/middleware";
 import { STYLE_COOKIE } from "./theme-presets";
 
 /**
- * Cookie/storage consent, three tiers:
+ * Cookie/storage consent. Two tiers only, because that is all the site has:
  *  - essential (always on): login session cookies, security, and the storage
  *    behind features the reader actively uses (bookmarks, reading progress…);
  *  - preferences (opt-in): the theme cookie and the saved theme / reader
- *    display settings;
- *  - advertising (opt-in, its own cookie below): the ad network's scripts (lib/ads.ts).
- * Advertising is kept in a separate cookie on purpose: an earlier "accept all" (which only ever covered preferences)
- * must not count as agreement to ads, so those visitors are asked again.
- * There are no analytics cookies.
+ *    display settings.
+ * There are no analytics or advertising cookies, so there is no third tier.
  */
 export const CONSENT_COOKIE = "lunex-consent";
 export type ConsentChoice = "all" | "essential";
-
-export const ADS_CONSENT_COOKIE = "lunex-consent-ads";
-export type AdsChoice = "yes" | "no";
-/** Dispatched on `window` whenever the advertising choice is saved, so the ad loader can react on the current page. */
-export const ADS_CONSENT_CHANGED_EVENT = "lunex:ads-consent-changed";
 
 /** Dispatched on `window` by the footer's "cookie settings" link to bring the banner back. */
 export const OPEN_COOKIE_SETTINGS_EVENT = "lunex:open-cookie-settings";
@@ -42,26 +34,6 @@ export function readConsent(): ConsentChoice | null {
   if (typeof document === "undefined") return null;
   const match = document.cookie.split("; ").find((c) => c.startsWith(`${CONSENT_COOKIE}=`));
   return parseConsent(match?.slice(CONSENT_COOKIE.length + 1));
-}
-
-export function parseAdsConsent(value: string | undefined | null): AdsChoice | null {
-  return value === "yes" || value === "no" ? value : null;
-}
-
-export function readAdsConsent(): AdsChoice | null {
-  if (typeof document === "undefined") return null;
-  const match = document.cookie.split("; ").find((c) => c.startsWith(`${ADS_CONSENT_COOKIE}=`));
-  return parseAdsConsent(match?.slice(ADS_CONSENT_COOKIE.length + 1));
-}
-
-export function hasAdsConsent(): boolean {
-  return readAdsConsent() === "yes";
-}
-
-export function writeAdsConsent(choice: AdsChoice) {
-  const secure = window.location.protocol === "https:" ? "; Secure" : "";
-  document.cookie = `${ADS_CONSENT_COOKIE}=${choice}; path=/; max-age=${CONSENT_MAX_AGE}; SameSite=Lax${secure}`;
-  window.dispatchEvent(new Event(ADS_CONSENT_CHANGED_EVENT));
 }
 
 export function hasPreferenceConsent(): boolean {

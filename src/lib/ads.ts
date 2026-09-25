@@ -1,15 +1,14 @@
 /**
  * The site's ad network (three placements from one account: a popunder, a social bar and a smartlink).
  *
- * What makes third-party ad code acceptable here, in order of importance:
- *  1. It loads only for a visitor who agreed to advertising (its own consent tier, lib/consent.ts) — the privacy policy
- *     says so, and an earlier "accept all" (preferences only) does not count.
- *  2. It loads only on browsing pages (BROWSE_PAGES). Never on sign-in and sign-up (a script there could read a password
+ * Ads are how the site earns, so they load for every visitor whatever they chose in the cookie banner (the banner
+ * governs the site's own storage only; the privacy policy says so). What still confines third-party ad code:
+ *  1. It loads only on browsing pages (BROWSE_PAGES). Never on sign-in and sign-up (a script there could read a password
  *     as it is typed), the account and admin pages, messages and the store, and never on the reader: a chapter page is
  *     decrypted into a canvas any script on the page can read, which would bypass the anti-piracy pipeline (§22).
- *  3. Scripts cannot be unloaded, so leaving a browsing page for a protected one reloads the document without them
+ *  2. Scripts cannot be unloaded, so leaving a browsing page for a protected one reloads the document without them
  *     (components/ads/ad-scripts.tsx).
- *  4. NEXT_PUBLIC_ADS_ENABLED=false switches all of it off (at build time) without touching code.
+ *  3. NEXT_PUBLIC_ADS_ENABLED=false switches all of it off (at build time) without touching code.
  */
 export const ADS_ENABLED = process.env.NEXT_PUBLIC_ADS_ENABLED !== "false";
 
