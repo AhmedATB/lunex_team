@@ -194,3 +194,72 @@ describe("LegacyChapterImportService", () => {
     expect(report).toMatchObject({ done: false, remaining: 2 });
   });
 });
+
+describe("LegacyChapterImportService background job", () => {
+  const originalFetch = global.fetch;
+  const originalBackend = process.env.IMAGE_STORAGE_BACKEND;
+
+  beforeEach(() => {
+    process.env.IMAGE_STORAGE_BACKEND = "local";
+  });
+  afterAll(() => {
+    global.fetch = originalFetch;
+    if (originalBackend === undefined) delete process.env.IMAGE_STORAGE_BACKEND;
+    else process.env.IMAGE_STORAGE_BACKEND = originalBackend;
+  });
+
+  const oneChapter = (extra: Partial<Setup> = {}): Setup => ({
+    feed: [oldChapter("C1", "1", 1)],
+    read: { C1: { baseUrl: CDN, chapter: { hash: "h1", data: ["a.jpg"] } } },
+    local: {},
+    ...extra,
+  });
+
+  async function finished(service: LegacyChapterImportService) {
+    for (let i = 0; i < 200; i++) {
+      if (service.jobStatus().state !== "running") return service.jobStatus();
+      await new Promise((resolve) => setTimeout(resolve, 10));
+    }
+    throw new Error("job did not finish");
+  }
+
+  it("runs the whole import on its own and reports the totals", async () => {
+    const { service } = await build(oneChapter());
+
+    expect(service.startJob().state).toBe("running");
+    const job = await finished(service);
+
+    expect(job).toMatchObject({ state: "done", published: 1, pagesSaved: 1, remaining: 0, stopReason: null });
+    expect(job.finishedAt).not.toBeNull();
+  });
+
+  it("does not start a second run while one is going", async () => {
+    const { service, repo } = await build(oneChapter());
+
+    service.startJob();
+    service.startJob();
+    await finished(service);
+
+    expect(repo.listImportedSeries).toHaveBeenCalledTimes(1);
+  });
+
+  it("stops, with the reason and the errors, when two rounds in a row save nothing", async () => {
+    const { service } = await build(oneChapter({ failImages: () => true }));
+
+    service.startJob();
+    const job = await finished(service);
+
+    expect(job.state).toBe("stopped");
+    expect(job.stopReason).toContain("no progress");
+    expect(job.errors.length).toBeGreaterThan(0);
+    expect(job.remaining).toBe(1);
+  });
+
+  it("refuses to start while page images would go into the database", async () => {
+    delete process.env.IMAGE_STORAGE_BACKEND;
+    const { service } = await build(oneChapter());
+
+    expect(() => service.startJob()).toThrow(ConflictException);
+    expect(service.jobStatus().state).toBe("idle");
+  });
+});

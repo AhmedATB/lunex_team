@@ -39,13 +39,20 @@ export class LegacyImportController {
     return this.importer.importCatalog({ covers: dto.covers });
   }
 
-  /** One slice of the chapter import (a few minutes of work); the admin page calls again until `done`. */
-  @Post("legacy/chapters")
+  /** Starts the chapter import on the server (it keeps going with the page closed) and returns its status. */
+  @Post("legacy/chapters/start")
   @HttpCode(HttpStatus.OK)
-  @Throttle({ default: { limit: 120, ttl: 3_600_000 } })
-  async runChapters(@CurrentUser() actor: AccessTokenPayload) {
+  @Throttle({ default: { limit: 30, ttl: 3_600_000 } })
+  async startChapters(@CurrentUser() actor: AccessTokenPayload) {
     await this.assertOwner(actor);
-    return this.chapterImporter.importChapters();
+    return this.chapterImporter.startJob();
+  }
+
+  @Get("legacy/chapters/status")
+  @HttpCode(HttpStatus.OK)
+  async chaptersStatus(@CurrentUser() actor: AccessTokenPayload) {
+    await this.assertOwner(actor);
+    return this.chapterImporter.jobStatus();
   }
 
   @Get("storage")

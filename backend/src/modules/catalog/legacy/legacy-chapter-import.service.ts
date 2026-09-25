@@ -15,6 +15,8 @@ const MAX_WEBP_DIMENSION = 16_383;
 const PAGE_CONCURRENCY = 4;
 /** Stays well under the hosting proxy's request limit; the admin page calls again until nothing is left. */
 const DEFAULT_BUDGET_MS = 150_000;
+/** Each slice of a background run; short, so the status the admin page polls stays fresh. */
+const JOB_SLICE_BUDGET_MS = 90_000;
 const USER_AGENT = "Mozilla/5.0 (compatible; LunexTeamImport/1.0)";
 
 interface OldChapter {
@@ -49,6 +51,38 @@ export interface ChapterImportReport {
 
 type ChapterOutcome = "published" | "incomplete" | "skipped";
 
+/** Progress of the run the server does on its own (see startJob). Kept in memory: a redeploy ends the run, and starting again resumes it. */
+export interface ChapterImportJob {
+  state: "idle" | "running" | "done" | "stopped";
+  startedAt: string | null;
+  finishedAt: string | null;
+  /** Totals since this run started. */
+  published: number;
+  pagesSaved: number;
+  failed: number;
+  alreadyDone: number;
+  noPages: number;
+  /** Chapters still to do, as of the last slice; null before the first one finishes. */
+  remaining: number | null;
+  errors: string[];
+  /** Why a stopped run stopped. */
+  stopReason: string | null;
+}
+
+const IDLE_JOB: ChapterImportJob = {
+  state: "idle",
+  startedAt: null,
+  finishedAt: null,
+  published: 0,
+  pagesSaved: 0,
+  failed: 0,
+  alreadyDone: 0,
+  noPages: 0,
+  remaining: null,
+  errors: [],
+  stopReason: null,
+};
+
 /**
  * Copies the old site's chapters and their page images into this database and
  * the object store, straight from the old site's public API.
@@ -67,11 +101,66 @@ export class LegacyChapterImportService {
   private readonly logger = new Logger(LegacyChapterImportService.name);
   private readonly origin = (process.env.LEGACY_SITE_ORIGIN ?? "https://lunexteam.com").replace(/\/+$/, "");
 
+  private job: ChapterImportJob = { ...IDLE_JOB };
+
   constructor(
     private readonly repo: CatalogRepository,
     private readonly catalog: CatalogService,
     private readonly storage: StorageService
   ) {}
+
+  jobStatus(): ChapterImportJob {
+    return { ...this.job, errors: [...this.job.errors] };
+  }
+
+  /**
+   * Starts the whole import on the server and returns at once; the admin page polls jobStatus().
+   * The work no longer depends on anyone's browser tab (or laptop) staying awake. Calling it while a
+   * run is going just reports that run. Only one runs at a time, on this instance.
+   */
+  startJob(): ChapterImportJob {
+    this.assertObjectStorage();
+    if (this.job.state === "running") return this.jobStatus();
+    this.job = { ...IDLE_JOB, errors: [], state: "running", startedAt: new Date().toISOString() };
+    void this.runJob();
+    return this.jobStatus();
+  }
+
+  private async runJob() {
+    const budget = Number(process.env.LEGACY_CHAPTER_BUDGET_MS) || JOB_SLICE_BUDGET_MS;
+    let stalled = 0;
+    try {
+      for (;;) {
+        const slice = await this.importChapters(budget);
+        const job = this.job;
+        job.published += slice.chapters.published;
+        job.pagesSaved += slice.pages.saved;
+        job.failed = slice.chapters.failed;
+        job.alreadyDone = slice.chapters.alreadyDone;
+        job.noPages = slice.chapters.noPages;
+        job.remaining = slice.remaining;
+        for (const e of slice.errors) if (job.errors.length < 50 && !job.errors.includes(e)) job.errors.push(e);
+
+        if (slice.done) {
+          job.state = "done";
+          break;
+        }
+        // Two slices in a row that saved nothing means something keeps failing, not that it is slow.
+        stalled = slice.chapters.published === 0 && slice.pages.saved === 0 ? stalled + 1 : 0;
+        if (stalled >= 2) {
+          job.state = "stopped";
+          job.stopReason = "no progress in two rounds; see the errors";
+          break;
+        }
+      }
+    } catch (err) {
+      this.job.state = "stopped";
+      this.job.stopReason = message(err);
+      this.logger.error(`Chapter import stopped: ${message(err)}`);
+    } finally {
+      this.job.finishedAt = new Date().toISOString();
+    }
+  }
 
   async importChapters(budgetMs = Number(process.env.LEGACY_CHAPTER_BUDGET_MS) || DEFAULT_BUDGET_MS): Promise<ChapterImportReport> {
     this.assertObjectStorage();

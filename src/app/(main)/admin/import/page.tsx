@@ -29,22 +29,18 @@ interface CopyReport {
   errors: string[];
 }
 
-interface ChapterReport {
-  done: boolean;
-  chapters: { published: number; alreadyDone: number; noPages: number; failed: number };
-  pages: { saved: number; failed: number };
-  remaining: number;
-  errors: string[];
-}
-
-interface ChapterProgress {
+interface ChapterJob {
+  state: "idle" | "running" | "done" | "stopped";
+  startedAt: string | null;
+  finishedAt: string | null;
   published: number;
-  pages: number;
+  pagesSaved: number;
+  failed: number;
   alreadyDone: number;
   noPages: number;
-  remaining: number;
+  remaining: number | null;
   errors: string[];
-  done: boolean;
+  stopReason: string | null;
 }
 
 /** Calls an owner-only endpoint and returns its JSON, or the server's own message on failure. */
@@ -96,8 +92,8 @@ export default function LegacyImportPage() {
   const [copyTotals, setCopyTotals] = useState<{ copied: number; alreadyThere: number; done: boolean; errors: string[] } | null>(null);
   const [copyError, setCopyError] = useState("");
 
-  const [importing, setImporting] = useState(false);
-  const [progress, setProgress] = useState<ChapterProgress | null>(null);
+  const [job, setJob] = useState<ChapterJob | null>(null);
+  const [starting, setStarting] = useState(false);
   const [chapterError, setChapterError] = useState("");
 
   useEffect(() => {
@@ -109,9 +105,25 @@ export default function LegacyImportPage() {
     if (result.ok) setStorage(result.body);
   }, []);
 
+  const loadJob = useCallback(async () => {
+    const result = await ownerCall<ChapterJob>("/api/catalog/import/legacy/chapters/status", "GET");
+    if (result.ok) setJob(result.body);
+  }, []);
+
   useEffect(() => {
-    if (role === "owner") void loadStorage();
-  }, [role, loadStorage]);
+    if (role === "owner") {
+      void loadStorage();
+      void loadJob();
+    }
+  }, [role, loadStorage, loadJob]);
+
+  // The import runs on the server; this page only watches it, so it can be closed and reopened.
+  const jobRunning = job?.state === "running";
+  useEffect(() => {
+    if (!jobRunning) return;
+    const timer = setInterval(() => void loadJob(), 4000);
+    return () => clearInterval(timer);
+  }, [jobRunning, loadJob]);
 
   if (role !== "owner") {
     return <p className="panel p-6 text-center text-sm text-lunex-gray">هذه الصفحة للمالك فقط.</p>;
@@ -153,29 +165,13 @@ export default function LegacyImportPage() {
     void loadStorage();
   }
 
-  async function importChapters() {
-    setImporting(true);
+  async function startChapters() {
+    setStarting(true);
     setChapterError("");
-    let published = 0;
-    let pages = 0;
-    setProgress({ published: 0, pages: 0, alreadyDone: 0, noPages: 0, remaining: 0, errors: [], done: false });
-    for (let round = 0; round < 200; round++) {
-      const result = await ownerCall<ChapterReport>("/api/catalog/import/legacy/chapters", "POST");
-      if (!result.ok) {
-        setChapterError(result.status === 0 ? "انقطع الاتصال. اضغط مرة ثانية للمتابعة من حيث توقّف." : result.message);
-        break;
-      }
-      const r = result.body;
-      published += r.chapters.published;
-      pages += r.pages.saved;
-      setProgress({ published, pages, alreadyDone: r.chapters.alreadyDone, noPages: r.chapters.noPages, remaining: r.remaining, errors: r.errors, done: r.done });
-      if (r.done) break;
-      if (r.chapters.published === 0 && r.pages.saved === 0) {
-        setChapterError("توقف التقدم: تكررت أخطاء في الصور أو الفصول. راجع القائمة أدناه ثم أعد المحاولة.");
-        break;
-      }
-    }
-    setImporting(false);
+    const result = await ownerCall<ChapterJob>("/api/catalog/import/legacy/chapters/start", "POST");
+    if (result.ok) setJob(result.body);
+    else setChapterError(result.message);
+    setStarting(false);
   }
 
   const backendLabel = storage?.backend === "r2" ? "Cloudflare R2" : storage?.backend === "local" ? "قرص محلي (تطوير)" : "قاعدة البيانات";
@@ -294,29 +290,30 @@ export default function LegacyImportPage() {
             صفحاته. الفصل الذي أضفتَه بنفس الرقم يبقى كما هو. الفصول المستوردة كلها مفتوحة للقراء كما في الموقع القديم.
           </p>
 
-          <Button onClick={importChapters} disabled={importing || !canImportChapters}>
-            {importing ? <Loader2 className="h-4 w-4 animate-spin" /> : <BookOpen className="h-4 w-4" />}
-            {importing ? "جاري استيراد الفصول..." : "استورد الفصول"}
+          <Button onClick={startChapters} disabled={starting || jobRunning || !canImportChapters}>
+            {starting || jobRunning ? <Loader2 className="h-4 w-4 animate-spin" /> : <BookOpen className="h-4 w-4" />}
+            {jobRunning ? "يعمل على الخادم..." : job?.state === "stopped" ? "تابع استيراد الفصول" : "استورد الفصول"}
           </Button>
           {storage && !canImportChapters && (
             <p className="text-xs text-amber-400">لن يعمل قبل أن يصبح مكان الحفظ الحالي Cloudflare R2 (الخطوة 2).</p>
           )}
 
           {chapterError && <ErrorLine text={chapterError} />}
-          {progress && (
+          {job && job.state !== "idle" && (
             <div className="space-y-2 rounded-xl border border-white/10 bg-white/[0.03] p-4 text-sm" role="status">
-              <p className="flex items-center gap-1.5 font-bold text-emerald-400">
-                {progress.done ? <Check className="h-4 w-4" /> : importing ? <Loader2 className="h-4 w-4 animate-spin" /> : null}
-                {progress.done ? "اكتمل استيراد الفصول" : importing ? "جاري الاستيراد" : "توقف"}
+              <p className={job.state === "stopped" ? "flex items-center gap-1.5 font-bold text-amber-400" : "flex items-center gap-1.5 font-bold text-emerald-400"}>
+                {job.state === "done" ? <Check className="h-4 w-4" /> : job.state === "running" ? <Loader2 className="h-4 w-4 animate-spin" /> : <AlertCircle className="h-4 w-4" />}
+                {job.state === "done" ? "اكتمل استيراد الفصول" : job.state === "running" ? "الاستيراد شغّال على الخادم، تقدر تغلق هذه الصفحة" : "توقف الاستيراد"}
               </p>
+              {job.state === "stopped" && job.stopReason && <p className="text-xs text-amber-300">{job.stopReason}</p>}
               <ul className="space-y-1 text-lunex-gray">
-                <li>فصول نُشرت الآن: {progress.published}، وصفحات حُفظت: {progress.pages}</li>
+                <li>فصول نُشرت في هذه الجولة: {job.published}، وصفحات حُفظت: {job.pagesSaved}</li>
                 <li>
-                  فصول جاهزة مسبقاً: {progress.alreadyDone}، المتبقي: {progress.remaining}
-                  {progress.noPages > 0 && `، بلا صفحات في الموقع القديم: ${progress.noPages}`}
+                  فصول جاهزة مسبقاً: {job.alreadyDone}، المتبقي: {job.remaining ?? "—"}
+                  {job.noPages > 0 && `، بلا صفحات في الموقع القديم: ${job.noPages}`}
                 </li>
               </ul>
-              <ErrorList errors={progress.errors} />
+              <ErrorList errors={job.errors} />
             </div>
           )}
         </CardContent>
