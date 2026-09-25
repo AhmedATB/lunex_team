@@ -1,5 +1,11 @@
 # Cloudflare protection
 
+## Who controls what (as found on 2026-09-25)
+
+- The **registrar** account (Spaceship) belongs to the site's owner; the domain was registered 2026-02-23 and renews 2027-02-23.
+- The **DNS zone** on Cloudflare (nameservers `julian` / `eloise`) belongs to *another person's* Cloudflare account, with whom there is no contact. That account runs the old site. So `protect.mjs` cannot be run against the live zone from the owner's own account (its zone list is empty, which is why "Specific zone" is greyed out when creating a token).
+- Because the owner controls the registrar, the owner can move the zone to their own Cloudflare account by changing the nameservers at Spaceship. **That switch takes the old site offline** — its DNS records live in the other account — so it is the cutover itself, not a settings tweak. Do not change nameservers before the steps under "At cutover" are ready. The change is not instant either: the `.com` delegation is cached for up to 48 hours, so the switch and any rollback (setting the old nameservers back, possible as long as the other account keeps its zone) take effect gradually.
+
 ## Where things stand
 
 `lunexteam.com`, `www.lunexteam.com` and `cdn.lunexteam.com` are already on Cloudflare (proxied) — but they still serve the **old** site. The new site lives on Railway (`lunexteam-production.up.railway.app`) and is not behind Cloudflare until the domain is pointed at it. So protection has two phases:
