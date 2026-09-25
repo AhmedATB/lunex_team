@@ -13,6 +13,7 @@ import { ModerationService } from "../moderation/moderation.service";
 import { activeMutedUntil, isEffectivelyBanned } from "../moderation/moderation.util";
 import { NotificationsService } from "../notifications/notifications.service";
 import { UsersRepository } from "./users.repository";
+import { isReservedUsername } from "./username.util";
 import type { DeleteAccountDto } from "./dto/delete-account.dto";
 import type { UpdateProfileDto } from "./dto/update-profile.dto";
 
@@ -125,9 +126,15 @@ export class UsersService {
 
   /** Self-service — a user editing their own username/displayName/bio. Username uniqueness is pre-checked (matches AuthService.register's approach) rather than caught as a DB constraint error. */
   async updateProfile(userId: string, dto: UpdateProfileDto, ctx: RequestContext) {
-    if (dto.username) {
-      const existing = await this.repo.findByUsername(dto.username);
-      if (existing && existing.id !== userId) {
+    // Only a name that actually changes is checked, so saving other fields never trips over an account's existing name.
+    const current = dto.username ? await this.repo.findById(userId) : null;
+    if (dto.username && dto.username !== current?.username) {
+      if (isReservedUsername(dto.username)) {
+        throw new ConflictException({ code: "username_reserved", message: "This username is not available." });
+      }
+      // A look-alike of the account's own name (a different case, say) is fine; anyone else's is not.
+      const holders = await Promise.all([this.repo.findByUsername(dto.username), this.repo.findByUsernameKey(dto.username)]);
+      if (holders.some((holder) => holder && holder.id !== userId)) {
         throw new ConflictException({ code: "username_taken", message: "This username is already taken." });
       }
     }

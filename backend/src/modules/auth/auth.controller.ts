@@ -1,5 +1,5 @@
-import { Body, Controller, Get, HttpCode, HttpStatus, Patch, Post, Req } from "@nestjs/common";
-import { Throttle } from "@nestjs/throttler";
+import { Body, Controller, Get, HttpCode, HttpStatus, Patch, Post, Query, Req } from "@nestjs/common";
+import { SkipThrottle, Throttle } from "@nestjs/throttler";
 import type { Request } from "express";
 import { CurrentUser } from "../../common/decorators/current-user.decorator";
 import { Public } from "../../common/decorators/public.decorator";
@@ -10,6 +10,7 @@ import { ChangePasswordDto } from "./dto/change-password.dto";
 import { LoginDto } from "./dto/login.dto";
 import { RefreshDto } from "./dto/refresh.dto";
 import { RegisterDto } from "./dto/register.dto";
+import { UsernameAvailabilityDto } from "./dto/username-availability.dto";
 
 /**
  * HTTP boundary only (architecture doc §3) — every handler here is a
@@ -27,6 +28,19 @@ export class AuthController {
   @Throttle({ default: { limit: 5, ttl: 60_000 } }) // 5 registrations/min/IP — slows bulk fake-account creation
   register(@Body() dto: RegisterDto, @Req() req: Request) {
     return this.auth.register(dto.email, dto.password, dto.username, req.context);
+  }
+
+  /**
+   * "Is this name free?" while someone types it on the sign-up page. Public and not rate-limited per IP (the
+   * limiter sees the whole site as one IP behind the frontend, §24): it is one indexed read, and usernames are
+   * public on profiles anyway.
+   */
+  @Public()
+  @SkipThrottle()
+  @Get("username-available")
+  @HttpCode(HttpStatus.OK)
+  usernameAvailable(@Query() query: UsernameAvailabilityDto) {
+    return this.auth.usernameAvailability(query.username);
   }
 
   @Public()

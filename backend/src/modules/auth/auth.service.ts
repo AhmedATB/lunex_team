@@ -1,13 +1,14 @@
 import { ConflictException, ForbiddenException, Injectable, UnauthorizedException } from "@nestjs/common";
 import { ConfigService } from "@nestjs/config";
 import { JwtService } from "@nestjs/jwt";
-import type { User as PrismaUser } from "@prisma/client";
+import { Prisma, type User as PrismaUser } from "@prisma/client";
 import { createHmac, randomBytes, randomUUID } from "node:crypto";
 import { AuthRepository } from "./auth.repository";
 import { getDummyHash, hashPassword, verifyPassword } from "./crypto/password.util";
 import type { RequestContext } from "../../common/middleware/request-context.middleware";
 import { NotificationsService } from "../notifications/notifications.service";
 import { activeMutedUntil, isEffectivelyBanned } from "../moderation/moderation.util";
+import { isReservedUsername, USERNAME_PATTERN } from "../users/username.util";
 
 const ACCESS_TOKEN_TTL = "10m";
 const REFRESH_TOKEN_TTL_MS = 7 * 24 * 60 * 60 * 1000; // 7 days
@@ -62,12 +63,20 @@ export class AuthService {
     this.refreshPepper = this.config.getOrThrow<string>("JWT_REFRESH_PEPPER");
   }
 
+  /**
+   * Whether a name can be taken. Unlike registration itself this says WHY not — a person choosing a name needs to
+   * know — which is fine for usernames (profiles are public by username) and is not done for emails.
+   */
+  async usernameAvailability(username: string): Promise<{ available: boolean; reason?: "invalid" | "reserved" | "taken" }> {
+    if (!USERNAME_PATTERN.test(username)) return { available: false, reason: "invalid" };
+    if (isReservedUsername(username)) return { available: false, reason: "reserved" };
+    const [exact, lookalike] = await Promise.all([this.repo.findUserByUsername(username), this.repo.findUserByUsernameKey(username)]);
+    return exact || lookalike ? { available: false, reason: "taken" } : { available: true };
+  }
+
   async register(email: string, password: string, username: string, ctx: RequestContext): Promise<AuthResponse> {
-    const [existingEmail, existingUsername] = await Promise.all([
-      this.repo.findUserByEmail(email),
-      this.repo.findUserByUsername(username),
-    ]);
-    if (existingEmail || existingUsername) {
+    const [existingEmail, availability] = await Promise.all([this.repo.findUserByEmail(email), this.usernameAvailability(username)]);
+    if (existingEmail || !availability.available) {
       // Generic message either way — do not reveal WHICH field collided via
       // a different error, or registration becomes an enumeration oracle
       // for both emails and usernames.
@@ -75,7 +84,16 @@ export class AuthService {
     }
 
     const passwordHash = await hashPassword(password);
-    const user = await this.repo.createUser(email, username, passwordHash);
+    let user: PrismaUser;
+    try {
+      user = await this.repo.createUser(email, username, passwordHash);
+    } catch (err) {
+      // Two sign-ups for the same name (or look-alike) at once: the unique index lets one through.
+      if (err instanceof Prisma.PrismaClientKnownRequestError && err.code === "P2002") {
+        throw new ConflictException({ code: "registration_failed", message: "Unable to complete registration." });
+      }
+      throw err;
+    }
     await this.repo.writeAuditLog({ actorId: user.id, action: "user.register", ip: ctx.ip });
 
     // notifyNewDevice: false — every device is "new" on the very first login

@@ -6,6 +6,7 @@ import { DiscordProvider } from "./providers/discord.provider";
 import { GoogleProvider } from "./providers/google.provider";
 import type { OAuthProviderAdapter } from "./providers/provider.types";
 import type { RequestContext } from "../../common/middleware/request-context.middleware";
+import { isReservedUsername } from "../users/username.util";
 
 export type OAuthProviderId = "discord" | "google";
 
@@ -80,7 +81,7 @@ export class OAuthService {
 
     let candidate = base;
     let attempt = 0;
-    while (await this.repo.findUserByUsername(candidate)) {
+    while (isReservedUsername(candidate) || (await this.repo.findUserByUsernameKey(candidate))) {
       attempt += 1;
       candidate = `${base}_${randomBytes(2).toString("hex")}`;
       if (attempt > 10) break; // give up gracefully on pathological collision runs rather than loop forever

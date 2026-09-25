@@ -1,5 +1,6 @@
 import { Injectable } from "@nestjs/common";
 import { PrismaService } from "../../prisma/prisma.service";
+import { usernameKey } from "../users/username.util";
 
 /**
  * The only file in this module allowed to touch Prisma directly (architecture
@@ -19,12 +20,17 @@ export class AuthRepository {
     return this.prisma.user.findUnique({ where: { username } });
   }
 
+  /** The account holding this name or any look-alike of it (see username.util.ts). */
+  findUserByUsernameKey(username: string) {
+    return this.prisma.user.findUnique({ where: { usernameKey: usernameKey(username) } });
+  }
+
   findUserById(id: string) {
     return this.prisma.user.findUnique({ where: { id } });
   }
 
   createUser(email: string, username: string, passwordHash: string) {
-    return this.prisma.user.create({ data: { email, username, passwordHash } });
+    return this.prisma.user.create({ data: { email, username, usernameKey: usernameKey(username), passwordHash } });
   }
 
   updatePassword(id: string, passwordHash: string) {

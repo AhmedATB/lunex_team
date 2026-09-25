@@ -1,5 +1,6 @@
 import { Injectable } from "@nestjs/common";
 import { PrismaService } from "../../prisma/prisma.service";
+import { usernameKey } from "./username.util";
 
 /** Upper bound per log table in a data export. */
 const EXPORT_LOG_LIMIT = 1000;
@@ -16,6 +17,11 @@ export class UsersRepository {
     return this.prisma.user.findUnique({ where: { username } });
   }
 
+  /** The account holding this name or any look-alike of it (see username.util.ts). */
+  findByUsernameKey(username: string) {
+    return this.prisma.user.findUnique({ where: { usernameKey: usernameKey(username) } });
+  }
+
   updateRole(id: string, role: string) {
     return this.prisma.user.update({ where: { id }, data: { role } });
   }
@@ -29,7 +35,9 @@ export class UsersRepository {
   }
 
   updateProfile(id: string, patch: { username?: string; displayName?: string; bio?: string }) {
-    return this.prisma.user.update({ where: { id }, data: patch });
+    // A new username brings its key along, so the unique index keeps refusing look-alikes.
+    const data = patch.username ? { ...patch, usernameKey: usernameKey(patch.username) } : patch;
+    return this.prisma.user.update({ where: { id }, data });
   }
 
   updateAvatar(id: string, avatarImage: Buffer, avatarMimeType: string) {

@@ -47,6 +47,28 @@ function usernameProblem(username: string): string | null {
   return null;
 }
 
+type Availability = "idle" | "checking" | "free" | "taken" | "reserved" | "unknown";
+
+/** Asks the server; if it cannot be reached the form does not get stuck — the server checks again when the account is created. */
+async function checkUsername(username: string): Promise<Availability> {
+  try {
+    const res = await fetch(`/api/auth/username-available?username=${encodeURIComponent(username)}`, { cache: "no-store" });
+    if (!res.ok) return "unknown";
+    const body: { available: boolean; reason?: string } = await res.json();
+    if (body.available) return "free";
+    return body.reason === "reserved" ? "reserved" : "taken";
+  } catch {
+    return "unknown";
+  }
+}
+
+/** Two nearby names to offer when one is taken; stays within 24 characters. */
+function suggestNames(username: string): string[] {
+  const base = username.slice(0, 19);
+  const digits = () => String(Math.floor(10 + Math.random() * 90));
+  return [`${base}_${digits()}`, `${base.slice(0, 21)}${digits()}`];
+}
+
 function Stepper({ current }: { current: Step }) {
   return (
     <ol className="flex items-center gap-2" aria-label="خطوات إنشاء الحساب">
@@ -127,10 +149,33 @@ export default function RegisterPage() {
 
   const nameProblem = usernameProblem(form.username);
   const nameValid = form.username.length >= 3 && !nameProblem;
+
+  // Is the name free? Asked shortly after typing stops; the server also treats look-alikes (case, underscores, 0/o, 1/l/i, 5/s) as taken.
+  const [availability, setAvailability] = useState<Availability>("idle");
+  const [suggestions, setSuggestions] = useState<string[]>([]);
+  useEffect(() => {
+    if (!nameValid) {
+      setAvailability("idle");
+      return;
+    }
+    setAvailability("checking");
+    let stale = false;
+    const timer = setTimeout(async () => {
+      const result = await checkUsername(form.username);
+      if (stale) return;
+      setAvailability(result);
+      setSuggestions(result === "taken" ? suggestNames(form.username) : []);
+    }, 400);
+    return () => {
+      stale = true;
+      clearTimeout(timer);
+    };
+  }, [form.username, nameValid]);
+  const nameBlocked = availability === "checking" || availability === "taken" || availability === "reserved";
   const emailValid = EMAIL_PATTERN.test(form.email);
   const score = useMemo(() => passwordScore(form.password), [form.password]);
   const passwordValid = form.password.length >= 12;
-  const stepValid = step === 1 ? nameValid : step === 2 ? emailValid && passwordValid : agree;
+  const stepValid = step === 1 ? nameValid && !nameBlocked : step === 2 ? emailValid && passwordValid : agree;
 
   function goTo(target: Step) {
     setError("");
@@ -154,9 +199,20 @@ export default function RegisterPage() {
       const body = await res.json();
       if (!res.ok) {
         const message: string = body?.message ?? "تعذر إنشاء الحساب.";
-        // The server names the field that is taken; take the person back to it.
-        if (/username/i.test(message)) setStep(1);
-        else if (/email/i.test(message)) setStep(2);
+        if (body?.code === "registration_failed") {
+          // The server does not say which of the two clashed. The name can be asked about; if it is fine, the email is the one.
+          const again = await checkUsername(form.username);
+          if (again === "taken" || again === "reserved") {
+            setAvailability(again);
+            setSuggestions(again === "taken" ? suggestNames(form.username) : []);
+            setStep(1);
+            setError("سبقك أحدهم إلى هذا الاسم. اختر اسماً آخر.");
+          } else {
+            setStep(2);
+            setError("تعذر إكمال التسجيل. قد يكون هذا البريد مسجّلاً من قبل؛ جرّب تسجيل الدخول أو بريداً آخر.");
+          }
+          return;
+        }
         setError(message);
         return;
       }
@@ -240,6 +296,36 @@ export default function RegisterPage() {
                   <FieldMessage id="username-note" tone="error">
                     {nameProblem}
                   </FieldMessage>
+                ) : nameValid && availability === "checking" ? (
+                  <FieldMessage id="username-note" tone="hint">
+                    <Loader2 className="h-3.5 w-3.5 animate-spin" /> نتأكد أن الاسم متاح...
+                  </FieldMessage>
+                ) : nameValid && availability === "free" ? (
+                  <FieldMessage id="username-note" tone="ok">
+                    الاسم متاح.
+                  </FieldMessage>
+                ) : nameValid && availability === "reserved" ? (
+                  <FieldMessage id="username-note" tone="error">
+                    هذا الاسم محجوز للفريق، اختر اسماً آخر.
+                  </FieldMessage>
+                ) : nameValid && availability === "taken" ? (
+                  <div id="username-note" aria-live="polite" className="space-y-1.5">
+                    <p className="flex items-center gap-1.5 text-xs text-red-400">
+                      <AlertCircle className="h-3.5 w-3.5 shrink-0" /> هذا الاسم مستخدم أو يشبه اسماً مستخدماً. جرّب:
+                    </p>
+                    <div className="flex flex-wrap gap-2" dir="ltr">
+                      {suggestions.map((name) => (
+                        <button
+                          key={name}
+                          type="button"
+                          onClick={() => setForm((f) => ({ ...f, username: name }))}
+                          className="rounded-full border border-primary-400/50 px-3 py-1 text-xs font-bold text-primary-200 transition-colors hover:bg-primary-500/15 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary-400"
+                        >
+                          {name}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
                 ) : nameValid ? (
                   <FieldMessage id="username-note" tone="ok">
                     الاسم مناسب. سنتأكد أنه غير مستخدم عند الختم.
