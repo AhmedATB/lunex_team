@@ -1,4 +1,4 @@
-import { COVER_PLACEHOLDER, EMPTY_STATS, imageUrl, slugify, toChapterDto, toSeriesDto, toTeamDto, uniqueSlug, type SeriesRow } from "./catalog.util";
+import { COVER_PLACEHOLDER, EMPTY_STATS, imageUrl, roundRating, slugify, toChapterDto, toSeriesDto, toTeamDto, trendingSince, uniqueSlug, utcDay, type SeriesRow } from "./catalog.util";
 
 describe("slugify", () => {
   it("keeps Arabic letters and turns everything else into single hyphens", () => {
@@ -162,5 +162,23 @@ describe("toChapterDto", () => {
       releasedAt: "2026-02-01T00:00:00.000Z",
       hasContent: true,
     });
+  });
+});
+
+describe("views and ratings helpers", () => {
+  it("utcDay is the calendar day in UTC, at midnight", () => {
+    expect(utcDay(new Date("2026-09-25T23:59:59.999Z")).toISOString()).toBe("2026-09-25T00:00:00.000Z");
+    expect(utcDay(new Date("2026-09-26T00:00:00.000Z")).toISOString()).toBe("2026-09-26T00:00:00.000Z");
+  });
+
+  it("the trending window is the last 7 days including today", () => {
+    expect(trendingSince(new Date("2026-09-25T15:00:00Z")).toISOString()).toBe("2026-09-19T00:00:00.000Z");
+    expect(trendingSince(new Date("2026-03-03T01:00:00Z")).toISOString()).toBe("2026-02-25T00:00:00.000Z");
+  });
+
+  it("ratings show one decimal", () => {
+    expect(roundRating(4.3333)).toBe(4.3);
+    expect(roundRating(4.25)).toBe(4.3);
+    expect(roundRating(0)).toBe(0);
   });
 });

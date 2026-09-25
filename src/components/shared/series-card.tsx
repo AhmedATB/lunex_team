@@ -6,9 +6,8 @@ import Link from "next/link";
 import { Star, BookOpen, Bookmark, Sparkle } from "lucide-react";
 import type { Series } from "@/lib/types";
 import { Badge } from "@/components/ui/badge";
-import { cn, formatNumber } from "@/lib/utils";
+import { cn, formatNumber, formatRating } from "@/lib/utils";
 import { genreLabelsFor, GENRE_CHIP_STYLES } from "@/lib/genre-helpers";
-import { useRatings, getEffectiveRating } from "@/store/ratings";
 
 const STATUS_LABEL: Record<Series["status"], string> = {
   ongoing: "مستمر",
@@ -26,8 +25,7 @@ const STATUS_VARIANT: Record<Series["status"], "success" | "secondary" | "warnin
 
 export function SeriesCard({ series, priority = false }: { series: Series; priority?: boolean }) {
   const genreLabels = genreLabelsFor(series.genreIds);
-  const seriesRatings = useRatings((s) => s.ratings[series.id]);
-  const { rating } = getEffectiveRating({ rating: series.rating, ratingCount: series.ratingCount }, seriesRatings);
+  const rating = formatRating(series.rating, series.ratingCount);
   const ref = useRef<HTMLAnchorElement>(null);
 
   function onMouseMove(e: React.MouseEvent<HTMLAnchorElement>) {

@@ -1,6 +1,6 @@
 import { Injectable } from "@nestjs/common";
 import { PrismaService } from "../../prisma/prisma.service";
-import type { SeriesStats } from "./catalog.util";
+import { roundRating, trendingSince, type SeriesStats } from "./catalog.util";
 
 const WITH_TAGS = { tags: { include: { tag: true } } } as const;
 const TEAM_INCLUDE = { members: { select: { userId: true } } } as const;
@@ -55,7 +55,7 @@ export class CatalogRepository {
     const stats = new Map<string, SeriesStats>();
     if (seriesIds.length === 0) return stats;
 
-    const [chapters, bookmarks] = await Promise.all([
+    const [chapters, bookmarks, ratings, weekViews] = await Promise.all([
       this.prisma.chapter.groupBy({
         by: ["seriesId"],
         where: { seriesId: { in: seriesIds }, isPublished: true },
@@ -63,11 +63,23 @@ export class CatalogRepository {
         _max: { number: true, publishedAt: true, createdAt: true },
       }),
       this.prisma.bookmark.groupBy({ by: ["seriesId"], where: { seriesId: { in: seriesIds } }, _count: { _all: true } }),
+      this.prisma.seriesRating.groupBy({ by: ["seriesId"], where: { seriesId: { in: seriesIds } }, _avg: { value: true }, _count: { _all: true } }),
+      this.prisma.chapterView.groupBy({ by: ["seriesId"], where: { seriesId: { in: seriesIds }, day: { gte: trendingSince() } }, _count: { _all: true } }),
     ]);
 
     const bookmarkCounts = new Map(bookmarks.map((b) => [b.seriesId, b._count._all]));
+    const ratingOf = new Map(ratings.map((r) => [r.seriesId, { average: roundRating(r._avg.value ?? 0), count: r._count._all }]));
+    const weekOf = new Map(weekViews.map((v) => [v.seriesId, v._count._all]));
     for (const id of seriesIds) {
-      stats.set(id, { chapterCount: 0, latestChapterNumber: 0, latestChapterAt: null, bookmarks: bookmarkCounts.get(id) ?? 0, rating: 0, ratingCount: 0 });
+      stats.set(id, {
+        chapterCount: 0,
+        latestChapterNumber: 0,
+        latestChapterAt: null,
+        bookmarks: bookmarkCounts.get(id) ?? 0,
+        rating: ratingOf.get(id)?.average ?? 0,
+        ratingCount: ratingOf.get(id)?.count ?? 0,
+        viewsWeek: weekOf.get(id) ?? 0,
+      });
     }
     for (const c of chapters) {
       const current = stats.get(c.seriesId);
@@ -150,6 +162,8 @@ export class CatalogRepository {
       this.prisma.chapter.deleteMany({ where: { seriesId: id } }),
       this.prisma.bookmark.deleteMany({ where: { seriesId: id } }),
       this.prisma.readingProgress.deleteMany({ where: { seriesId: id } }),
+      this.prisma.chapterView.deleteMany({ where: { seriesId: id } }),
+      this.prisma.seriesRating.deleteMany({ where: { seriesId: id } }),
       this.prisma.series.delete({ where: { id } }),
     ]);
   }

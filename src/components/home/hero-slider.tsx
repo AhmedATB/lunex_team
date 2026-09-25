@@ -7,7 +7,7 @@ import { AnimatePresence, motion } from "framer-motion";
 import { Star, BookOpen, Play } from "lucide-react";
 import type { Series } from "@/lib/types";
 import { Button } from "@/components/ui/button";
-import { cn, formatNumber } from "@/lib/utils";
+import { cn, formatNumber, formatRating } from "@/lib/utils";
 
 const SLOT_SIZE_CLASS = [
   "w-[128px] h-[176px] sm:w-[168px] sm:h-[230px] lg:w-[220px] lg:h-[300px] xl:w-[280px] xl:h-[374px] 2xl:w-[320px] 2xl:h-[427px]",
@@ -138,7 +138,7 @@ export function HeroSlider({ series }: { series: Series[] }) {
                 حصري LUNEX
               </span>
               <span className="flex items-center gap-1 rounded-full bg-black/50 px-2.5 py-1 text-sm font-bold text-amber-300 shadow-[0_0_16px_rgba(252,211,77,0.35)] backdrop-blur-sm">
-                <Star className="h-4 w-4 fill-amber-300" /> {current.rating}
+                <Star className="h-4 w-4 fill-amber-300" /> {formatRating(current.rating, current.ratingCount)}
               </span>
               <span className="text-sm text-lunex-gray">{formatNumber(current.views)} مشاهدة</span>
             </div>

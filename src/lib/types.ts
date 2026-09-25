@@ -293,6 +293,8 @@ export interface Series {
   isRecommended: boolean;
   /** Set for series that come from the real catalogue; the built-in sample data has none. */
   contentRating?: string;
+  /** Readers who opened one of its chapters in the last 7 days (real catalogue only). */
+  viewsWeek?: number;
 }
 
 export interface Comment {

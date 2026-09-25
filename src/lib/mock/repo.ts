@@ -1,4 +1,5 @@
 import { loadCatalog } from "../catalog-server";
+import { byFollowers, byPopularity, byThisWeek, byTopRated, byViews } from "../ranking";
 import type { Series, Chapter, Genre, Team, User, Comment, NewsItem } from "../types";
 
 /**
@@ -41,7 +42,7 @@ export interface SeriesFilters {
   type?: Series["type"];
   year?: number;
   query?: string;
-  sort?: "popular" | "latest" | "rating" | "az" | "views";
+  sort?: "popular" | "trending" | "followers" | "latest" | "rating" | "az" | "views";
   page?: number;
   pageSize?: number;
 }
@@ -63,19 +64,25 @@ export async function getSeriesList(filters: SeriesFilters = {}): Promise<{ item
 
   switch (filters.sort) {
     case "rating":
-      items.sort((a, b) => b.rating - a.rating);
+      items.sort(byTopRated);
       break;
     case "az":
       items.sort((a, b) => a.titleAr.localeCompare(b.titleAr, "ar"));
       break;
     case "views":
-      items.sort((a, b) => b.views - a.views);
+      items.sort(byViews);
+      break;
+    case "trending":
+      items.sort(byThisWeek);
+      break;
+    case "followers":
+      items.sort(byFollowers);
       break;
     case "latest":
       items.sort((a, b) => +new Date(b.updatedAt) - +new Date(a.updatedAt));
       break;
     default:
-      items.sort((a, b) => b.bookmarks - a.bookmarks);
+      items.sort(byPopularity);
   }
 
   const total = items.length;
@@ -114,12 +121,11 @@ export async function getLatestChapters(limit = 18): Promise<(Chapter & { series
 }
 
 export async function getTrendingSeries(limit = 10): Promise<Series[]> {
-  return [...(await db()).series].sort((a, b) => b.views - a.views).slice(0, limit);
+  return [...(await db()).series].sort(byThisWeek).slice(0, limit);
 }
 
 export async function getPopularToday(limit = 10): Promise<Series[]> {
-  const rng = [...(await db()).series];
-  return rng.sort((a, b) => b.likes - a.likes).slice(0, limit);
+  return [...(await db()).series].sort(byPopularity).slice(0, limit);
 }
 
 export async function getRecentlyUpdated(limit = 12): Promise<Series[]> {
@@ -133,19 +139,19 @@ export async function getNewReleases(limit = 12): Promise<Series[]> {
 }
 
 export async function getCompletedSeries(limit = 12): Promise<Series[]> {
-  return (await db()).series.filter((s) => s.status === "completed").slice(0, limit);
+  return (await db()).series.filter((s) => s.status === "completed").sort(byPopularity).slice(0, limit);
 }
 
 export async function getOngoingSeries(limit = 12): Promise<Series[]> {
-  return (await db()).series.filter((s) => s.status === "ongoing").slice(0, limit);
+  return (await db()).series.filter((s) => s.status === "ongoing").sort(byPopularity).slice(0, limit);
 }
 
 export async function getRecommendedSeries(limit = 12): Promise<Series[]> {
-  return (await db()).series.filter((s) => s.isRecommended).slice(0, limit);
+  return (await db()).series.filter((s) => s.isRecommended).sort(byPopularity).slice(0, limit);
 }
 
 export async function getFeaturedSeries(limit = 6): Promise<Series[]> {
-  return (await db()).series.filter((s) => s.isFeatured).slice(0, limit);
+  return (await db()).series.filter((s) => s.isFeatured).sort(byPopularity).slice(0, limit);
 }
 
 export async function getRandomPick(): Promise<Series> {

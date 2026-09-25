@@ -1,6 +1,8 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
+import { byFollowers, byPopularity, byThisWeek, byTopRated, byViews } from "@/lib/ranking";
+import { CatalogAutoRefresh } from "@/components/catalog-auto-refresh";
 import { useSearchParams } from "next/navigation";
 import { Search as SearchIcon, SlidersHorizontal, X } from "lucide-react";
 import type { Genre, Series } from "@/lib/types";
@@ -40,8 +42,10 @@ const COUNTRY_OPTIONS: { value: Series["country"]; label: string }[] = [
 ];
 
 const SORT_OPTIONS = [
-  { value: "popular", label: "الأكثر متابعة" },
+  { value: "popular", label: "الأكثر شعبية" },
+  { value: "trending", label: "الأكثر قراءة هذا الأسبوع" },
   { value: "views", label: "الأكثر مشاهدة" },
+  { value: "followers", label: "الأكثر متابعة" },
   { value: "latest", label: "آخر تحديث" },
   { value: "rating", label: "الأعلى تقييماً" },
   { value: "az", label: "أبجدياً" },
@@ -126,19 +130,25 @@ export function SeriesExplorer({ genres, title }: { genres: Genre[]; title: stri
 
     switch (filters.sort) {
       case "views":
-        items.sort((a, b) => b.views - a.views);
+        items.sort(byViews);
+        break;
+      case "trending":
+        items.sort(byThisWeek);
+        break;
+      case "followers":
+        items.sort(byFollowers);
         break;
       case "latest":
         items.sort((a, b) => +new Date(b.updatedAt) - +new Date(a.updatedAt));
         break;
       case "rating":
-        items.sort((a, b) => b.rating - a.rating);
+        items.sort(byTopRated);
         break;
       case "az":
         items.sort((a, b) => a.titleAr.localeCompare(b.titleAr, "ar"));
         break;
       default:
-        items.sort((a, b) => b.bookmarks - a.bookmarks);
+        items.sort(byPopularity);
     }
     return items;
   }, [allSeries, filters]);
@@ -159,6 +169,7 @@ export function SeriesExplorer({ genres, title }: { genres: Genre[]; title: stri
 
   return (
     <div className="container space-y-6 py-6">
+      <CatalogAutoRefresh />
       <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
         <div>
           <h1 className="font-display text-2xl font-bold text-white sm:text-3xl">

@@ -160,15 +160,27 @@ export function LibrarySync({ userId }: { userId: string | null }) {
             ? await requestLibrary("GET", "/api/profiles/me/library")
             : await requestLibrary("POST", "/api/profiles/me/library/sync", local);
         if (cancelled) return;
+
+        // The reader page records the chapter the moment it opens — on a direct load that is BEFORE this answer
+        // arrives. What the server just sent would overwrite it, so anything that moved while we waited (and is
+        // further than the server knows) is kept and pushed afterwards.
+        const now = useReadingProgress.getState().progress;
+        const movedMeanwhile = Object.entries(now).filter(
+          ([id, chapter]) => chapter !== local.progress[id] && chapter > (library.progress[id] ?? Number.NEGATIVE_INFINITY)
+        );
+
         applyLibrary(library);
         writeOwner(userId);
+        stopPushing = startPushingChanges();
+        if (movedMeanwhile.length > 0) {
+          useReadingProgress.setState({ progress: { ...library.progress, ...Object.fromEntries(movedMeanwhile) } });
+        }
+        return;
       } catch {
         // Backend unreachable: keep the local copy and try again on the next load. Not pushing until then, since we
         // don't know what the server has.
         return;
       }
-
-      stopPushing = startPushingChanges();
     })();
 
     return () => {

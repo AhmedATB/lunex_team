@@ -65,6 +65,8 @@ model User {
   chapterUnlocks   ChapterUnlock[]
   bookmarks        Bookmark[]
   readingProgress  ReadingProgress[]
+  chapterViews     ChapterView[]
+  seriesRatings    SeriesRating[]
   sanctions        Sanction[]
   comments         Comment[]
   commentReactions CommentReaction[]
@@ -545,3 +547,38 @@ model NewsItem {
   @@index([createdAt])
   @@map("news_items")
 }
+
+/// A signed-in reader opening a chapter — at most one row per reader, chapter and day, so a refresh or a second
+/// visit the same day does not inflate the numbers. `Chapter.viewCount` / `Series.viewCount` are the running totals;
+/// these rows are what "most read this week" is computed from, and are purged after a while (the totals stay).
+model ChapterView {
+  id        String   @id @default(uuid())
+  chapterId String
+  /// Plain string like every other catalogue reference (cleaned up when a series is deleted).
+  seriesId  String
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  day       DateTime @db.Date
+  createdAt DateTime @default(now())
+
+  @@unique([chapterId, userId, day])
+  @@index([seriesId, day])
+  @@index([day])
+  @@map("chapter_views")
+}
+
+/// One reader's 1-5 rating of a series; rating again replaces it. The catalogue shows the average and the count.
+model SeriesRating {
+  id        String   @id @default(uuid())
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  seriesId  String
+  value     Int
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([userId, seriesId])
+  @@index([seriesId])
+  @@map("series_ratings")
+}
+

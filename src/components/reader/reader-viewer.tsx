@@ -76,6 +76,12 @@ export function ReaderViewer({
     };
   }, [seriesId, chapter.number]);
 
+  // One view per reader per chapter per day is counted on the server; asking again is harmless.
+  useEffect(() => {
+    if (!realChapterId) return;
+    fetch(`/api/catalog/chapters/${encodeURIComponent(realChapterId)}/view`, { method: "POST", keepalive: true }).catch(() => {});
+  }, [realChapterId]);
+
   const isReal = Boolean(realChapterId) && realPageCount > 0;
   const pageCount = isReal ? realPageCount : chapter.pages;
 

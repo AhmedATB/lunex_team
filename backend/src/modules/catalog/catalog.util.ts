@@ -94,9 +94,31 @@ export interface SeriesStats {
   bookmarks: number;
   rating: number;
   ratingCount: number;
+  /** Readers who opened one of its chapters in the last TRENDING_DAYS days, counted per reader per chapter per day. */
+  viewsWeek: number;
 }
 
-export const EMPTY_STATS: SeriesStats = { chapterCount: 0, latestChapterNumber: 0, latestChapterAt: null, bookmarks: 0, rating: 0, ratingCount: 0 };
+export const EMPTY_STATS: SeriesStats = { chapterCount: 0, latestChapterNumber: 0, latestChapterAt: null, bookmarks: 0, rating: 0, ratingCount: 0, viewsWeek: 0 };
+
+/** The window behind "most read this week". */
+export const TRENDING_DAYS = 7;
+
+/** The calendar day (UTC) of a moment, as a Date at 00:00 — what `chapter_views.day` stores. */
+export function utcDay(moment: Date): Date {
+  return new Date(Date.UTC(moment.getUTCFullYear(), moment.getUTCMonth(), moment.getUTCDate()));
+}
+
+/** The first day inside the trending window that ends today. */
+export function trendingSince(now: Date = new Date()): Date {
+  const day = utcDay(now);
+  day.setUTCDate(day.getUTCDate() - (TRENDING_DAYS - 1));
+  return day;
+}
+
+/** One decimal, as shown on the site (4.3), never a long fraction. */
+export function roundRating(average: number): number {
+  return Math.round(average * 10) / 10;
+}
 
 /** The shape the frontend's `Series` type expects, so the UI needs no adapter. */
 export function toSeriesDto(row: SeriesRow, stats: SeriesStats = EMPTY_STATS) {
@@ -121,6 +143,7 @@ export function toSeriesDto(row: SeriesRow, stats: SeriesStats = EMPTY_STATS) {
     rating: stats.rating,
     ratingCount: stats.ratingCount,
     views: row.viewCount,
+    viewsWeek: stats.viewsWeek,
     bookmarks: stats.bookmarks,
     likes: stats.bookmarks,
     // The UI's genre filter covers genres and themes (Martial Arts, School Life, ...); format and content notes stay free-form tags.

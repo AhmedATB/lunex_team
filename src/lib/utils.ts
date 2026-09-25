@@ -12,6 +12,11 @@ export function formatNumber(n: number): string {
   return `${n}`;
 }
 
+/** A rating as shown on cards: one decimal, or a dash while nobody has rated yet (never a misleading 0). */
+export function formatRating(rating: number, ratingCount: number): string {
+  return ratingCount > 0 ? rating.toFixed(1) : "—";
+}
+
 export function timeAgo(iso: string): string {
   const diff = Date.now() - new Date(iso).getTime();
   const minutes = Math.floor(diff / 60000);

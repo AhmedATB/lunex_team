@@ -38,8 +38,10 @@ export const loadCatalogSeed = cache(async (): Promise<CatalogSeed | null> => {
   let data: Bootstrap;
   try {
     const res = await fetch(`${BACKEND_URL}/v1/catalog/bootstrap`, {
+      // Fresh on every render: the backend keeps the catalogue for 15 s itself, and a stale copy here would hold
+      // back the new views and ratings for a whole extra refresh.
+      cache: "no-store",
       headers: { "User-Agent": "LunexTeamBFF/1.0 (+server-to-server)" },
-      next: { revalidate: 15 },
     });
     if (!res.ok) return null;
     data = (await res.json()) as Bootstrap;

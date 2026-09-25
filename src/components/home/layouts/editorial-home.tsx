@@ -9,7 +9,7 @@ import { LatestComments } from "@/components/home/latest-comments";
 import { ContinueReading } from "@/components/home/continue-reading";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { cn, formatNumber, timeAgo } from "@/lib/utils";
+import { cn, formatNumber, formatRating, timeAgo } from "@/lib/utils";
 
 const NEWS_ICON: Record<string, typeof Megaphone> = {
   announcement: Megaphone,
@@ -45,10 +45,10 @@ function SectionHeader({ title, href }: { title: string; href?: string }) {
   );
 }
 
-function RatingPill({ rating, className }: { rating: number; className?: string }) {
+function RatingPill({ series, className }: { series: Series; className?: string }) {
   return (
     <span className={cn("flex items-center gap-1 rounded-full bg-black/60 px-2 py-0.5 text-xs font-bold text-amber-300", className)}>
-      <Star className="h-3 w-3 fill-amber-300" /> {rating}
+      <Star className="h-3 w-3 fill-amber-300" /> {formatRating(series.rating, series.ratingCount)}
     </span>
   );
 }
@@ -65,7 +65,7 @@ function SeriesGridSection({ title, href, series }: { title: string; href: strin
           <Link key={s.id} href={`/series/${s.slug}`} className="group flex flex-col gap-2">
             <div className="panel panel-hover relative aspect-[3/4] w-full overflow-hidden">
               <Cover src={s.cover} alt={s.titleAr} sizes={ROW_SIZES} />
-              <RatingPill rating={s.rating} className="absolute end-2 top-2 z-10" />
+              <RatingPill series={s} className="absolute end-2 top-2 z-10" />
             </div>
             <span className="line-clamp-2 text-sm font-bold text-white group-hover:text-primary-300">{s.titleAr}</span>
           </Link>
@@ -88,7 +88,7 @@ function CarouselSection({ title, href, series }: { title: string; href: string;
               <span className="absolute start-2 top-2 z-10 rounded-full bg-black/60 px-2 py-0.5 text-xs font-bold text-primary-300">
                 {String(i + 1).padStart(2, "0")}
               </span>
-              <RatingPill rating={s.rating} className="absolute end-2 top-2 z-10" />
+              <RatingPill series={s} className="absolute end-2 top-2 z-10" />
             </div>
             <span className="line-clamp-2 text-sm font-bold text-white group-hover:text-primary-300">{s.titleAr}</span>
           </Link>
@@ -156,7 +156,7 @@ export function EditorialHome(data: HomeLayoutData) {
               <span className="inline-flex h-12 items-center justify-center rounded-xl bg-lunex-gradient px-8 text-base font-bold text-white shadow-[0_4px_20px_-2px_rgb(var(--primary-600)/0.55)]">
                 ابدأ القراءة
               </span>
-              <RatingPill rating={lead.rating} className="px-2.5 py-1 text-sm" />
+              <RatingPill series={lead} className="px-2.5 py-1 text-sm" />
             </div>
           </Link>
 
@@ -173,7 +173,7 @@ export function EditorialHome(data: HomeLayoutData) {
                 <div className="flex flex-col justify-center gap-1">
                   <span className="line-clamp-1 text-sm font-bold text-white">{s.titleAr}</span>
                   <span className="flex w-fit items-center gap-1 rounded-full bg-amber-400/15 px-2 py-0.5 text-xs font-bold text-amber-300">
-                    <Star className="h-3 w-3 fill-amber-300" /> {s.rating}
+                    <Star className="h-3 w-3 fill-amber-300" /> {formatRating(s.rating, s.ratingCount)}
                   </span>
                   <span className="text-xs text-lunex-gray">{formatNumber(s.views)} مشاهدة</span>
                 </div>
@@ -201,7 +201,7 @@ export function EditorialHome(data: HomeLayoutData) {
       <ContinueReading />
 
       <section className="space-y-4">
-        <SectionHeader title="الأكثر رواجاً الآن" href="/search?sort=views" />
+        <SectionHeader title="الأكثر قراءة هذا الأسبوع" href="/search?sort=trending" />
         <div className="grid gap-3 sm:grid-cols-2">
           {topTrending.map((s, i) => (
             <Link key={s.id} href={`/series/${s.slug}`} className="group flex items-center gap-4">
@@ -214,7 +214,7 @@ export function EditorialHome(data: HomeLayoutData) {
               <div className="flex flex-col gap-0.5">
                 <span className="text-sm font-bold text-white group-hover:text-primary-300">{s.titleAr}</span>
                 <span className="text-xs text-lunex-gray">
-                  ★ {s.rating} &middot; {formatNumber(s.views)} مشاهدة
+                  ★ {formatRating(s.rating, s.ratingCount)} &middot; {formatNumber(s.views)} مشاهدة
                 </span>
               </div>
             </Link>
@@ -250,7 +250,7 @@ export function EditorialHome(data: HomeLayoutData) {
         </div>
       </section>
 
-      <CarouselSection title="الأكثر شعبية اليوم" href="/search?sort=views" series={data.popular} />
+      <CarouselSection title="الأكثر شعبية" href="/search?sort=popular" series={data.popular} />
 
       <div className="grid gap-10 lg:grid-cols-2">
         <SeriesGridSection title="مستمرة" href="/search?status=ongoing" series={data.ongoing.slice(0, 6)} />

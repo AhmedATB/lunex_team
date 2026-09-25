@@ -16,6 +16,7 @@ import {
 } from "@/lib/mock/repo";
 import { loadCatalog } from "@/lib/catalog-server";
 import { EditorialHome } from "@/components/home/layouts/editorial-home";
+import { CatalogAutoRefresh } from "@/components/catalog-auto-refresh";
 
 export default async function HomePage() {
   const [
@@ -57,7 +58,9 @@ export default async function HomePage() {
   const seriesMap = new Map(db.series.map((s) => [s.id, s]));
 
   return (
-    <EditorialHome
+    <>
+      <CatalogAutoRefresh />
+      <EditorialHome
       featured={featured}
       latestChapters={latestChapters}
       popular={popular}
@@ -76,5 +79,6 @@ export default async function HomePage() {
       users={db.users}
       seriesMap={seriesMap}
     />
+    </>
   );
 }

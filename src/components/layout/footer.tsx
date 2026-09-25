@@ -22,7 +22,7 @@ export function Footer() {
             { href: "/series", label: "كل السلاسل" },
             { href: "/search?status=ongoing", label: "المستمرة" },
             { href: "/search?status=completed", label: "المكتملة" },
-            { href: "/search?sort=views", label: "الأكثر رواجاً" },
+            { href: "/search?sort=trending", label: "الأكثر قراءة هذا الأسبوع" },
           ]}
         />
         <FooterCol
