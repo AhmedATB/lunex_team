@@ -107,7 +107,7 @@ export function CommentSection({
     };
   }, [seriesId, currentUserId]);
 
-  const comments: CommentRow[] = [...serverRows, ...mergeComments(initialComments, commentsStore)].sort((a, b) => {
+  const comments: CommentRow[] = [...serverRows, ...mergeComments(initialComments, commentsStore, seriesId)].sort((a, b) => {
     if (a.isPinned !== b.isPinned) return a.isPinned ? -1 : 1;
     return +new Date(b.createdAt) - +new Date(a.createdAt);
   });

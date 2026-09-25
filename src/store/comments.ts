@@ -108,13 +108,19 @@ export const useComments = create<CommentsState>()(
   )
 );
 
-/** Applies added/removed/edited comments on top of a base (mock) list — same shape as team-management's override triples. */
+/**
+ * Applies added/removed/edited comments on top of a base (mock) list — same shape as team-management's override triples.
+ * Pass `seriesId` when the result is shown on one series' page: comments added in this browser belong to the series they
+ * were written under, and without the filter they would appear under every series.
+ */
 export function mergeComments(
   base: Comment[],
-  state: Pick<CommentsState, "addedComments" | "removedCommentIds" | "overrides">
+  state: Pick<CommentsState, "addedComments" | "removedCommentIds" | "overrides">,
+  seriesId?: string
 ): Comment[] {
   const removed = new Set(state.removedCommentIds);
-  return [...state.addedComments, ...base]
+  const added = seriesId === undefined ? state.addedComments : state.addedComments.filter((c) => c.seriesId === seriesId);
+  return [...added, ...base]
     .filter((c) => !removed.has(c.id))
     .map((c) => ({ ...c, ...state.overrides[c.id] }));
 }
