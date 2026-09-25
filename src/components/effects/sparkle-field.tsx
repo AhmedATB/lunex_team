@@ -32,31 +32,33 @@ function makeRand(seed: number) {
  * and client render the same layout — only the COLOR varies by style,
  * picked at render time from the palette above.
  *
- * Counts trimmed from the original 70/18 (perf feedback, 2026-09-19: real
- * mobile lag) — every one of these is a permanently-animating SVG with an
- * animated drop-shadow filter, which is genuine ongoing paint/compositing
- * cost for as long as the page is open, not a one-off.
+ * Counts: 70/18 originally, 30/10 after the perf pass (2026-09-19: real
+ * mobile lag), now 10/3 — readers found even 30/10 "far too many and
+ * distracting" (2026-09-25), because that count was spread over the whole
+ * scroll height, so a short page like account settings packed all of it
+ * into one screen. The layer is now anchored to the viewport (see the root
+ * element below), so this is the number on screen at any moment, on every page.
  */
-const STAR_LAYOUT = Array.from({ length: 30 }).map((_, i) => {
+const STAR_LAYOUT = Array.from({ length: 10 }).map((_, i) => {
   const rand = makeRand(i * 9301 + 49297);
   return {
     id: `star-${i}`,
     top: `${rand() * 100}%`,
     left: `${rand() * 100}%`,
-    size: 7 + rand() * 15,
+    size: 6 + rand() * 8,
     delay: `${rand() * 5}s`,
     duration: `${1.8 + rand() * 2.8}s`,
     colorIndex: Math.floor(rand() * DEFAULT_STAR_COLORS.length),
   };
 });
 
-const CRYSTAL_LAYOUT = Array.from({ length: 10 }).map((_, i) => {
+const CRYSTAL_LAYOUT = Array.from({ length: 3 }).map((_, i) => {
   const rand = makeRand(i * 6151 + 12007);
   return {
     id: `crystal-${i}`,
     top: `${rand() * 100}%`,
     left: `${rand() * 100}%`,
-    size: 10 + rand() * 14,
+    size: 9 + rand() * 7,
     delay: `${rand() * 6}s`,
     duration: `${5 + rand() * 3}s`,
     colorIndex: rand() > 0.5 ? 0 : 1,
@@ -71,7 +73,9 @@ export function SparkleField({ initialStyle }: { initialStyle: StyleId }) {
 
   return (
     // No negative z-index — see AppShell's decorative-layer comment; it rendered invisible at this position.
-    <div className="pointer-events-none absolute inset-0 overflow-hidden" aria-hidden="true">
+    // `fixed` keeps the density constant on every page (a few stars on screen, whatever the page length) and, unlike the
+    // `absolute` layers around it, doesn't get repainted on every scroll frame. `opacity-70` caps the twinkle's peak brightness.
+    <div className="pointer-events-none fixed inset-0 overflow-hidden opacity-70" aria-hidden="true">
       {STAR_LAYOUT.map((s) => {
         const color = palette.stars[s.colorIndex % palette.stars.length];
         return (
@@ -86,7 +90,7 @@ export function SparkleField({ initialStyle }: { initialStyle: StyleId }) {
               color,
               animationDelay: s.delay,
               animationDuration: s.duration,
-              filter: `drop-shadow(0 0 ${s.size / 2}px ${color})`,
+              filter: `drop-shadow(0 0 ${s.size / 3}px ${color})`,
             }}
             viewBox="0 0 24 24"
             fill="currentColor"
@@ -100,7 +104,7 @@ export function SparkleField({ initialStyle }: { initialStyle: StyleId }) {
         return (
           <svg
             key={c.id}
-            className="float-slow absolute opacity-40"
+            className="float-slow absolute opacity-50"
             style={{
               top: c.top,
               left: c.left,
@@ -109,7 +113,7 @@ export function SparkleField({ initialStyle }: { initialStyle: StyleId }) {
               color,
               animationDelay: c.delay,
               animationDuration: c.duration,
-              filter: `drop-shadow(0 0 ${c.size / 2}px ${color})`,
+              filter: `drop-shadow(0 0 ${c.size / 3}px ${color})`,
             }}
             viewBox="0 0 24 24"
             fill="currentColor"

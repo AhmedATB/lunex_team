@@ -12,7 +12,7 @@ import { getMockDatabase } from "@/lib/mock/generate";
 import { useSession } from "@/store/session";
 import { useTeamManagement, applyTeamOverride } from "@/store/team-management";
 import { getTeamAuthRoles, getEffectiveCustomRoles } from "@/lib/team-auth";
-import { useProfile, effectiveAvatarSeed } from "@/store/profile";
+import { useProfile, avatarSrcFor } from "@/store/profile";
 import {
   TEAM_ROLE_LABELS,
   TEAM_PERMISSION_LABELS,
@@ -23,7 +23,7 @@ import {
 import { CATEGORY_LABELS, DEPARTMENT_KIND_LABELS } from "@/lib/team-labels";
 import { TEAM_COLOR_PALETTE } from "@/lib/team-colors";
 import { roleTierAvatarClass, roleTierAnimationClass } from "@/lib/role-tier";
-import { avatarUrl, cn, formatNumber, safeDecodeURIComponent, timeAgo } from "@/lib/utils";
+import { cn, formatNumber, safeDecodeURIComponent, timeAgo } from "@/lib/utils";
 import type {
   TeamRole, SeriesProductionRole, CollaborationType, RecruitmentApplication, CustomRole, Team, TeamCategory, User,
   Department, DepartmentKind, RecruitmentPosition, Series, SeriesType, SeriesStatus,
@@ -335,7 +335,7 @@ export default function TeamDashboardPage() {
                       roleTierAnimationClass(m.teamRole, isLeader)
                     )}
                   >
-                    <Image src={avatarUrl(effectiveAvatarSeed(m, avatarOverrides))} alt={m.displayName} fill sizes="40px" className="object-cover" />
+                    <Image src={avatarSrcFor(m, avatarOverrides)} alt={m.displayName} fill sizes="40px" className="object-cover" />
                   </div>
                   <div className="min-w-0 flex-1">
                     <p className="truncate text-sm font-bold text-white">{m.displayName}</p>
@@ -521,7 +521,7 @@ export default function TeamDashboardPage() {
                 <Card key={application.id} className="panel-hover">
                   <CardContent className="flex flex-wrap items-center gap-3 p-4">
                     <div className="relative h-9 w-9 shrink-0 overflow-hidden rounded-full ring-2 ring-primary-500/30">
-                      <Image src={avatarUrl(effectiveAvatarSeed(applicant, avatarOverrides))} alt={applicant.displayName} fill sizes="36px" className="object-cover" />
+                      <Image src={avatarSrcFor(applicant, avatarOverrides)} alt={applicant.displayName} fill sizes="36px" className="object-cover" />
                     </div>
                     <div className="min-w-0 flex-1">
                       <p className="text-sm font-bold text-white">{applicant.displayName} — {TEAM_ROLE_LABELS[application.preferredRole]}</p>

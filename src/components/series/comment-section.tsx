@@ -14,9 +14,9 @@ import {
   DropdownMenuLabel,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
-import { avatarUrl, timeAgo, cn } from "@/lib/utils";
+import { timeAgo, cn } from "@/lib/utils";
 import { useSession } from "@/store/session";
-import { useProfile, effectiveAvatarSeed } from "@/store/profile";
+import { useProfile, avatarSrcFor } from "@/store/profile";
 import { useTeamManagement, applyTeamOverride } from "@/store/team-management";
 import { useComments, mergeComments } from "@/store/comments";
 import { getTeamAuthRoles, getEffectiveCustomRoles } from "@/lib/team-auth";
@@ -113,7 +113,7 @@ export function CommentSection({
       {currentUser && (
         <div className="flex gap-3">
           <div className="relative h-10 w-10 shrink-0 overflow-hidden rounded-full ring-2 ring-primary-500/40 shadow-[0_0_14px_rgba(168,85,247,0.35)]">
-            <Image src={avatarUrl(effectiveAvatarSeed(currentUser, avatarOverrides))} alt={currentUser.displayName} fill sizes="40px" className="object-cover" />
+            <Image src={avatarSrcFor(currentUser, avatarOverrides)} alt={currentUser.displayName} fill sizes="40px" className="object-cover" />
           </div>
           <div className="flex-1 space-y-2">
             <Textarea
@@ -154,7 +154,7 @@ export function CommentSection({
           return (
             <div key={c.id} className="panel panel-hover flex gap-3 p-4">
               <div className="relative h-9 w-9 shrink-0 overflow-hidden rounded-full ring-2 ring-white/10">
-                <Image src={avatarUrl(effectiveAvatarSeed(user, avatarOverrides))} alt={user.displayName} fill sizes="36px" className="object-cover" />
+                <Image src={avatarSrcFor(user, avatarOverrides)} alt={user.displayName} fill sizes="36px" className="object-cover" />
               </div>
               <div className="min-w-0 flex-1">
                 <div className="flex items-center gap-2">

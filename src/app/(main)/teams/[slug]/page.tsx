@@ -9,7 +9,7 @@ import { Users, ExternalLink, Crown, MessageCircle, UserPlus } from "lucide-reac
 import { getMockDatabase } from "@/lib/mock/generate";
 import { useSession } from "@/store/session";
 import { useTeamManagement, applyTeamOverride } from "@/store/team-management";
-import { useProfile, effectiveAvatarSeed } from "@/store/profile";
+import { useProfile, avatarSrcFor } from "@/store/profile";
 import { TEAM_ROLE_LABELS } from "@/lib/rbac";
 import { roleTierAvatarClass, roleTierAnimationClass } from "@/lib/role-tier";
 import { Badge } from "@/components/ui/badge";
@@ -26,7 +26,7 @@ import {
 import { SeriesRow } from "@/components/shared/series-card";
 import { TeamDashboardLink } from "@/components/series/team-dashboard-link";
 import { ProfileSkeleton } from "@/components/shared/skeletons";
-import { avatarUrl, cn, safeDecodeURIComponent } from "@/lib/utils";
+import { cn, safeDecodeURIComponent } from "@/lib/utils";
 import type { RecruitmentPosition } from "@/lib/types";
 
 export default function TeamDetailPage() {
@@ -167,7 +167,7 @@ export default function TeamDetailPage() {
                   roleTierAnimationClass(m!.teamRole, isLeader)
                 )}
               >
-                <Image src={avatarUrl(effectiveAvatarSeed(m!, avatarOverrides))} alt={m!.displayName} fill sizes="40px" className="object-cover" />
+                <Image src={avatarSrcFor(m!, avatarOverrides)} alt={m!.displayName} fill sizes="40px" className="object-cover" />
               </div>
               <div className="min-w-0 flex-1">
                 <p className="truncate text-sm font-semibold text-white">{m!.displayName}</p>

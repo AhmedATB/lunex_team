@@ -1,8 +1,8 @@
 "use client";
 
 import Image from "next/image";
-import { useProfile, effectiveAvatarSeed } from "@/store/profile";
-import { avatarUrl, cn } from "@/lib/utils";
+import { useProfile, avatarSrcFor } from "@/store/profile";
+import { cn } from "@/lib/utils";
 
 /** Renders a user's avatar respecting any avatar-picker override — usable from Server Components. */
 export function UserAvatar({
@@ -11,7 +11,7 @@ export function UserAvatar({
   className,
   sizes,
 }: {
-  user: { id: string; avatarSeed: string };
+  user: { id: string; avatarSeed: string; avatarVersion?: string | null };
   alt: string;
   className?: string;
   sizes?: string;
@@ -19,7 +19,7 @@ export function UserAvatar({
   const avatarOverrides = useProfile((s) => s.avatarOverrides);
   return (
     <Image
-      src={avatarUrl(effectiveAvatarSeed(user, avatarOverrides))}
+      src={avatarSrcFor(user, avatarOverrides)}
       alt={alt}
       fill
       sizes={sizes}

@@ -4,8 +4,8 @@ import Image from "next/image";
 import Link from "next/link";
 import { MessageCircle, Lock } from "lucide-react";
 import type { Comment, Series, User } from "@/lib/types";
-import { avatarUrl, timeAgo } from "@/lib/utils";
-import { useProfile, effectiveAvatarSeed } from "@/store/profile";
+import { timeAgo } from "@/lib/utils";
+import { useProfile, avatarSrcFor } from "@/store/profile";
 import { useComments, mergeComments } from "@/store/comments";
 
 export function LatestComments({
@@ -41,7 +41,7 @@ export function LatestComments({
               className="panel panel-hover flex gap-3 p-4 transition-colors hover:border-primary-400/30"
             >
               <div className="relative h-9 w-9 shrink-0 overflow-hidden rounded-full ring-2 ring-white/10">
-                <Image src={avatarUrl(effectiveAvatarSeed(user, avatarOverrides))} alt={user.displayName} fill sizes="36px" className="object-cover" />
+                <Image src={avatarSrcFor(user, avatarOverrides)} alt={user.displayName} fill sizes="36px" className="object-cover" />
               </div>
               <div className="min-w-0">
                 <p className="text-sm">

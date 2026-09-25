@@ -4,8 +4,8 @@ import Image from "next/image";
 import Link from "next/link";
 import { Trophy } from "lucide-react";
 import type { User } from "@/lib/types";
-import { avatarUrl, formatNumber } from "@/lib/utils";
-import { useProfile, effectiveAvatarSeed } from "@/store/profile";
+import { formatNumber } from "@/lib/utils";
+import { useProfile, avatarSrcFor } from "@/store/profile";
 
 const MEDAL_COLORS = ["text-amber-300", "text-slate-300", "text-orange-400"];
 
@@ -25,7 +25,7 @@ export function TopReaders({ users }: { users: User[] }) {
               {i < 3 ? <Trophy className={`mx-auto h-4 w-4 ${MEDAL_COLORS[i]}`} /> : i + 1}
             </span>
             <div className="relative h-9 w-9 overflow-hidden rounded-full ring-2 ring-white/10">
-              <Image src={avatarUrl(effectiveAvatarSeed(u, avatarOverrides))} alt={u.displayName} fill sizes="36px" className="object-cover" />
+              <Image src={avatarSrcFor(u, avatarOverrides)} alt={u.displayName} fill sizes="36px" className="object-cover" />
             </div>
             <div className="min-w-0 flex-1">
               <p className="truncate text-sm font-semibold text-white">{u.displayName}</p>

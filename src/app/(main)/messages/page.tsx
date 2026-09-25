@@ -7,8 +7,8 @@ import { Send, MessageCircle } from "lucide-react";
 import { getMockDatabase } from "@/lib/mock/generate";
 import { useSession } from "@/store/session";
 import { useMessages, conversationId } from "@/store/messages";
-import { useProfile, effectiveAvatarSeed } from "@/store/profile";
-import { avatarUrl, cn, timeAgo } from "@/lib/utils";
+import { useProfile, avatarSrcFor } from "@/store/profile";
+import { cn, timeAgo } from "@/lib/utils";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { GridPageSkeleton } from "@/components/shared/skeletons";
@@ -110,7 +110,7 @@ function MessagesPageInner() {
                 )}
               >
                 <div className="relative h-10 w-10 shrink-0 overflow-hidden rounded-full ring-2 ring-primary-500/30">
-                  <Image src={avatarUrl(effectiveAvatarSeed(other, avatarOverrides))} alt={other.displayName} fill sizes="40px" className="object-cover" />
+                  <Image src={avatarSrcFor(other, avatarOverrides)} alt={other.displayName} fill sizes="40px" className="object-cover" />
                 </div>
                 <div className="min-w-0 flex-1">
                   <p className="truncate text-sm font-bold text-white">{other.displayName}</p>
@@ -132,7 +132,7 @@ function MessagesPageInner() {
             <>
               <div className="flex items-center gap-3 border-b border-white/10 p-4">
                 <div className="relative h-9 w-9 shrink-0 overflow-hidden rounded-full ring-2 ring-primary-500/30">
-                  <Image src={avatarUrl(effectiveAvatarSeed(selectedUser, avatarOverrides))} alt={selectedUser.displayName} fill sizes="36px" className="object-cover" />
+                  <Image src={avatarSrcFor(selectedUser, avatarOverrides)} alt={selectedUser.displayName} fill sizes="36px" className="object-cover" />
                 </div>
                 <p className="font-display font-bold text-white">{selectedUser.displayName}</p>
               </div>

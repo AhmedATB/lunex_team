@@ -21,10 +21,10 @@ export function AppShell({ children, initialStyle }: { children: ReactNode; init
       <ToastHost />
       <AchievementWatcher />
       {/*
-        This layer is `absolute` (not `fixed`) inside the page's own `relative` root, so it
-        stretches to the FULL scrollable page height and stars/blobs are distributed all the
-        way down — `fixed` only covers the first viewport, leaving the rest of a long page
-        (like the homepage) with no decoration at all once you scroll past it.
+        The blobs below are `absolute` inside the page's own `relative` root, so they stretch to
+        the FULL scrollable page height and are distributed all the way down a long page.
+        SparkleField is the exception: it is `fixed` (viewport-anchored) so the number of stars
+        on screen is the same on a short settings page and on the homepage.
 
         No negative z-index here (or on anything nested inside it) — deliberately. Verified
         empirically that a `z-index: -10` element painted fully invisible in this exact
