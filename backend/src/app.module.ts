@@ -10,6 +10,7 @@ import { ProofOfWorkGuard } from "./common/security/proof-of-work.guard";
 import { SecurityModule } from "./common/security/security.module";
 import { AuthModule } from "./modules/auth/auth.module";
 import { BotIntegrationModule } from "./modules/bot-integration/bot-integration.module";
+import { CatalogModule } from "./modules/catalog/catalog.module";
 import { ChaptersModule } from "./modules/chapters/chapters.module";
 import { CommentsModule } from "./modules/comments/comments.module";
 import { ImagesModule } from "./modules/images/images.module";
@@ -33,6 +34,7 @@ import { PrismaModule } from "./prisma/prisma.module";
     PrismaModule,
     AuthModule,
     BotIntegrationModule,
+    CatalogModule,
     ChaptersModule,
     CommentsModule,
     ImagesModule,

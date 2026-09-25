@@ -13,6 +13,7 @@ import {
   MessageSquare,
   ClipboardList,
   Coins,
+  DatabaseZap,
 } from "lucide-react";
 
 export interface NavItem {
@@ -48,4 +49,5 @@ export const ADMIN_NAV: NavItem[] = [
   { href: "/admin/chapters", label: "الفصول", icon: BookOpen },
   { href: "/admin/comments", label: "التعليقات", icon: MessageSquare },
   { href: "/admin/monetization", label: "المكافآت والأرباح", icon: Coins },
+  { href: "/admin/import", label: "استيراد من الموقع القديم", icon: DatabaseZap },
 ];

@@ -66,6 +66,8 @@ model User {
   comments         Comment[]
   commentReactions CommentReaction[]
   commentReports   CommentReport[]
+  ledTeams         Team[]            @relation("TeamLeader")
+  teamMemberships  TeamMember[]
 
   @@map("users")
 }
@@ -192,6 +194,13 @@ model Chapter {
   scheduledFor DateTime?
   /// true = force-locked, false = force-open, null = automatic (sliding free-chapter window) — mirrors the frontend's isChapterLocked() manual override.
   manualLock   Boolean?
+  /// When it went live. null while unpublished; set on publish (or import). The catalog shows this, not createdAt.
+  publishedAt  DateTime?
+  viewCount    Int       @default(0)
+  /// Novel-type series only: the chapter's full text, paragraphs separated by blank lines. Image chapters leave it null.
+  content      String?
+  /// Id of this chapter on the old lunexteam.com site, so a re-run of the import updates instead of duplicating.
+  legacyId     String?   @unique
   createdAt    DateTime  @default(now())
   updatedAt    DateTime  @updatedAt
 
@@ -411,4 +420,125 @@ model CommentReport {
 
   @@unique([commentId, reporterId])
   @@map("comment_reports")
+}
+
+/// A translation group. `leaderId` is null for a group imported from the old
+/// site until its leader registers here and an administrator assigns them.
+model Team {
+  id          String   @id @default(uuid())
+  slug        String   @unique
+  name        String
+  description String   @default("")
+  goals       String   @default("")
+  color       String   @default("#6D28D9")
+  logoHue     Int      @default(270)
+  /// ImageAsset id of the logo, or null (the UI draws a coloured initial instead).
+  logoAssetId String?
+  discordUrl  String?
+  websiteUrl  String?
+  category    String   @default("mixed") // manhwa | manhua | manga | novel | mixed
+  status      String   @default("active") // active | suspended | archived
+  recruiting  Boolean  @default(false)
+  leaderId    String?
+  leader      User?    @relation("TeamLeader", fields: [leaderId], references: [id], onDelete: SetNull)
+  /// Id of this group on the old lunexteam.com site (idempotent import).
+  legacyId    String?  @unique
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  members TeamMember[]
+  series  Series[]
+
+  @@map("teams")
+}
+
+model TeamMember {
+  teamId   String
+  team     Team     @relation(fields: [teamId], references: [id], onDelete: Cascade)
+  userId   String
+  user     User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  /// The frontend's TeamRole ("translator", "editor", "team_leader", ...).
+  role     String   @default("translator")
+  joinedAt DateTime @default(now())
+
+  @@id([teamId, userId])
+  @@index([userId])
+  @@map("team_members")
+}
+
+/// A genre or theme. `group` is how the old site classified it (genre, theme, format, content).
+model Tag {
+  id       String      @id @default(uuid())
+  slug     String      @unique
+  nameEn   String
+  nameAr   String
+  group    String      @default("genre")
+  legacyId String?     @unique
+  series   SeriesTag[]
+
+  @@map("tags")
+}
+
+/// A title in the catalogue. Ratings and view counts are added by later steps; `viewCount` is kept here.
+model Series {
+  id                String   @id @default(uuid())
+  slug              String   @unique
+  titleAr           String
+  titleEn           String   @default("")
+  alternativeTitles String[]
+  synopsis          String   @default("")
+  type              String   @default("manhwa") // manhwa | manga | manhua | novel
+  status            String   @default("ongoing") // ongoing | completed | hiatus | dropped
+  country           String   @default("kr") // kr | jp | cn
+  author            String   @default("")
+  artist            String   @default("")
+  year              Int?
+  contentRating     String   @default("safe")
+  /// ImageAsset ids (served by CatalogController); null = the UI shows a placeholder.
+  coverAssetId      String?
+  bannerAssetId     String?
+  teamId            String?
+  team              Team?    @relation(fields: [teamId], references: [id], onDelete: SetNull)
+  isFeatured        Boolean  @default(false)
+  isRecommended     Boolean  @default(false)
+  viewCount         Int      @default(0)
+  /// Only "approved" series are public.
+  state             String   @default("approved")
+  legacyId          String?  @unique
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
+
+  tags SeriesTag[]
+
+  @@index([teamId])
+  @@index([updatedAt])
+  @@map("series")
+}
+
+model SeriesTag {
+  seriesId String
+  series   Series @relation(fields: [seriesId], references: [id], onDelete: Cascade)
+  tagId    String
+  tag      Tag    @relation(fields: [tagId], references: [id], onDelete: Cascade)
+
+  @@id([seriesId, tagId])
+  @@index([tagId])
+  @@map("series_tags")
+}
+
+/// An announcement or news post shown on the home page and /news.
+model NewsItem {
+  id           String   @id @default(uuid())
+  title        String
+  excerpt      String   @default("")
+  content      String   @default("")
+  coverAssetId String?
+  category     String   @default("news") // announcement | event | news
+  authorId     String?
+  isPublished  Boolean  @default(true)
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  @@index([createdAt])
+  @@map("news_items")
 }
