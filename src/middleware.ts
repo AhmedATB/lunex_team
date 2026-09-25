@@ -8,6 +8,7 @@ import {
 } from "@/lib/session-cookies";
 import { isPublicPath, SITE_REQUIRES_LOGIN } from "@/lib/access-policy";
 import { redirectTo } from "@/lib/request-origin";
+import { backendIdentity } from "@/lib/client-ip";
 
 const REFRESH_MARGIN_MS = 30_000; // refresh proactively, not just after the token has already died
 const BACKEND_URL = process.env.BACKEND_URL ?? "http://localhost:4000";
@@ -57,7 +58,11 @@ export async function middleware(request: NextRequest) {
   try {
     const res = await fetch(`${BACKEND_URL}/v1/auth/refresh`, {
       method: "POST",
-      headers: { "Content-Type": "application/json", "User-Agent": "LunexTeamBFF/1.0 (+server-to-server)" },
+      headers: {
+        "Content-Type": "application/json",
+        "User-Agent": "LunexTeamBFF/1.0 (+server-to-server)",
+        ...backendIdentity((name) => request.headers.get(name)),
+      },
       body: JSON.stringify({ refreshToken }),
       cache: "no-store",
     });

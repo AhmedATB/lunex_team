@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { BACKEND_URL } from "@/lib/backend-client";
+import { identityHeaders } from "@/lib/backend-identity";
 
 /**
  * Raw binary passthrough (can't use callBackend, which always calls
@@ -18,7 +19,7 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ asse
   try {
     res = await fetch(
       `${BACKEND_URL}/v1/images/${encodeURIComponent(assetId)}/stream?token=${encodeURIComponent(token ?? "")}`,
-      { cache: "no-store" }
+      { cache: "no-store", headers: await identityHeaders() }
     );
   } catch {
     return NextResponse.json({ code: "backend_unreachable", message: "Could not reach the backend." }, { status: 503 });

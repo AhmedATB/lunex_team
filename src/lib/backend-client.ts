@@ -1,3 +1,5 @@
+import { identityHeaders } from "@/lib/backend-identity";
+
 export const BACKEND_URL = process.env.BACKEND_URL ?? "http://localhost:4000";
 const BFF_USER_AGENT = "LunexTeamBFF/1.0 (+server-to-server)";
 
@@ -42,6 +44,8 @@ export async function callBackend<T>(
     if (value) headers[key] = value;
   }
   if (init.authToken) headers.Authorization = `Bearer ${init.authToken}`;
+  // Who the visitor is, for the backend's per-visitor rate limits and logs. Applied last so nothing a caller passes in can override it.
+  Object.assign(headers, await identityHeaders());
 
   try {
     const res = await fetch(`${BACKEND_URL}${path}`, {

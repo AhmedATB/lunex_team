@@ -1,11 +1,12 @@
 import { MiddlewareConsumer, Module, NestModule } from "@nestjs/common";
 import { ConfigModule } from "@nestjs/config";
 import { APP_FILTER, APP_GUARD } from "@nestjs/core";
-import { ThrottlerGuard, ThrottlerModule } from "@nestjs/throttler";
+import { ThrottlerModule } from "@nestjs/throttler";
 import { AllExceptionsFilter } from "./common/filters/http-exception.filter";
 import { JwtAuthGuard } from "./common/guards/jwt-auth.guard";
 import { RequestContextMiddleware } from "./common/middleware/request-context.middleware";
 import { BotUserAgentGuard } from "./common/security/bot-user-agent.guard";
+import { ClientIpThrottlerGuard } from "./common/security/client-ip-throttler.guard";
 import { ProofOfWorkGuard } from "./common/security/proof-of-work.guard";
 import { SecurityModule } from "./common/security/security.module";
 import { AuthModule } from "./modules/auth/auth.module";
@@ -52,11 +53,11 @@ import { PrismaModule } from "./prisma/prisma.module";
     // registration order): cheapest/broadest rejection first.
     //   1. BotUserAgentGuard — free header check, filters obvious scripted clients.
     //   2. JwtAuthGuard — auth by default (opt out per-route with @Public()).
-    //   3. ThrottlerGuard — per-IP request-rate ceiling.
+    //   3. ClientIpThrottlerGuard — per-visitor request-rate ceiling (per verified client IP; see the guard).
     //   4. ProofOfWorkGuard — opt-in (@RequirePow()) CPU-cost gate on abuse-prone endpoints.
     { provide: APP_GUARD, useClass: BotUserAgentGuard },
     { provide: APP_GUARD, useClass: JwtAuthGuard },
-    { provide: APP_GUARD, useClass: ThrottlerGuard },
+    { provide: APP_GUARD, useClass: ClientIpThrottlerGuard },
     { provide: APP_GUARD, useClass: ProofOfWorkGuard },
     { provide: APP_FILTER, useClass: AllExceptionsFilter },
   ],

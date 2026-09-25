@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { BACKEND_URL, callBackend } from "@/lib/backend-client";
+import { identityHeaders } from "@/lib/backend-identity";
 import { ACCESS_TOKEN_COOKIE } from "@/lib/session-cookies";
 
 type Context = { params: Promise<{ path: string[] }> };
@@ -25,7 +26,7 @@ async function proxy(req: NextRequest, { params }: Context) {
   if (req.method === "GET" && IMAGE_ENDPOINT.test(path.join("/"))) {
     let res: Response;
     try {
-      res = await fetch(`${BACKEND_URL}/v1/catalog/${joined}`, { cache: "no-store" });
+      res = await fetch(`${BACKEND_URL}/v1/catalog/${joined}`, { cache: "no-store", headers: await identityHeaders() });
     } catch {
       return NextResponse.json({ code: "backend_unreachable", message: "Could not reach the backend." }, { status: 503 });
     }

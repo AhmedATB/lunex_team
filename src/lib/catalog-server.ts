@@ -1,6 +1,7 @@
 import "server-only";
 import { cache } from "react";
 import { BACKEND_URL } from "@/lib/backend-client";
+import { identityHeaders } from "@/lib/backend-identity";
 import { mockCatalog, seedToCatalog } from "@/lib/catalog-build";
 import type { Catalog, CatalogPerson, CatalogSeed } from "@/lib/catalog-types";
 import type { Chapter, Genre, NewsItem, Series, Team, User } from "@/lib/types";
@@ -41,7 +42,7 @@ export const loadCatalogSeed = cache(async (): Promise<CatalogSeed | null> => {
       // Fresh on every render: the backend keeps the catalogue for 15 s itself, and a stale copy here would hold
       // back the new views and ratings for a whole extra refresh.
       cache: "no-store",
-      headers: { "User-Agent": "LunexTeamBFF/1.0 (+server-to-server)" },
+      headers: { "User-Agent": "LunexTeamBFF/1.0 (+server-to-server)", ...(await identityHeaders()) },
     });
     if (!res.ok) return null;
     data = (await res.json()) as Bootstrap;

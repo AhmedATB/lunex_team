@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { BACKEND_URL } from "@/lib/backend-client";
+import { identityHeaders } from "@/lib/backend-identity";
 
 /**
  * A binary passthrough, not JSON — can't reuse callBackend (which always
@@ -12,7 +13,7 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ id: 
 
   let res: Response;
   try {
-    res = await fetch(`${BACKEND_URL}/v1/users/${encodeURIComponent(id)}/avatar`, { cache: "no-store" });
+    res = await fetch(`${BACKEND_URL}/v1/users/${encodeURIComponent(id)}/avatar`, { cache: "no-store", headers: await identityHeaders() });
   } catch {
     return NextResponse.json({ code: "backend_unreachable", message: "Could not reach the backend." }, { status: 503 });
   }
