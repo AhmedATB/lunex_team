@@ -11,6 +11,7 @@ import { SecurityModule } from "./common/security/security.module";
 import { AuthModule } from "./modules/auth/auth.module";
 import { BotIntegrationModule } from "./modules/bot-integration/bot-integration.module";
 import { ChaptersModule } from "./modules/chapters/chapters.module";
+import { CommentsModule } from "./modules/comments/comments.module";
 import { ImagesModule } from "./modules/images/images.module";
 import { ModerationModule } from "./modules/moderation/moderation.module";
 import { NotificationsModule } from "./modules/notifications/notifications.module";
@@ -33,6 +34,7 @@ import { PrismaModule } from "./prisma/prisma.module";
     AuthModule,
     BotIntegrationModule,
     ChaptersModule,
+    CommentsModule,
     ImagesModule,
     ModerationModule,
     NotificationsModule,

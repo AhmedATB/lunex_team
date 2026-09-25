@@ -15,9 +15,10 @@ export function formatDateTime(date: Date): string {
  * comes from the server-rendered session, and the hook re-renders the moment
  * it passes, so a composer re-enables itself without a page reload.
  *
- * This only shapes the UI. Comments and messages are still device-local, so
- * the timeout is not yet enforced by the server for them — that lands when
- * they move server-side.
+ * This only shapes the UI. Comments are ALSO refused by the server while the
+ * timeout runs, so bypassing the composer gets nothing; messages are still
+ * device-local, so for them this notice is the whole enforcement until they
+ * move server-side.
  */
 export function useMuteStatus(): { muted: boolean; until: Date | null; message: string } {
   const mutedUntil = useSession((s) => s.user?.mutedUntil ?? null);

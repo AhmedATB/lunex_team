@@ -13,11 +13,11 @@ interface Row {
 const daysAgo = (days: number) => new Date(NOW.getTime() - days * DAY_MS);
 
 /** Minimal in-memory stand-in for the three Prisma delegates the service touches. */
-function fakeDelegate(rows: Row[]) {
+function fakeDelegate(rows: Row[], field: "at" | "deletedAt" = "at") {
   return {
     rows,
-    findMany: jest.fn(async ({ where, take }: { where: { at: { lt: Date } }; take: number }) =>
-      rows.filter((r) => r.at < where.at.lt).slice(0, take).map((r) => ({ id: r.id }))
+    findMany: jest.fn(async ({ where, take }: { where: Record<string, { lt: Date }>; take: number }) =>
+      rows.filter((r) => r.at < where[field].lt).slice(0, take).map((r) => ({ id: r.id }))
     ),
     deleteMany: jest.fn(async ({ where }: { where: { id: { in: string[] } } }) => {
       const doomed = new Set(where.id.in);
@@ -37,28 +37,31 @@ function build(env: Record<string, string> = {}) {
   const loginEvent = fakeDelegate([]);
   const imageAccessLog = fakeDelegate([]);
   const auditLog = fakeDelegate([]);
-  const prisma = { loginEvent, imageAccessLog, auditLog } as unknown as PrismaService;
+  const comment = fakeDelegate([], "deletedAt");
+  const prisma = { loginEvent, imageAccessLog, auditLog, comment } as unknown as PrismaService;
   const config = { get: (key: string) => env[key] } as unknown as ConfigService;
-  return { service: new RetentionService(prisma, config), loginEvent, imageAccessLog, auditLog };
+  return { service: new RetentionService(prisma, config), loginEvent, imageAccessLog, auditLog, comment };
 }
 
 describe("RetentionService", () => {
   it("deletes each log only once it is past its own window", async () => {
-    const { service, loginEvent, imageAccessLog, auditLog } = build();
+    const { service, loginEvent, imageAccessLog, auditLog, comment } = build();
+    comment.rows.push({ id: "c-old", at: daysAgo(91) }, { id: "c-new", at: daysAgo(30) });
     loginEvent.rows.push({ id: "l-old", at: daysAgo(91) }, { id: "l-new", at: daysAgo(89) });
     imageAccessLog.rows.push({ id: "i-old", at: daysAgo(181) }, { id: "i-new", at: daysAgo(100) });
     auditLog.rows.push({ id: "a-old", at: daysAgo(366) }, { id: "a-new", at: daysAgo(200) });
 
     const result = await service.runOnce(NOW);
 
-    expect(result).toEqual({ loginEvents: 1, imageAccessLog: 1, auditLog: 1 });
+    expect(result).toEqual({ loginEvents: 1, imageAccessLog: 1, auditLog: 1, removedComments: 1 });
+    expect(comment.rows.map((r) => r.id)).toEqual(["c-new"]);
     expect(loginEvent.rows.map((r) => r.id)).toEqual(["l-new"]);
     expect(imageAccessLog.rows.map((r) => r.id)).toEqual(["i-new"]);
     expect(auditLog.rows.map((r) => r.id)).toEqual(["a-new"]);
   });
 
   it("uses the documented defaults", () => {
-    expect(DEFAULT_RETENTION_DAYS).toEqual({ loginEvents: 90, imageAccessLog: 180, auditLog: 365 });
+    expect(DEFAULT_RETENTION_DAYS).toEqual({ loginEvents: 90, imageAccessLog: 180, auditLog: 365, removedComments: 90 });
   });
 
   it("empties a backlog larger than one batch", async () => {
@@ -93,6 +96,6 @@ describe("RetentionService", () => {
 
   it("does nothing on an empty database", async () => {
     const { service } = build();
-    await expect(service.runOnce(NOW)).resolves.toEqual({ loginEvents: 0, imageAccessLog: 0, auditLog: 0 });
+    await expect(service.runOnce(NOW)).resolves.toEqual({ loginEvents: 0, imageAccessLog: 0, auditLog: 0, removedComments: 0 });
   });
 });

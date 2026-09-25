@@ -22,7 +22,8 @@ export function AchievementWatcher() {
   const readDates = useRewards((s) => s.readDates);
   const ownComments = useComments((s) => {
     const removed = new Set(s.removedCommentIds);
-    return s.addedComments.filter((c) => c.userId === currentUserId && !removed.has(c.id)).length;
+    const local = s.addedComments.filter((c) => c.userId === currentUserId && !removed.has(c.id)).length;
+    return local + (currentUserId ? (s.postedOnServer[currentUserId] ?? 0) : 0);
   });
   const bookmarks = useBookmarks((s) => s.bookmarks.length);
   const unlocked = useAchievements((s) => s.unlocked);

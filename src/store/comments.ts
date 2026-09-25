@@ -23,7 +23,10 @@ interface CommentsState {
   overrides: Record<string, CommentOverride>;
   reactions: Record<string, "like" | "dislike" | undefined>;
   reports: Record<string, CommentReport[]>;
+  /** Comments an account has posted through the server, by user id. Only a tally: the comments themselves live on the server, and this feeds the "comments" achievement and the profile count. */
+  postedOnServer: Record<string, number>;
 
+  notePostedOnServer: (userId: string) => void;
   postComment: (
     input: Pick<Comment, "seriesId" | "userId" | "content" | "isSpoiler"> &
       Partial<Pick<Comment, "chapterId" | "parentId">>
@@ -45,6 +48,10 @@ export const useComments = create<CommentsState>()(
       overrides: {},
       reactions: {},
       reports: {},
+      postedOnServer: {},
+
+      notePostedOnServer: (userId) =>
+        set((s) => ({ postedOnServer: { ...s.postedOnServer, [userId]: (s.postedOnServer[userId] ?? 0) + 1 } })),
 
       postComment: (input) => {
         const comment: Comment = {

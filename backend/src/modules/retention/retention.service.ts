@@ -26,17 +26,21 @@ const MIN_RETENTION_DAYS = 7;
  * - image_access_log: the leak-tracing ledger — kept longer because a leaked
  *   chapter can surface on a piracy site weeks after it was read.
  * - audit_log: admin/security actions (bans, role changes, password changes).
+ * - removed comments: a moderator's removal is soft, so the text stays reviewable (an appeal,
+ *   a harassment report) for this long before it is deleted for good.
  */
 export const DEFAULT_RETENTION_DAYS = {
   loginEvents: 90,
   imageAccessLog: 180,
   auditLog: 365,
+  removedComments: 90,
 } as const;
 
 export interface RetentionResult {
   loginEvents: number;
   imageAccessLog: number;
   auditLog: number;
+  removedComments: number;
 }
 
 interface Sweep {
@@ -82,7 +86,7 @@ export class RetentionService implements OnModuleInit, OnModuleDestroy {
 
   /** One full sweep. Public so it can be triggered from a script or test; the timer goes through safeRun() instead. */
   async runOnce(now: Date = new Date()): Promise<RetentionResult> {
-    const result: RetentionResult = { loginEvents: 0, imageAccessLog: 0, auditLog: 0 };
+    const result: RetentionResult = { loginEvents: 0, imageAccessLog: 0, auditLog: 0, removedComments: 0 };
 
     for (const sweep of this.sweeps()) {
       const cutoff = new Date(now.getTime() - sweep.days * DAY_MS);
@@ -97,7 +101,7 @@ export class RetentionService implements OnModuleInit, OnModuleDestroy {
     try {
       const result = await this.runOnce();
       this.logger.log(
-        `Retention sweep removed login_events=${result.loginEvents}, image_access_log=${result.imageAccessLog}, audit_log=${result.auditLog}`
+        `Retention sweep removed login_events=${result.loginEvents}, image_access_log=${result.imageAccessLog}, audit_log=${result.auditLog}, removed_comments=${result.removedComments}`
       );
     } catch (error) {
       this.logger.error("Retention sweep failed", error instanceof Error ? error.stack : String(error));
@@ -138,6 +142,13 @@ export class RetentionService implements OnModuleInit, OnModuleDestroy {
         findIds: (before, take) =>
           this.prisma.auditLog.findMany({ where: { at: { lt: before } }, select: { id: true }, take }),
         deleteByIds: (ids) => this.prisma.auditLog.deleteMany({ where: { id: { in: ids } } }),
+      },
+      {
+        name: "removedComments",
+        days: this.days("RETENTION_REMOVED_COMMENTS_DAYS", DEFAULT_RETENTION_DAYS.removedComments),
+        findIds: (before, take) =>
+          this.prisma.comment.findMany({ where: { deletedAt: { lt: before } }, select: { id: true }, take }),
+        deleteByIds: (ids) => this.prisma.comment.deleteMany({ where: { id: { in: ids } } }),
       },
     ];
   }

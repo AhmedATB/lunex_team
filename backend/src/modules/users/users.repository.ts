@@ -65,6 +65,7 @@ export class UsersRepository {
       bookmarks,
       readingProgress,
       sanctions,
+      comments,
     ] = await Promise.all([
         this.prisma.user.findUnique({
           where: { id: userId },
@@ -141,6 +142,12 @@ export class UsersRepository {
           orderBy: { createdAt: "desc" },
           select: { type: true, reason: true, createdAt: true, expiresAt: true, revokedAt: true },
         }),
+        this.prisma.comment.findMany({
+          where: { userId, deletedAt: null },
+          orderBy: { createdAt: "desc" },
+          take: EXPORT_LOG_LIMIT,
+          select: { seriesId: true, content: true, isSpoiler: true, createdAt: true, editedAt: true },
+        }),
       ]);
 
     return {
@@ -156,6 +163,7 @@ export class UsersRepository {
       bookmarks,
       readingProgress,
       sanctions,
+      comments,
     };
   }
 

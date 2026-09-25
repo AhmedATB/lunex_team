@@ -100,6 +100,7 @@ describe("UsersService.exportData", () => {
     bookmarks: [],
     readingProgress: [],
     sanctions: [],
+    comments: [],
   };
 
   it("returns the caller's data with a hasCustomAvatar flag instead of the mime type", async () => {

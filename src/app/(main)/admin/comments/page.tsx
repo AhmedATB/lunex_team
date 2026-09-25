@@ -14,6 +14,7 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { timeAgo } from "@/lib/utils";
 import { useProfile, avatarSrcFor } from "@/store/profile";
+import { ReportedComments } from "@/components/moderation/reported-comments";
 
 export default function AdminCommentsPage() {
   useEffect(() => {
@@ -65,6 +66,8 @@ export default function AdminCommentsPage() {
           </Button>
         )}
       </div>
+      <ReportedComments />
+      <h2 className="pt-2 font-display text-lg font-bold text-white">كل التعليقات</h2>
       <div className="space-y-3">
         {comments.map((c) => {
           const user = userMap.get(c.userId);

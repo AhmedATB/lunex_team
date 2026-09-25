@@ -227,6 +227,7 @@ export class UsersService {
       loginHistory: data.loginEvents,
       unlockedChapters: data.chapterUnlocks,
       moderationHistory: data.sanctions,
+      comments: data.comments,
       favorites: data.bookmarks,
       readingHistory: data.readingProgress,
       notifications: data.notifications,

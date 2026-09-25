@@ -43,7 +43,8 @@ export default function ProfilePage() {
   const readDates = useRewards((s) => s.readDates);
   const ownCommentCount = useComments((s) => {
     const removed = new Set(s.removedCommentIds);
-    return s.addedComments.filter((c) => c.userId === currentUserId && !removed.has(c.id)).length;
+    const local = s.addedComments.filter((c) => c.userId === currentUserId && !removed.has(c.id)).length;
+    return local + (currentUserId ? (s.postedOnServer[currentUserId] ?? 0) : 0);
   });
   const unlockedAchievements = useAchievements((s) => s.unlocked);
   const achievementValues: Record<AchievementMetric, number> = {

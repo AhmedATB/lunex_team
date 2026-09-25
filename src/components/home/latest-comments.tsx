@@ -1,5 +1,6 @@
 "use client";
 
+import { useEffect, useState } from "react";
 import Image from "next/image";
 import Link from "next/link";
 import { MessageCircle, Lock } from "lucide-react";
@@ -7,6 +8,7 @@ import type { Comment, Series, User } from "@/lib/types";
 import { timeAgo } from "@/lib/utils";
 import { useProfile, avatarSrcFor } from "@/store/profile";
 import { useComments, mergeComments } from "@/store/comments";
+import { authorAsUser, fetchLatestComments, type CommentRow } from "@/lib/server-comments";
 
 export function LatestComments({
   comments,
@@ -20,7 +22,20 @@ export function LatestComments({
   const avatarOverrides = useProfile((s) => s.avatarOverrides);
   const commentsStore = useComments();
   const userMap = new Map(users.map((u) => [u.id, u]));
-  const effectiveComments = mergeComments(comments, commentsStore).sort(
+
+  // Real accounts' comments live on the server; the demo catalogue's are still local.
+  const [serverComments, setServerComments] = useState<CommentRow[]>([]);
+  useEffect(() => {
+    let cancelled = false;
+    fetchLatestComments(10).then((rows) => {
+      if (!cancelled && rows) setServerComments(rows);
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  const effectiveComments: CommentRow[] = [...serverComments, ...mergeComments(comments, commentsStore)].sort(
     (a, b) => +new Date(b.createdAt) - +new Date(a.createdAt)
   );
 
@@ -31,7 +46,7 @@ export function LatestComments({
       </h2>
       <div className="grid gap-3 sm:grid-cols-2">
         {effectiveComments.slice(0, 6).map((c) => {
-          const user = userMap.get(c.userId);
+          const user = c.server && c.author ? authorAsUser(c.author) : userMap.get(c.userId);
           const series = seriesMap.get(c.seriesId);
           if (!user || !series) return null;
           return (

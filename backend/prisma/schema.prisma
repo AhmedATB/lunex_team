@@ -18,32 +18,32 @@ datasource db {
 }
 
 model User {
-  id           String   @id @default(uuid())
-  email        String   @unique
-  username     String   @unique
+  id             String    @id @default(uuid())
+  email          String    @unique
+  username       String    @unique
   /// Optional — an account created via Discord/Google OAuth never sets one.
   /// login() must therefore reject (not crash on) a password attempt when
   /// this is null, rather than assuming every user has one.
-  passwordHash String?
-  displayName  String?
-  bio          String?
+  passwordHash   String?
+  displayName    String?
+  bio            String?
   /// Small (256x256, re-encoded webp) — stored in the DB rather than local
   /// disk because Railway's local filesystem is wiped on every deploy; a
   /// dedicated object store (S3/R2) is the future upgrade, not needed yet
   /// at avatar-image sizes.
-  avatarImage     Bytes?
-  avatarMimeType  String?
-  role         String   @default("reader")
-  isBanned     Boolean  @default(false)
-  bannedAt     DateTime?
+  avatarImage    Bytes?
+  avatarMimeType String?
+  role           String    @default("reader")
+  isBanned       Boolean   @default(false)
+  bannedAt       DateTime?
   /// Temporary ban: while `isBanned` is true and this is in the future the ban
   /// applies; once it passes the account is effectively unbanned with no job
   /// needed (every check goes through isEffectivelyBanned). null = permanent.
-  bannedUntil  DateTime?
+  bannedUntil    DateTime?
   /// Timeout: while in the future the account cannot comment or message.
-  mutedUntil   DateTime?
-  createdAt    DateTime @default(now())
-  updatedAt    DateTime @updatedAt
+  mutedUntil     DateTime?
+  createdAt      DateTime  @default(now())
+  updatedAt      DateTime  @updatedAt
 
   /// Who may open each part of this profile: "public" (anyone), "members"
   /// (any signed-in account) or "private" (only the owner and staff). The page
@@ -54,15 +54,18 @@ model User {
   historyVisibility   String @default("private")
   favoritesVisibility String @default("private")
 
-  sessions        Session[]
-  devices         Device[]
-  loginEvents     LoginEvent[]
-  oauthAccounts   OAuthAccount[]
-  notifications   Notification[]
-  chapterUnlocks  ChapterUnlock[]
-  bookmarks       Bookmark[]
-  readingProgress ReadingProgress[]
-  sanctions       Sanction[]
+  sessions         Session[]
+  devices          Device[]
+  loginEvents      LoginEvent[]
+  oauthAccounts    OAuthAccount[]
+  notifications    Notification[]
+  chapterUnlocks   ChapterUnlock[]
+  bookmarks        Bookmark[]
+  readingProgress  ReadingProgress[]
+  sanctions        Sanction[]
+  comments         Comment[]
+  commentReactions CommentReaction[]
+  commentReports   CommentReport[]
 
   @@map("users")
 }
@@ -141,12 +144,12 @@ model LoginEvent {
 /// equivalent role system, so that specific control only exists once this
 /// is deployed against real Postgres.
 model AuditLog {
-  id       String   @id @default(uuid())
-  actorId  String?
-  action   String
-  target   String?
-  ip       String?
-  at       DateTime @default(now())
+  id      String   @id @default(uuid())
+  actorId String?
+  action  String
+  target  String?
+  ip      String?
+  at      DateTime @default(now())
 
   @@index([at])
   @@map("audit_log")
@@ -348,4 +351,59 @@ model Sanction {
 
   @@index([userId, createdAt])
   @@map("sanctions")
+}
+
+/// A comment on a series. `seriesId` is a plain string, not a foreign key —
+/// the same convention as Chapter.seriesId (Series is still frontend-mock data,
+/// architecture doc §4). An author deleting their own comment removes the row;
+/// a moderator's removal is soft (`deletedAt`) so the content stays reviewable
+/// until RetentionService purges it. Deleting the account deletes its comments.
+model Comment {
+  id          String    @id @default(uuid())
+  seriesId    String
+  userId      String
+  user        User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  content     String
+  isSpoiler   Boolean   @default(false)
+  isPinned    Boolean   @default(false)
+  createdAt   DateTime  @default(now())
+  editedAt    DateTime?
+  deletedAt   DateTime?
+  deletedById String?
+
+  reactions CommentReaction[]
+  reports   CommentReport[]
+
+  @@index([seriesId, createdAt])
+  @@index([userId, createdAt])
+  @@index([deletedAt])
+  @@map("comments")
+}
+
+/// One like or dislike per account per comment; changing your mind updates the row.
+model CommentReaction {
+  commentId String
+  comment   Comment  @relation(fields: [commentId], references: [id], onDelete: Cascade)
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  kind      String // "like" | "dislike"
+  createdAt DateTime @default(now())
+
+  @@id([commentId, userId])
+  @@index([userId])
+  @@map("comment_reactions")
+}
+
+/// A member flagging a comment for staff. One open report per reporter per comment.
+model CommentReport {
+  id         String   @id @default(uuid())
+  commentId  String
+  comment    Comment  @relation(fields: [commentId], references: [id], onDelete: Cascade)
+  reporterId String
+  reporter   User     @relation(fields: [reporterId], references: [id], onDelete: Cascade)
+  reason     String
+  createdAt  DateTime @default(now())
+
+  @@unique([commentId, reporterId])
+  @@map("comment_reports")
 }
