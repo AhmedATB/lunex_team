@@ -1,6 +1,7 @@
 import Link from "next/link";
 import Image from "next/image";
 import { CookieSettingsButton } from "@/components/consent/cookie-settings-button";
+import { ADS_ENABLED, SMARTLINK_URL, SPONSORED_LINK_REL } from "@/lib/ads";
 
 export function Footer() {
   return (
@@ -51,6 +52,11 @@ export function Footer() {
             سياسة الخصوصية
           </Link>
           <CookieSettingsButton className="transition-colors hover:text-primary-300" />
+          {ADS_ENABLED && (
+            <a href={SMARTLINK_URL} target="_blank" rel={SPONSORED_LINK_REL} className="transition-colors hover:text-primary-300">
+              ادعم الموقع (رابط إعلاني)
+            </a>
+          )}
         </nav>
         <p className="text-center">© {new Date().getFullYear()} LUNEX TEAM. جميع الحقوق محفوظة.</p>
       </div>

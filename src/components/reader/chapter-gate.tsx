@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState, type ReactNode } from "react";
+import { ADS_ENABLED, SMARTLINK_URL, SPONSORED_LINK_REL } from "@/lib/ads";
 import Link from "next/link";
 import { Lock, PlayCircle, Coins, Gift, Ticket, Sparkles, Plus } from "lucide-react";
 import { useRewards, chapterKey, isChapterLocked } from "@/store/rewards";
@@ -198,9 +199,21 @@ export function AdWatchDialog({ onComplete }: { onComplete: () => void }) {
       <DialogContent>
         <DialogHeader><DialogTitle>إعلان</DialogTitle></DialogHeader>
         <div className="flex flex-col items-center gap-4 py-6">
-          <div className="flex h-40 w-full items-center justify-center rounded-xl border-2 border-dashed border-white/20 bg-white/5">
-            <p className="text-sm text-lunex-gray">مساحة إعلانية تجريبية</p>
-          </div>
+          {ADS_ENABLED ? (
+            <a
+              href={SMARTLINK_URL}
+              target="_blank"
+              rel={SPONSORED_LINK_REL}
+              className="flex h-40 w-full flex-col items-center justify-center gap-1 rounded-xl border border-white/20 bg-white/5 transition-colors hover:bg-white/10"
+            >
+              <span className="text-sm font-bold text-white">افتح الإعلان</span>
+              <span className="text-xs text-lunex-gray">رابط إعلاني يُفتح في نافذة جديدة</span>
+            </a>
+          ) : (
+            <div className="flex h-40 w-full items-center justify-center rounded-xl border-2 border-dashed border-white/20 bg-white/5">
+              <p className="text-sm text-lunex-gray">مساحة إعلانية تجريبية</p>
+            </div>
+          )}
           {remaining > 0 ? (
             <p className="text-sm text-lunex-gray">يمكنك المتابعة بعد {remaining} ثوانٍ...</p>
           ) : (
