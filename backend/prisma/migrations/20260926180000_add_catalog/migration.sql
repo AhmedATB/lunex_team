@@ -1,3 +1,29 @@
+-- The import experiment of 2026-09-09 (migration 20260909080000, since reverted in the code)
+-- left tables named "teams" and "series" in the production database, in a different shape
+-- (they have an "externalId" column). Move them aside, data and all, so the catalogue can
+-- use those names. On a database that never had them this block does nothing.
+DO $$
+BEGIN
+  IF EXISTS (
+    SELECT 1 FROM information_schema.columns
+    WHERE table_schema = current_schema() AND table_name = 'teams' AND column_name = 'externalId'
+  ) THEN
+    ALTER TABLE "teams" RENAME TO "legacy_import_teams";
+    ALTER INDEX IF EXISTS "teams_pkey" RENAME TO "legacy_import_teams_pkey";
+    ALTER INDEX IF EXISTS "teams_externalId_key" RENAME TO "legacy_import_teams_externalId_key";
+  END IF;
+
+  IF EXISTS (
+    SELECT 1 FROM information_schema.columns
+    WHERE table_schema = current_schema() AND table_name = 'series' AND column_name = 'externalId'
+  ) THEN
+    ALTER TABLE "series" RENAME TO "legacy_import_series";
+    ALTER INDEX IF EXISTS "series_pkey" RENAME TO "legacy_import_series_pkey";
+    ALTER INDEX IF EXISTS "series_externalId_key" RENAME TO "legacy_import_series_externalId_key";
+    ALTER INDEX IF EXISTS "series_teamId_idx" RENAME TO "legacy_import_series_teamId_idx";
+  END IF;
+END $$;
+
 -- AlterTable
 ALTER TABLE "chapters" ADD COLUMN     "content" TEXT,
 ADD COLUMN     "legacyId" TEXT,

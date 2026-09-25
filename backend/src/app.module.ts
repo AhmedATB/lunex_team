@@ -13,6 +13,7 @@ import { BotIntegrationModule } from "./modules/bot-integration/bot-integration.
 import { CatalogModule } from "./modules/catalog/catalog.module";
 import { ChaptersModule } from "./modules/chapters/chapters.module";
 import { CommentsModule } from "./modules/comments/comments.module";
+import { HealthModule } from "./modules/health/health.module";
 import { ImagesModule } from "./modules/images/images.module";
 import { ModerationModule } from "./modules/moderation/moderation.module";
 import { NotificationsModule } from "./modules/notifications/notifications.module";
@@ -37,6 +38,7 @@ import { PrismaModule } from "./prisma/prisma.module";
     CatalogModule,
     ChaptersModule,
     CommentsModule,
+    HealthModule,
     ImagesModule,
     ModerationModule,
     NotificationsModule,

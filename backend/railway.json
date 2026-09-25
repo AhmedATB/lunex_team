@@ -3,6 +3,8 @@
   "build": { "builder": "NIXPACKS" },
   "deploy": {
     "startCommand": "npm run start:prod",
+    "healthcheckPath": "/v1/health",
+    "healthcheckTimeout": 120,
     "restartPolicyType": "ON_FAILURE",
     "restartPolicyMaxRetries": 3
   }
