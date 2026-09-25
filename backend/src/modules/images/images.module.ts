@@ -40,6 +40,7 @@ import { StorageService } from "./storage/storage.interface";
   // than standing up a second storage config, and calls ImagesService to
   // mint tokens once IT has decided the caller is authorized — ImagesService
   // itself stays authorization-agnostic (token mechanics only).
-  exports: [StorageService, ImagesService],
+  // R2StorageService is exported for the owner's "copy existing images to R2" tool (catalog/legacy/storage-admin.service.ts).
+  exports: [StorageService, ImagesService, R2StorageService],
 })
 export class ImagesModule {}

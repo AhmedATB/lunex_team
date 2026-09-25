@@ -334,6 +334,59 @@ export class CatalogRepository {
     return { members, comments, chapters };
   }
 
+  // ---- imported chapters -----------------------------------------------------
+
+  /** Imported series with the team their chapters will be credited to. */
+  async listImportedSeries(): Promise<{ id: string; slug: string; legacyId: string; teamId: string | null }[]> {
+    const rows = await this.prisma.series.findMany({
+      where: { legacyId: { not: null }, state: "approved" },
+      select: { id: true, slug: true, legacyId: true, teamId: true },
+      orderBy: { createdAt: "asc" },
+    });
+    return rows.flatMap((r) => (r.legacyId ? [{ id: r.id, slug: r.slug, legacyId: r.legacyId, teamId: r.teamId }] : []));
+  }
+
+  findChapterByLegacyId(legacyId: string) {
+    return this.prisma.chapter.findUnique({
+      where: { legacyId },
+      select: { id: true, isPublished: true, pages: { select: { pageNumber: true } } },
+    });
+  }
+
+  /** True when a chapter of that series already uses this number (e.g. one uploaded by hand), which the unique index would reject. */
+  async chapterNumberTaken(seriesId: string, number: number): Promise<boolean> {
+    return (await this.prisma.chapter.count({ where: { seriesId, number } })) > 0;
+  }
+
+  /** Imported chapters start unpublished and are published only once every page is stored, so a half-copied chapter is never readable. */
+  createImportedChapter(data: { seriesId: string; teamId: string; number: number; title: string; legacyId: string }) {
+    return this.prisma.chapter.create({
+      // manualLock false: the old site had no locked chapters, so none of these start locked either.
+      data: { ...data, isPublished: false, manualLock: false },
+      select: { id: true },
+    });
+  }
+
+  addChapterPage(params: {
+    chapterId: string;
+    pageNumber: number;
+    storageKey: string;
+    checksum: string;
+    mimeType: string;
+    width: number;
+    height: number;
+  }) {
+    const { chapterId, pageNumber, ...asset } = params;
+    return this.prisma.$transaction(async (tx) => {
+      const created = await tx.imageAsset.create({ data: asset, select: { id: true } });
+      return tx.chapterPage.create({ data: { chapterId, pageNumber, assetId: created.id }, select: { id: true } });
+    });
+  }
+
+  publishImportedChapter(id: string, publishedAt: Date) {
+    return this.prisma.chapter.update({ where: { id }, data: { isPublished: true, publishedAt }, select: { id: true } });
+  }
+
   // ---- images --------------------------------------------------------------
 
   findAsset(id: string) {

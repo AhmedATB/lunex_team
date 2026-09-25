@@ -1,10 +1,12 @@
-import { Body, Controller, ForbiddenException, HttpCode, HttpStatus, Post } from "@nestjs/common";
+import { Body, Controller, ForbiddenException, Get, HttpCode, HttpStatus, Post } from "@nestjs/common";
 import { Throttle } from "@nestjs/throttler";
 import { IsBoolean, IsOptional } from "class-validator";
 import { CurrentUser } from "../../../common/decorators/current-user.decorator";
 import type { AccessTokenPayload } from "../../../common/guards/jwt-auth.guard";
 import { CatalogRepository } from "../catalog.repository";
+import { LegacyChapterImportService } from "./legacy-chapter-import.service";
 import { LegacyImportService } from "./legacy-import.service";
+import { StorageAdminService } from "./storage-admin.service";
 
 class ImportOptionsDto {
   @IsOptional()
@@ -17,17 +19,47 @@ class ImportOptionsDto {
 export class LegacyImportController {
   constructor(
     private readonly importer: LegacyImportService,
+    private readonly chapterImporter: LegacyChapterImportService,
+    private readonly storageAdmin: StorageAdminService,
     private readonly repo: CatalogRepository
   ) {}
+
+  private async assertOwner(actor: AccessTokenPayload) {
+    const user = await this.repo.findActor(actor.sub);
+    if (!user || user.role !== "owner") {
+      throw new ForbiddenException({ code: "insufficient_permissions", message: "Only the owner can do this." });
+    }
+  }
 
   @Post("legacy")
   @HttpCode(HttpStatus.OK)
   @Throttle({ default: { limit: 3, ttl: 3_600_000 } })
   async run(@Body() dto: ImportOptionsDto, @CurrentUser() actor: AccessTokenPayload) {
-    const user = await this.repo.findActor(actor.sub);
-    if (!user || user.role !== "owner") {
-      throw new ForbiddenException({ code: "insufficient_permissions", message: "Only the owner can import from the old site." });
-    }
+    await this.assertOwner(actor);
     return this.importer.importCatalog({ covers: dto.covers });
+  }
+
+  /** One slice of the chapter import (a few minutes of work); the admin page calls again until `done`. */
+  @Post("legacy/chapters")
+  @HttpCode(HttpStatus.OK)
+  @Throttle({ default: { limit: 120, ttl: 3_600_000 } })
+  async runChapters(@CurrentUser() actor: AccessTokenPayload) {
+    await this.assertOwner(actor);
+    return this.chapterImporter.importChapters();
+  }
+
+  @Get("storage")
+  @HttpCode(HttpStatus.OK)
+  async storageStatus(@CurrentUser() actor: AccessTokenPayload) {
+    await this.assertOwner(actor);
+    return this.storageAdmin.status();
+  }
+
+  @Post("storage/copy-to-r2")
+  @HttpCode(HttpStatus.OK)
+  @Throttle({ default: { limit: 30, ttl: 3_600_000 } })
+  async copyToR2(@CurrentUser() actor: AccessTokenPayload) {
+    await this.assertOwner(actor);
+    return this.storageAdmin.copyToR2();
   }
 }
