@@ -48,13 +48,14 @@ export const metadata: Metadata = {
     siteName: "LUNEX TEAM",
     locale: "ar_AR",
     type: "website",
-    images: [{ url: "/hero-banner.png", width: 1920, height: 800, alt: "LUNEX TEAM" }],
+    // 1200x630 (about 1.91:1) is what link previews on Discord, Telegram, WhatsApp and X show without cropping; ~60 KB.
+    images: [{ url: "/og-banner.jpg", width: 1200, height: 630, alt: "LUNEX TEAM — منصتك الفاخرة لعالم المانهوا والمانها", type: "image/jpeg" }],
   },
   twitter: {
     card: "summary_large_image",
     title: "LUNEX TEAM",
     description: "منصة عربية فاخرة لقراءة وترجمة المانهوا والمانها.",
-    images: ["/hero-banner.png"],
+    images: ["/og-banner.jpg"],
   },
   robots: { index: true, follow: true },
 };
