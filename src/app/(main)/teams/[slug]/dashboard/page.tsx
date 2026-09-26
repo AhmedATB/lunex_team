@@ -330,7 +330,7 @@ export default function TeamDashboardPage() {
           <Card>
             <CardHeader className="flex-row items-center justify-between">
               <CardTitle>الأقسام</CardTitle>
-              {canManage && (
+              {canManage && !isRealTeam && (
                 <CreateDepartmentDialog
                   teamId={team.id}
                   members={members}
@@ -345,7 +345,7 @@ export default function TeamDashboardPage() {
                   <div key={d.id} className="flex flex-wrap items-center gap-2 border-b-2 border-white/10 pb-2 last:border-0">
                     <Badge variant="secondary" className="shrink-0">{d.nameAr} · {d.memberIds.length}</Badge>
                     {leader && <span className="text-xs text-lunex-gray">رئيس القسم: {leader.displayName}</span>}
-                    {canManage && (
+                    {canManage && !isRealTeam && (
                       <div className="ms-auto flex shrink-0 gap-1">
                         <EditDepartmentDialog
                           department={d}
@@ -363,17 +363,25 @@ export default function TeamDashboardPage() {
                   </div>
                 );
               })}
-              {teamDepartments.length === 0 && <p className="text-sm text-lunex-gray">لا توجد أقسام بعد.</p>}
+              {teamDepartments.length === 0 && (
+                <p className="text-sm text-lunex-gray">{isRealTeam ? "أقسام الفريق قيد التطوير وستتوفر قريبًا." : "لا توجد أقسام بعد."}</p>
+              )}
             </CardContent>
           </Card>
 
           <Card>
             <CardHeader><CardTitle>آخر النشاطات</CardTitle></CardHeader>
             <CardContent className="space-y-2">
-              {activityLog.slice(0, 5).map((a) => (
-                <ActivityRow key={a.id} entry={a} users={db.users} />
-              ))}
-              {activityLog.length === 0 && <p className="text-sm text-lunex-gray">لا يوجد نشاط مسجل بعد.</p>}
+              {isRealTeam ? (
+                <p className="text-sm text-lunex-gray">سجل نشاط الفريق الكامل في تبويب «سجل النشاط».</p>
+              ) : (
+                <>
+                  {activityLog.slice(0, 5).map((a) => (
+                    <ActivityRow key={a.id} entry={a} users={db.users} />
+                  ))}
+                  {activityLog.length === 0 && <p className="text-sm text-lunex-gray">لا يوجد نشاط مسجل بعد.</p>}
+                </>
+              )}
             </CardContent>
           </Card>
         </TabsContent>
@@ -509,7 +517,7 @@ export default function TeamDashboardPage() {
           <Card>
             <CardHeader className="flex-row items-center justify-between">
               <CardTitle>الأدوار المخصصة</CardTitle>
-              {canManageRoles && <CreateCustomRoleDialog teamId={team.id} onCreate={store.createCustomRole} />}
+              {canManageRoles && !isRealTeam && <CreateCustomRoleDialog teamId={team.id} onCreate={store.createCustomRole} />}
             </CardHeader>
             <CardContent className="space-y-2">
               {customRoles.map((r) => (
@@ -520,7 +528,7 @@ export default function TeamDashboardPage() {
                       <span key={p} className="text-[10px] text-lunex-gray">#{TEAM_PERMISSION_LABELS[p]}</span>
                     ))}
                   </div>
-                  {canManageRoles && (
+                  {canManageRoles && !isRealTeam && (
                     <div className="ms-auto flex shrink-0 gap-1">
                       <CreateCustomRoleDialog
                         teamId={team.id}
@@ -538,7 +546,9 @@ export default function TeamDashboardPage() {
                   )}
                 </div>
               ))}
-              {customRoles.length === 0 && <p className="text-sm text-lunex-gray">لا توجد أدوار مخصصة بعد.</p>}
+              {customRoles.length === 0 && (
+                <p className="text-sm text-lunex-gray">{isRealTeam ? "الأدوار المخصصة قيد التطوير وستتوفر قريبًا؛ تُدار أدوار الأعضاء الأساسية من تبويب الأعضاء." : "لا توجد أدوار مخصصة بعد."}</p>
+              )}
             </CardContent>
           </Card>
         </TabsContent>
