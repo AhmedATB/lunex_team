@@ -3,6 +3,8 @@
 import { useEffect } from "react";
 import { usePathname } from "next/navigation";
 import { ADS_ENABLED, isAdPage, POPUNDER_SRC, SOCIAL_BAR_SRC } from "@/lib/ads";
+import { reportAd } from "@/lib/ads-status";
+import { AdsDebugPanel } from "@/components/ads/ads-debug";
 
 declare global {
   interface Window {
@@ -16,6 +18,9 @@ function add(parent: HTMLElement, src: string, id: string) {
   script.src = src;
   script.async = true;
   script.dataset.lunexAd = id;
+  // "load" fires when the network's code arrived; "error" when something in the visitor's browser or network stopped it.
+  script.onload = () => reportAd(id, "script loaded");
+  script.onerror = () => reportAd(id, "blocked or failed");
   parent.appendChild(script);
 }
 
@@ -39,5 +44,5 @@ export function AdScripts() {
     }
   }, [pathname]);
 
-  return null;
+  return <AdsDebugPanel />;
 }

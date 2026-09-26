@@ -3,6 +3,7 @@
 import { useEffect, useRef, useState } from "react";
 import { usePathname } from "next/navigation";
 import { ADS_ENABLED, AD_UNITS, AD_UNIT_SANDBOX, buildAdDocument, isAdPage, type AdUnitId } from "@/lib/ads";
+import { adsDebugRequested, reportAd } from "@/lib/ads-status";
 import { cn } from "@/lib/utils";
 
 /** Until the native widget reports its real height, keep this much room so the page does not jump when it appears. */
@@ -10,6 +11,27 @@ const NATIVE_PLACEHOLDER_PX = 260;
 const NATIVE_MAX_PX = 700;
 /** A native widget that shows nothing in this long is taken to have no ad to show, and its space is given back. */
 const NATIVE_GIVE_UP_MS = 9000;
+
+/**
+ * For `?ads=debug`: a few seconds after a unit's frame loaded, look inside it (possible because the frame is same-origin
+ * unless sandboxed) for what the network put there, and say whether an ad was actually served.
+ */
+function checkCreative(unit: AdUnitId, frame: HTMLIFrameElement | null) {
+  const id = `unit:${unit}`;
+  reportAd(id, "script loaded");
+  window.setTimeout(() => {
+    try {
+      const doc = frame?.contentDocument;
+      if (!doc) return reportAd(id, "unknown (sandboxed)");
+      const def = AD_UNITS[unit];
+      const root = def.kind === "native" ? doc.getElementById(`container-${def.key}`) : doc.body;
+      const served = Boolean(root?.querySelector("iframe, img, a, ins, div"));
+      reportAd(id, served ? "creative shown" : "no ad served");
+    } catch {
+      reportAd(id, "unknown (sandboxed)");
+    }
+  }, 4000);
+}
 
 /**
  * One placed ad: a banner of a fixed size, or the native widget. Labelled "إعلان", it reserves its own space (no layout
@@ -64,7 +86,10 @@ export function AdUnit({ unit, className }: { unit: AdUnitId; className?: string
         ref={frame}
         title="إعلان"
         srcDoc={buildAdDocument(unit)}
-        onLoad={() => setLoaded(true)}
+        onLoad={() => {
+          setLoaded(true);
+          if (adsDebugRequested()) checkCreative(unit, frame.current);
+        }}
         loading="lazy"
         scrolling="no"
         width={width ?? "100%"}
