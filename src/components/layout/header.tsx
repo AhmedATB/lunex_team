@@ -20,6 +20,7 @@ import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover
 import { ThemePicker } from "@/components/settings/theme-picker";
 import { NotificationsBell } from "@/components/layout/notifications-bell";
 import { useSession } from "@/store/session";
+import { useSignedInUserId } from "@/components/session-hint";
 import { useProfile, effectiveAvatarSeed } from "@/store/profile";
 import { useWallet } from "@/store/wallet";
 import { useProgress } from "@/store/progress";
@@ -31,7 +32,8 @@ import { resolveAvatarUrl, cn } from "@/lib/utils";
 
 export function Header() {
   const router = useRouter();
-  const { currentUserId, logout } = useSession();
+  const { logout } = useSession();
+  const currentUserId = useSignedInUserId();
   const [query, setQuery] = useState("");
   const [mobileSearchOpen, setMobileSearchOpen] = useState(false);
   const [scrolled, setScrolled] = useState(false);
@@ -117,21 +119,26 @@ export function Header() {
             <Search className="h-5 w-5" />
           </Button>
 
-          <Link
-            href="/store"
-            className="hover-pop hidden items-center gap-1.5 rounded-full border border-yellow-400/30 bg-yellow-400/10 px-3 py-1.5 text-xs font-bold text-yellow-300 transition-colors hover:border-yellow-400/60 sm:flex"
-          >
-            <Coins className="h-3.5 w-3.5" /> {coins}
-          </Link>
-
-          <Button variant="ghost" size="icon" aria-label="الرسائل" className="relative" asChild>
-            <Link href="/messages">
-              <MessageCircle className="h-5 w-5" />
-              {hasUnreadMessages && <span className="absolute end-1.5 top-1.5 h-2 w-2 rounded-full border border-black bg-primary-400" />}
+          {/* Coins, messages and notifications belong to an account; a visitor without one only browses. */}
+          {currentUserId && (
+            <>
+            <Link
+              href="/store"
+              className="hover-pop hidden items-center gap-1.5 rounded-full border border-yellow-400/30 bg-yellow-400/10 px-3 py-1.5 text-xs font-bold text-yellow-300 transition-colors hover:border-yellow-400/60 sm:flex"
+            >
+              <Coins className="h-3.5 w-3.5" /> {coins}
             </Link>
-          </Button>
 
-          <NotificationsBell loggedIn={Boolean(currentUserId)} />
+            <Button variant="ghost" size="icon" aria-label="الرسائل" className="relative" asChild>
+              <Link href="/messages">
+                <MessageCircle className="h-5 w-5" />
+                {hasUnreadMessages && <span className="absolute end-1.5 top-1.5 h-2 w-2 rounded-full border border-black bg-primary-400" />}
+              </Link>
+            </Button>
+
+            <NotificationsBell loggedIn />
+            </>
+          )}
 
           {/* Available to everyone, no account needed — style is a device/browser preference, not tied to a profile. */}
           <Popover>
@@ -145,62 +152,73 @@ export function Header() {
             </PopoverContent>
           </Popover>
 
-          <DropdownMenu>
-            <DropdownMenuTrigger asChild>
-              <button className="flex items-center gap-2 rounded-full border border-white/10 p-0.5 pe-2 transition-colors hover:border-primary-400/50 hover:bg-white/5">
-                <Avatar className="h-8 w-8">
-                  <AvatarImage
-                    src={
-                      currentUser
-                        ? resolveAvatarUrl(currentUser.id, currentUser.avatarVersion, effectiveAvatarSeed(currentUser, avatarOverrides))
-                        : undefined
-                    }
-                  />
-                  <AvatarFallback>{currentUser?.displayName?.[0] ?? "ض"}</AvatarFallback>
-                </Avatar>
-                <span className="hidden text-sm font-medium text-white sm:inline">
-                  {currentUser?.displayName ?? "زائر"}
-                </span>
-              </button>
-            </DropdownMenuTrigger>
-            <DropdownMenuContent align="end" className="w-64">
-              {currentUser ? (
-                <>
-                  <DropdownMenuLabel className="flex flex-col gap-0.5">
-                    <span className="text-sm font-semibold text-white">{currentUser.displayName}</span>
-                    <span className="text-[11px] text-primary-300">
-                      {GLOBAL_ROLE_LABELS[currentUser.role]}
-                    </span>
-                    {progress && (
-                      <span className="text-[11px] text-lunex-gray">
-                        المستوى {progress.level} · {progress.xpIntoLevel}/{progress.levelSpan} XP
+          {currentUserId ? (
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <button className="flex items-center gap-2 rounded-full border border-white/10 p-0.5 pe-2 transition-colors hover:border-primary-400/50 hover:bg-white/5">
+                  <Avatar className="h-8 w-8">
+                    <AvatarImage
+                      src={
+                        currentUser
+                          ? resolveAvatarUrl(currentUser.id, currentUser.avatarVersion, effectiveAvatarSeed(currentUser, avatarOverrides))
+                          : undefined
+                      }
+                    />
+                    <AvatarFallback>{currentUser?.displayName?.[0] ?? "ض"}</AvatarFallback>
+                  </Avatar>
+                  <span className="hidden text-sm font-medium text-white sm:inline">
+                    {currentUser?.displayName ?? "زائر"}
+                  </span>
+                </button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="end" className="w-64">
+                {currentUser ? (
+                  <>
+                    <DropdownMenuLabel className="flex flex-col gap-0.5">
+                      <span className="text-sm font-semibold text-white">{currentUser.displayName}</span>
+                      <span className="text-[11px] text-primary-300">
+                        {GLOBAL_ROLE_LABELS[currentUser.role]}
                       </span>
-                    )}
-                  </DropdownMenuLabel>
-                  <DropdownMenuSeparator />
-                  <DropdownMenuItem asChild>
-                    <Link href="/profile"><UserIcon className="h-4 w-4" /> الملف الشخصي</Link>
-                  </DropdownMenuItem>
-                  <DropdownMenuItem asChild>
-                    <Link href="/profile/settings"><Settings className="h-4 w-4" /> الإعدادات</Link>
-                  </DropdownMenuItem>
-                  {can(currentUser, "manage_users") && (
+                      {progress && (
+                        <span className="text-[11px] text-lunex-gray">
+                          المستوى {progress.level} · {progress.xpIntoLevel}/{progress.levelSpan} XP
+                        </span>
+                      )}
+                    </DropdownMenuLabel>
+                    <DropdownMenuSeparator />
                     <DropdownMenuItem asChild>
-                      <Link href="/admin"><ShieldCheck className="h-4 w-4" /> لوحة الإدارة</Link>
+                      <Link href="/profile"><UserIcon className="h-4 w-4" /> الملف الشخصي</Link>
                     </DropdownMenuItem>
-                  )}
-                  <DropdownMenuSeparator />
-                  <DropdownMenuItem onClick={handleLogout} className="text-red-400 focus:bg-red-500/10">
-                    <LogOut className="h-4 w-4" /> تسجيل الخروج
+                    <DropdownMenuItem asChild>
+                      <Link href="/profile/settings"><Settings className="h-4 w-4" /> الإعدادات</Link>
+                    </DropdownMenuItem>
+                    {can(currentUser, "manage_users") && (
+                      <DropdownMenuItem asChild>
+                        <Link href="/admin"><ShieldCheck className="h-4 w-4" /> لوحة الإدارة</Link>
+                      </DropdownMenuItem>
+                    )}
+                    <DropdownMenuSeparator />
+                    <DropdownMenuItem onClick={handleLogout} className="text-red-400 focus:bg-red-500/10">
+                      <LogOut className="h-4 w-4" /> تسجيل الخروج
+                    </DropdownMenuItem>
+                  </>
+                ) : (
+                  <DropdownMenuItem asChild>
+                    <Link href="/login">تسجيل الدخول</Link>
                   </DropdownMenuItem>
-                </>
-              ) : (
-                <DropdownMenuItem asChild>
-                  <Link href="/login">تسجيل الدخول</Link>
-                </DropdownMenuItem>
-              )}
-            </DropdownMenuContent>
-          </DropdownMenu>
+                )}
+              </DropdownMenuContent>
+            </DropdownMenu>
+          ) : (
+            <div className="flex items-center gap-1.5">
+              <Button asChild variant="ghost" size="sm" className="px-2.5">
+                <Link href="/login">تسجيل الدخول</Link>
+              </Button>
+              <Button asChild size="sm" className="hidden sm:inline-flex">
+                <Link href="/register">إنشاء حساب</Link>
+              </Button>
+            </div>
+          )}
         </div>
       </div>
 

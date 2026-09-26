@@ -6,7 +6,7 @@ import {
   REFRESH_TOKEN_COOKIE,
   setSessionCookies,
 } from "@/lib/session-cookies";
-import { isPublicPath, SITE_REQUIRES_LOGIN } from "@/lib/access-policy";
+import { isPublicRequest } from "@/lib/access-policy";
 import { redirectTo } from "@/lib/request-origin";
 import { SITE_URL } from "@/lib/site";
 import { backendIdentity } from "@/lib/client-ip";
@@ -50,7 +50,7 @@ export async function middleware(request: NextRequest) {
     return NextResponse.redirect(new URL(request.nextUrl.pathname + request.nextUrl.search, SITE_URL), 308);
   }
 
-  const mustSignIn = SITE_REQUIRES_LOGIN && !isPublicPath(request.nextUrl.pathname);
+  const mustSignIn = !isPublicRequest(request.nextUrl.pathname, request.method);
 
   const refreshToken = request.cookies.get(REFRESH_TOKEN_COOKIE)?.value;
   if (!refreshToken) {

@@ -8,6 +8,8 @@ import { Star, Eye, Bookmark, Heart, BookOpen, Calendar, User as UserIcon } from
 import { useCatalog } from "@/components/catalog-provider";
 import { useSeriesChapters } from "@/lib/use-series-chapters";
 import { useTeamManagement } from "@/store/team-management";
+import { useSignedInUserId } from "@/components/session-hint";
+import { GuestPrompt } from "@/components/auth/guest-prompt";
 import { useReadingProgress } from "@/store/reader-settings";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -49,6 +51,7 @@ export default function SeriesDetailPage() {
   const series = allSeries.find((s) => s.slug === slug);
   const serverChapters = useSeriesChapters(series?.id, series?.slug);
   const lastRead = useReadingProgress((s) => s.getProgress(series?.id ?? ""));
+  const signedIn = useSignedInUserId();
 
   useEffect(() => {
     document.title = series ? `${series.titleAr} | LUNEX TEAM` : "غير موجود | LUNEX TEAM";
@@ -151,7 +154,14 @@ export default function SeriesDetailPage() {
               </p>
 
               <div className="flex flex-wrap items-center gap-2 pt-2">
-                {nextUnreadChapter && (
+                {!signedIn && (nextUnreadChapter ?? chapters[0]) && (
+                  <Button size="lg" asChild>
+                    <Link href={`/login?next=${encodeURIComponent(`/series/${series.slug}/${(nextUnreadChapter ?? chapters[0]).number}`)}`}>
+                      <BookOpen className="h-4 w-4" /> سجّل الدخول لقراءة الفصول
+                    </Link>
+                  </Button>
+                )}
+                {signedIn && nextUnreadChapter && (
                   <Button size="lg" asChild>
                     <a href={`/series/${series.slug}/${nextUnreadChapter.number}`}>
                       <BookOpen className="h-4 w-4" />
@@ -159,16 +169,17 @@ export default function SeriesDetailPage() {
                     </a>
                   </Button>
                 )}
-                {chapters[0] && (
+                {signedIn && chapters[0] && (
                   <Button size="lg" variant={nextUnreadChapter ? "secondary" : "default"} asChild>
                     <a href={`/series/${series.slug}/${chapters[0].number}`}>
                       أحدث فصل ({chapters[0].number})
                     </a>
                   </Button>
                 )}
-                <BookmarkButton seriesId={series.id} />
+                {signedIn && <BookmarkButton seriesId={series.id} />}
                 <ShareButton />
               </div>
+              <GuestPrompt text="تتصفح كزائر: القراءة والمفضلة والتعليق والتقييم للأعضاء فقط." className="mt-2 max-w-3xl" />
 
               {team && (
                 <div className="mt-2 flex flex-wrap items-center gap-2">

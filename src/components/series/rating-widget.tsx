@@ -4,7 +4,7 @@ import { useEffect, useState } from "react";
 import { useProgress } from "@/store/progress";
 import { useRouter } from "next/navigation";
 import { AlertCircle, Star } from "lucide-react";
-import { useSession } from "@/store/session";
+import { useSignedInUserId } from "@/components/session-hint";
 import { cn, formatNumber } from "@/lib/utils";
 
 interface RatingBody {
@@ -20,7 +20,7 @@ interface RatingBody {
  */
 export function RatingWidget({ seriesId, rating, ratingCount }: { seriesId: string; rating: number; ratingCount: number }) {
   const router = useRouter();
-  const currentUserId = useSession((s) => s.currentUserId);
+  const currentUserId = useSignedInUserId();
   const [live, setLive] = useState<{ average: number; count: number } | null>(null);
   const [mine, setMine] = useState(0);
   const [hover, setHover] = useState(0);

@@ -8,6 +8,7 @@ import { TooltipProvider } from "@/components/ui/tooltip";
 import { StoreHydration } from "@/components/store-hydration";
 import { LibrarySync } from "@/components/library-sync";
 import { CatalogProvider } from "@/components/catalog-provider";
+import { SessionHint } from "@/components/session-hint";
 import { loadCatalogSeed } from "@/lib/catalog-server";
 import { ThemeApplier } from "@/components/theme-applier";
 import { getServerSession } from "@/lib/server-session";
@@ -83,9 +84,11 @@ export default async function RootLayout({ children }: { children: React.ReactNo
         <Suspense fallback={null}>
           <NavigationProgress />
         </Suspense>
-        <CatalogProvider seed={catalogSeed}>
-          <TooltipProvider delayDuration={200}>{children}</TooltipProvider>
-        </CatalogProvider>
+        <SessionHint userId={initialUser?.id ?? null}>
+          <CatalogProvider seed={catalogSeed}>
+            <TooltipProvider delayDuration={200}>{children}</TooltipProvider>
+          </CatalogProvider>
+        </SessionHint>
         <CookieConsent initialChoice={initialConsent} />
         <AdScripts />
       </body>

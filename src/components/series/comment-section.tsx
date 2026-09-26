@@ -17,6 +17,7 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { timeAgo, cn } from "@/lib/utils";
 import { useSession } from "@/store/session";
+import { GuestPrompt } from "@/components/auth/guest-prompt";
 import { useProfile, avatarSrcFor } from "@/store/profile";
 import { useTeamManagement, applyTeamOverride } from "@/store/team-management";
 import { useComments, mergeComments } from "@/store/comments";
@@ -254,6 +255,7 @@ export function CommentSection({
 
   return (
     <div className="space-y-4">
+      <GuestPrompt text="التعليق للأعضاء فقط." />
       {currentUser && (
         <div className="flex gap-3">
           <div className="relative h-10 w-10 shrink-0 overflow-hidden rounded-full ring-2 ring-primary-500/40 shadow-[0_0_14px_rgba(168,85,247,0.35)]">
