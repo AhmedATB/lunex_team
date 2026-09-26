@@ -3,7 +3,7 @@
 import { useEffect, useState } from "react";
 import Image from "next/image";
 import { useRouter } from "next/navigation";
-import { Loader2, Pencil, ShieldCheck, Trash2 } from "lucide-react";
+import { Loader2, Pencil, Pin, PinOff, ShieldCheck, Trash2 } from "lucide-react";
 import { useCatalog } from "@/components/catalog-provider";
 import { useSession } from "@/store/session";
 import { useToast } from "@/store/toast";
@@ -68,6 +68,17 @@ export function SeriesAdminControls({
     router.refresh();
   }
 
+  /** Pins the work to the top of the home page (after the ones already there), or takes it off. */
+  async function togglePin() {
+    if (!series) return;
+    const pinned = db.series.filter((s) => s.isFeatured).sort((a, b) => (a.featuredOrder ?? 999) - (b.featuredOrder ?? 999)).map((s) => s.id);
+    const ids = series.isFeatured ? pinned.filter((id) => id !== series.id) : [...pinned, series.id];
+    const result = await seriesApi.setFeatured(ids);
+    if (!result.ok) return say("تعذر التثبيت", result.message);
+    say(series.isFeatured ? "أُلغي التثبيت" : "ثُبّت في الصفحة الرئيسية", series.titleAr);
+    router.refresh();
+  }
+
   async function remove() {
     setBusy(true);
     const result = await seriesApi.remove(seriesId);
@@ -92,6 +103,11 @@ export function SeriesAdminControls({
       <Button variant="secondary" size="sm" onClick={() => setEditing(true)}>
         <Pencil className="h-3.5 w-3.5" /> تعديل
       </Button>
+      {isGlobalEditor && (
+        <Button variant="secondary" size="sm" onClick={togglePin}>
+          {series.isFeatured ? <PinOff className="h-3.5 w-3.5" /> : <Pin className="h-3.5 w-3.5" />} {series.isFeatured ? "إلغاء التثبيت" : "تثبيت في الرئيسية"}
+        </Button>
+      )}
       {isGlobalEditor && (
         <Button variant="ghost" size="sm" className="text-red-400 hover:bg-red-500/10" onClick={() => setDeleting(true)}>
           <Trash2 className="h-3.5 w-3.5" /> حذف
