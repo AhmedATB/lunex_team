@@ -1,6 +1,5 @@
 import { BadRequestException, ConflictException, ForbiddenException, Injectable, NotFoundException } from "@nestjs/common";
 import { randomUUID } from "node:crypto";
-import sharp from "sharp";
 import { ImagesService, type IssuedImageToken } from "../images/images.service";
 import { StorageService } from "../images/storage/storage.interface";
 import type { RequestContext } from "../../common/middleware/request-context.middleware";
@@ -8,6 +7,7 @@ import { WalletService } from "../wallet/wallet.service";
 import { NotificationsService } from "../notifications/notifications.service";
 import type { UnlockMethod } from "../wallet/wallet.repository";
 import { ChaptersRepository } from "./chapters.repository";
+import { PageImageError, preparePage, type PageSlice } from "./page-image.util";
 
 /**
  * Mirrors the frontend's rbac.ts GLOBAL_ROLE_PERMISSIONS (publish_chapters/
@@ -24,8 +24,6 @@ import { ChaptersRepository } from "./chapters.repository";
  * teams the mock permission system says they belong to.
  */
 const CAN_PUBLISH_GLOBAL_ROLES = new Set(["uploader", "editor", "super_administrator", "owner"]);
-
-const MAX_PAGE_DIMENSION = 6000;
 
 /** What the image log and the token record for a reader without an account (the device and address are logged beside it). */
 const GUEST_READER = "guest";
@@ -46,9 +44,10 @@ export class ChaptersService {
     }
   }
 
-  async create(role: string, dto: { seriesId: string; teamId: string; number: number; title: string }) {
+  /** `teamId` may be left out: a work that belongs to no team is published by the site's staff on its own. */
+  async create(role: string, dto: { seriesId: string; teamId?: string; number: number; title: string }) {
     this.assertCanPublish(role);
-    return this.repo.create(dto);
+    return this.repo.create({ seriesId: dto.seriesId, teamId: dto.teamId?.trim() || null, number: dto.number, title: dto.title });
   }
 
   async get(id: string) {
@@ -94,6 +93,7 @@ export class ChaptersService {
    * duplicate page number outright rather than silently overwriting — an
    * admin fixing a mistake deletes the chapter and starts over, which is an
    * acceptable v1 limitation for how rarely a single page needs replacing.
+   * One picture is one page here (the bot's route uses this one).
    */
   async uploadPage(role: string, chapterId: string, pageNumber: number, file: Express.Multer.File | undefined) {
     this.assertCanPublish(role);
@@ -105,6 +105,20 @@ export class ChaptersService {
     return this.storePage(chapterId, pageNumber, file.buffer);
   }
 
+  /**
+   * The admin upload: like {@link uploadPage}, but a long picture (a webtoon strip) is cut into several pages and a very
+   * wide one is shrunk. Answers how many pages the picture became, so the caller numbers the next one after them.
+   */
+  async uploadPages(role: string, chapterId: string, firstPage: number, file: Express.Multer.File | undefined) {
+    this.assertCanPublish(role);
+    await this.get(chapterId);
+
+    if (!file) {
+      throw new BadRequestException({ code: "missing_file", message: "No image file was uploaded." });
+    }
+    return this.storePages(chapterId, firstPage, file.buffer);
+  }
+
   /** The permission check the callers of {@link storePage} that are not a request (the Drive import) make up front. */
   requirePublisher(role: string) {
     this.assertCanPublish(role);
@@ -112,36 +126,44 @@ export class ChaptersService {
 
   /** Normalizes the picture and links it as the chapter's page `pageNumber` (the chapter and the caller's right to publish are checked by the caller). */
   async storePage(chapterId: string, pageNumber: number, bytes: Buffer) {
-    const existing = await this.repo.findPage(chapterId, pageNumber);
-    if (existing) {
-      throw new ConflictException({
-        code: "page_number_taken",
-        message: `Page ${pageNumber} already exists for this chapter.`,
-      });
-    }
+    const [page] = await this.storeSlices(chapterId, pageNumber, await this.prepare(bytes, false));
+    return page;
+  }
 
-    let normalized: Buffer;
-    let width: number;
-    let height: number;
+  /**
+   * Turns the picture into WebP and links it from page `firstPage` on: one page, or — for a picture taller than a page can
+   * be — the pieces it was cut into, one page each in order. Returns how many pages it made.
+   */
+  async storePages(chapterId: string, firstPage: number, bytes: Buffer): Promise<{ pages: number }> {
+    const created = await this.storeSlices(chapterId, firstPage, await this.prepare(bytes, true));
+    return { pages: created.length };
+  }
+
+  private async prepare(bytes: Buffer, cut: boolean): Promise<PageSlice[]> {
     try {
-      const image = sharp(bytes);
-      const metadata = await image.metadata();
-      width = metadata.width ?? 0;
-      height = metadata.height ?? 0;
-      if (!width || !height) throw new Error("no dimensions");
-      if (width > MAX_PAGE_DIMENSION || height > MAX_PAGE_DIMENSION) {
-        throw new BadRequestException({ code: "image_too_large", message: "Page image dimensions exceed the allowed maximum." });
-      }
-      normalized = await image.webp({ quality: 90 }).toBuffer();
+      return await preparePage(bytes, { cut });
     } catch (err) {
-      if (err instanceof BadRequestException) throw err;
-      throw new BadRequestException({ code: "invalid_image", message: "This file could not be read as an image." });
+      if (err instanceof PageImageError) throw new BadRequestException({ code: err.code, message: err.message });
+      throw err;
+    }
+  }
+
+  private async storeSlices(chapterId: string, firstPage: number, slices: PageSlice[]) {
+    // Every number is checked before the first piece is stored, so a clash leaves nothing half-linked.
+    for (let i = 0; i < slices.length; i++) {
+      if (await this.repo.findPage(chapterId, firstPage + i)) {
+        throw new ConflictException({ code: "page_number_taken", message: `Page ${firstPage + i} already exists for this chapter.` });
+      }
     }
 
-    const storageKey = `chapters/${randomUUID()}.webp`;
-    const { checksum } = await this.storage.put(storageKey, normalized);
-    const asset = await this.repo.createAsset({ storageKey, checksum, mimeType: "image/webp", width, height });
-    return this.repo.createPage({ chapterId, pageNumber, assetId: asset.id });
+    const pages = [];
+    for (const [i, slice] of slices.entries()) {
+      const storageKey = `chapters/${randomUUID()}.webp`;
+      const { checksum } = await this.storage.put(storageKey, slice.data);
+      const asset = await this.repo.createAsset({ storageKey, checksum, mimeType: "image/webp", width: slice.width, height: slice.height });
+      pages.push(await this.repo.createPage({ chapterId, pageNumber: firstPage + i, assetId: asset.id }));
+    }
+    return pages;
   }
 
   /** May this member read the chapter now? Free, opened with a credit or coins, or staff — decided by the wallet (modules/wallet). */

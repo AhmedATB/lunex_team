@@ -94,7 +94,8 @@ export class ChaptersController {
     @UploadedFile() file: Express.Multer.File | undefined,
     @CurrentUser() actor: AccessTokenPayload
   ) {
-    return this.chapters.uploadPage(actor.role, chapterId, dto.pageNumber, file);
+    // A long picture becomes several pages from `pageNumber` on; the answer says how many, so the next upload starts after them.
+    return this.chapters.uploadPages(actor.role, chapterId, dto.pageNumber, file);
   }
 
   /**

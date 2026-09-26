@@ -102,9 +102,12 @@ export class ChapterImportService {
 
   private async run(chapterId: string, job: ImportJob, client: DriveLike, images: { id: string; name: string }[], firstPage: number) {
     try {
+      // A long picture becomes several pages, so the next number follows what the last one made, not its position.
+      let nextPage = firstPage;
       for (const [index, image] of images.entries()) {
         const bytes = await this.withRetry(() => client.download(image.id));
-        await this.chapters.storePage(chapterId, firstPage + index, bytes);
+        const { pages } = await this.chapters.storePages(chapterId, nextPage, bytes);
+        nextPage += pages;
         job.done = index + 1;
       }
       job.state = "done";

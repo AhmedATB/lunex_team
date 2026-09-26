@@ -1,13 +1,15 @@
-import { IsNumber, IsString, Length, Min } from "class-validator";
+import { IsNumber, IsOptional, IsString, Length, MaxLength, Min } from "class-validator";
 
 export class CreateChapterDto {
   @IsString()
   @Length(1, 200)
   seriesId!: string;
 
+  /** The publishing team; leave it out (or empty) for a work that has none. */
+  @IsOptional()
   @IsString()
-  @Length(1, 200)
-  teamId!: string;
+  @MaxLength(200)
+  teamId?: string;
 
   @IsNumber()
   @Min(0)

@@ -2,7 +2,7 @@
 
 import { useEffect, useMemo, useRef, useState } from "react";
 import { FileArchive, GripVertical, HardDrive, ImageIcon, Loader2, X } from "lucide-react";
-import { chapterApi, inPool, type DriveInfo } from "@/lib/chapter-api";
+import { chapterApi, type DriveInfo } from "@/lib/chapter-api";
 import { imagesFromZip, naturalCompare, ZipError } from "@/lib/zip-reader";
 import { useToast } from "@/store/toast";
 import { Button } from "@/components/ui/button";
@@ -24,15 +24,16 @@ export interface UploadTarget {
 
 type Source = "images" | "zip" | "drive";
 
-const UPLOAD_PARALLEL = 3;
 const POLL_MS = 1500;
 const POLL_LIMIT_MS = 20 * 60_000;
 const isImage = (file: File) => file.type.startsWith("image/");
 
 /**
  * Upload a chapter's pages: pictures chosen from the device, a ZIP of them (opened here, in the browser), or a Google Drive
- * folder (fetched by the server). Pages go up in reading order; the chapter is published when they are all there (or kept
- * as a draft). If anything fails the half-made chapter is removed, so nothing is left behind.
+ * folder (fetched by the server). Pages go up in reading order, one after the other, because a long picture is cut into
+ * several pages by the server and the next one is numbered after them; the chapter is published when they are all there (or
+ * kept as a draft). If anything fails the half-made chapter is removed, so nothing is left behind. A work with no team can
+ * be published too: the chapter then belongs to no team.
  */
 export function ChapterUploadDialog({
   open,
@@ -134,7 +135,7 @@ function Form({ series, initialFiles, onClose, onDone }: { series: UploadTarget[
     });
   }
 
-  const ready = !!target && !!target.teamId && title.trim() && number >= 0 && (source === "drive" ? driveLink.trim().length >= 10 && drive?.configured : files.length > 0);
+  const ready = !!target && title.trim() && number >= 0 && (source === "drive" ? driveLink.trim().length >= 10 && drive?.configured : files.length > 0);
 
   async function submit() {
     if (!target || !ready || busy) return;
@@ -142,7 +143,7 @@ function Form({ series, initialFiles, onClose, onDone }: { series: UploadTarget[
     setError("");
     setProgress({ label: "إنشاء الفصل...", done: 0, total: 1 });
 
-    const created = await chapterApi.create({ seriesId: target.id, teamId: target.teamId, number, title: title.trim() });
+    const created = await chapterApi.create({ seriesId: target.id, teamId: target.teamId || undefined, number, title: title.trim() });
     if (!created.ok) return fail(created.message);
     const chapterId = created.body.id;
     const undo = () => void chapterApi.remove(chapterId);
@@ -173,18 +174,17 @@ function Form({ series, initialFiles, onClose, onDone }: { series: UploadTarget[
       }
     } else {
       setProgress({ label: "رفع الصفحات...", done: 0, total: files.length });
-      const failure = await inPool(
-        files,
-        UPLOAD_PARALLEL,
-        async (file, i) => {
-          const result = await chapterApi.uploadPage(chapterId, i + 1, file);
-          return result.ok ? null : result.message;
-        },
-        (done) => setProgress({ label: "رفع الصفحات...", done, total: files.length })
-      );
-      if (failure) {
-        undo();
-        return fail(`تعذر رفع الصفحة ${failure.index + 1} (${files[failure.index].name}): ${failure.message}`);
+      // One by one: a long picture becomes several pages, so each upload is numbered after the pages the last one made.
+      let nextPage = 1;
+      for (const [i, file] of files.entries()) {
+        if (cancelled.current) return;
+        const result = await chapterApi.uploadPage(chapterId, nextPage, file);
+        if (!result.ok) {
+          undo();
+          return fail(`تعذر رفع الصورة ${i + 1} (${file.name}): ${result.message}`);
+        }
+        nextPage += result.body?.pages ?? 1;
+        setProgress({ label: "رفع الصفحات...", done: i + 1, total: files.length });
       }
     }
 
@@ -221,7 +221,7 @@ function Form({ series, initialFiles, onClose, onDone }: { series: UploadTarget[
             {series.map((s) => <SelectItem key={s.id} value={s.id}>{s.titleAr}</SelectItem>)}
           </SelectContent>
         </Select>
-        {target && !target.teamId && <p className="text-xs text-amber-300">هذا العمل بلا فريق ناشر. انقله إلى فريق من صفحة «السلاسل» أولًا.</p>}
+        {target && !target.teamId && <p className="text-xs text-lunex-gray">هذا العمل بلا فريق: سيُنشر الفصل كعمل حر غير تابع لأي فريق.</p>}
       </div>
 
       <div className="grid gap-3 sm:grid-cols-[8rem_1fr]">
@@ -272,6 +272,10 @@ function Form({ series, initialFiles, onClose, onDone }: { series: UploadTarget[
           )}
         </TabsContent>
       </Tabs>
+
+      <p className="text-xs text-lunex-gray">
+        تُحوَّل كل الصور إلى WebP تلقائيًا. الصورة الطويلة (ويبتون) تُقسَّم عند أقرب فراغ بين المشاهد إلى صفحات متتابعة، والعريضة جدًا تُصغَّر.
+      </p>
 
       {source !== "drive" && files.length > 0 && (
         <div className="space-y-1">

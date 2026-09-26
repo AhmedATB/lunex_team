@@ -5,7 +5,7 @@ import { PrismaService } from "../../prisma/prisma.service";
 export class ChaptersRepository {
   constructor(private readonly prisma: PrismaService) {}
 
-  create(data: { seriesId: string; teamId: string; number: number; title: string }) {
+  create(data: { seriesId: string; teamId: string | null; number: number; title: string }) {
     return this.prisma.chapter.create({ data });
   }
 

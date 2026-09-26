@@ -180,13 +180,13 @@ export class CatalogRepository {
   }
 
   /**
-   * Puts the series on a team (or on none) in one transaction. Their chapters record which team published them, so when
-   * the destination is a team the chapters move with the series; a series taken off every team leaves its chapters as they are.
+   * Puts the series on a team (or on none) in one transaction. Their chapters record which team published them, so they
+   * move with the series: to the team, or to none when the series is taken off every team.
    */
   transferSeries(ids: string[], teamId: string | null) {
     return this.prisma.$transaction(async (tx) => {
       const moved = await tx.series.updateMany({ where: { id: { in: ids } }, data: { teamId } });
-      const chapters = teamId ? await tx.chapter.updateMany({ where: { seriesId: { in: ids } }, data: { teamId } }) : { count: 0 };
+      const chapters = await tx.chapter.updateMany({ where: { seriesId: { in: ids } }, data: { teamId } });
       return { series: moved.count, chapters: chapters.count };
     });
   }

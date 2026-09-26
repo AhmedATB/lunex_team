@@ -215,7 +215,7 @@ export function toTeamDto(row: TeamRow, rank: number, lastActivityAt: Date | nul
 export interface ChapterRow {
   id: string;
   seriesId: string;
-  teamId: string;
+  teamId: string | null;
   number: number;
   title: string;
   isPublished: boolean;
@@ -241,7 +241,7 @@ export function toChapterDto(row: ChapterRow) {
     isPublished: row.isPublished,
     scheduledFor: row.scheduledFor?.toISOString(),
     manualLock: row.manualLock,
-    teamId: row.teamId,
+    teamId: row.teamId ?? "",
   };
 }
 

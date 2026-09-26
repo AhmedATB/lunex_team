@@ -7,7 +7,7 @@ import { DriveError } from "./drive/google-drive.client";
 const FOLDER = "https://drive.google.com/drive/folders/1AbCdEfGhIjKlMnOpQrStUvWxYz012345";
 const flush = () => new Promise((resolve) => setTimeout(resolve, 5));
 
-function build(options: { images?: { id: string; name: string; mimeType: string }[]; folderError?: DriveError; existingPages?: number[]; storeFails?: boolean; configured?: boolean } = {}) {
+function build(options: { images?: { id: string; name: string; mimeType: string }[]; folderError?: DriveError; existingPages?: number[]; storeFails?: boolean; configured?: boolean; pagesPerImage?: Record<string, number> } = {}) {
   const images = options.images ?? [{ id: "a", name: "1.jpg", mimeType: "image/jpeg" }, { id: "b", name: "2.jpg", mimeType: "image/jpeg" }, { id: "c", name: "3.jpg", mimeType: "image/jpeg" }];
   const drive = {
     serviceEmail: "reader@project.iam.gserviceaccount.com",
@@ -22,8 +22,10 @@ function build(options: { images?: { id: string; name: string; mimeType: string 
       if (role !== "owner") throw new ForbiddenException({ code: "insufficient_permissions" });
     }),
     get: jest.fn(async () => ({ id: "ch1", pages: (options.existingPages ?? []).map((pageNumber) => ({ pageNumber })) })),
-    storePage: jest.fn(async (_chapterId: string, _page: number, _bytes: Buffer) => {
+    // A long picture is cut into several pages, so a store answers how many it made.
+    storePages: jest.fn(async (_chapterId: string, _page: number, bytes: Buffer) => {
       if (options.storeFails) throw new Error("disk full");
+      return { pages: options.pagesPerImage?.[bytes.toString().replace("bytes-", "")] ?? 1 };
     }),
   };
   const service = new ChapterImportService(chapters as unknown as ChaptersService, { get: () => undefined } as unknown as ConfigService, () => (options.configured === false ? null : drive));
@@ -39,8 +41,17 @@ describe("Drive import", () => {
     await flush();
     expect(service.status("ch1")).toMatchObject({ state: "done", total: 3, done: 3, error: null });
     expect(drive.download.mock.calls.map((c) => c[0])).toEqual(["a", "b", "c"]);
-    expect(chapters.storePage.mock.calls.map((c) => c[1])).toEqual([3, 4, 5]); // after the two pages it already had
-    expect(chapters.storePage.mock.calls[0][2]).toEqual(Buffer.from("bytes-a"));
+    expect(chapters.storePages.mock.calls.map((c) => c[1])).toEqual([3, 4, 5]); // after the two pages it already had
+    expect(chapters.storePages.mock.calls[0][2]).toEqual(Buffer.from("bytes-a"));
+  });
+
+  it("numbers the next picture after the pages a long one was cut into", async () => {
+    const { service, chapters } = build({ pagesPerImage: { a: 3 } }); // the first picture became three pages
+    await service.startDrive("owner", "ch1", FOLDER);
+    await flush();
+    await flush();
+    expect(chapters.storePages.mock.calls.map((c) => c[1])).toEqual([1, 4, 5]);
+    expect(service.status("ch1")).toMatchObject({ state: "done", total: 3, done: 3 });
   });
 
   it("is for people who publish, and needs a working link, a set-up account and a folder with images", async () => {

@@ -216,7 +216,8 @@ model ImageAsset {
 model Chapter {
   id           String    @id @default(uuid())
   seriesId     String
-  teamId       String
+  /// The team that published it; null for a work that belongs to no team (published straight by the site's staff).
+  teamId       String?
   number       Float
   title        String
   isPublished  Boolean   @default(false)
