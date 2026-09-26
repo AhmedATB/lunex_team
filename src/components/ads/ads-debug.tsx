@@ -6,10 +6,10 @@ import { ADS_ENABLED, isAdPage } from "@/lib/ads";
 import { ADS_STATUS_EVENT, adsDebugRequested } from "@/lib/ads-status";
 
 const MEANING: Record<string, string> = {
-  "script loaded": "وصل كود الشبكة (إن لم يظهر إعلان فالشبكة لم تُعطِ إعلاناً)",
+  "script loaded": "وصل كود الشبكة (إن لم يظهر إعلان فالشبكة لم تُعطِ إعلانًا)",
   "blocked or failed": "انحجب: مانع إعلانات أو فلتر أو الشبكة غير قابلة للوصول من جهازك",
   "creative shown": "ظهر إعلان",
-  "no ad served": "الكود اشتغل لكن الشبكة لم تُعطِ إعلاناً",
+  "no ad served": "الكود اشتغل لكن الشبكة لم تُعطِ إعلانًا",
 };
 
 /** A small corner panel, only when the page is opened with `?ads=debug`: what each ad unit did in this browser. */

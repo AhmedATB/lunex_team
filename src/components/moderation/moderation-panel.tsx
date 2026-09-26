@@ -93,7 +93,7 @@ const DURATIONS: { hours: number; label: string; adminOnly?: boolean }[] = [
   { hours: 24, label: "يوم" },
   { hours: 72, label: "3 أيام" },
   { hours: 168, label: "أسبوع" },
-  { hours: 720, label: "30 يوماً" },
+  { hours: 720, label: "30 يومًا" },
   { hours: 2160, label: "3 أشهر", adminOnly: true },
   { hours: 8760, label: "سنة", adminOnly: true },
 ];
@@ -103,8 +103,8 @@ const ERRORS: Record<string, string> = {
   cannot_sanction_self: "لا يمكنك تنفيذ هذا على نفسك.",
   cannot_sanction_owner: "لا يمكن تنفيذ هذا على مالك المنصة.",
   cannot_sanction_equal_or_higher: "لا يمكنك تنفيذ هذا على من هو بنفس رتبتك أو أعلى منها.",
-  duration_too_long: "المشرف لا يستطيع إعطاء تايم أوت أطول من 30 يوماً.",
-  already_banned: "هذا الحساب محظور بالفعل. ارفع الحظر أولاً.",
+  duration_too_long: "المشرف لا يستطيع إعطاء تايم أوت أطول من 30 يومًا.",
+  already_banned: "هذا الحساب محظور بالفعل. ارفع الحظر أولًا.",
   sanction_not_active: "هذه العقوبة لم تعد سارية.",
   sanction_not_revocable: "هذا الإجراء لا يُرفع.",
   user_not_found: "لم يُعثر على الحساب.",
@@ -115,7 +115,7 @@ const PROVIDER_LABELS: Record<string, string> = { discord: "Discord", google: "G
 function errorMessage(body: { code?: string; message?: string } | null, status: number): string {
   if (body?.code && ERRORS[body.code]) return ERRORS[body.code];
   if (status === 400) return "تحقق من المدخلات: السبب يجب أن يكون 3 أحرف على الأقل.";
-  if (status === 429) return "محاولات كثيرة، انتظر قليلاً.";
+  if (status === 429) return "محاولات كثيرة، انتظر قليلًا.";
   return "تعذر تنفيذ الإجراء، حاول مرة أخرى.";
 }
 
@@ -212,12 +212,12 @@ export function ModerationPanel({ userId }: { userId: string }) {
       return;
     }
     if (kind === "reset_profile" && parts.size === 0) {
-      setError("اختر جزءاً واحداً على الأقل لمسحه.");
+      setError("اختر جزءًا واحدًا على الأقل لمسحه.");
       return;
     }
     const confirmations: Partial<Record<Kind, string>> = {
-      perm_ban: "حظر هذا الحساب نهائياً؟",
-      temp_ban: "حظر هذا الحساب مؤقتاً؟",
+      perm_ban: "حظر هذا الحساب نهائيًا؟",
+      temp_ban: "حظر هذا الحساب مؤقتًا؟",
       remove_comments: "حذف كل تعليقات هذا العضو؟ يظهر ذلك في سجله ويُبلَّغ به.",
       sign_out: "إنهاء كل جلسات هذا الحساب على كل الأجهزة؟",
     };
@@ -331,7 +331,7 @@ export function ModerationPanel({ userId }: { userId: string }) {
           {user.isBanned && (
             <Badge variant="destructive" className="flex items-center gap-1">
               <Ban className="h-3 w-3" />
-              {user.bannedUntil ? `محظور حتى ${formatDateTime(new Date(user.bannedUntil))}` : "محظور نهائياً"}
+              {user.bannedUntil ? `محظور حتى ${formatDateTime(new Date(user.bannedUntil))}` : "محظور نهائيًا"}
             </Badge>
           )}
           {user.mutedUntil && (
@@ -349,7 +349,7 @@ export function ModerationPanel({ userId }: { userId: string }) {
             </div>
             <Fact label="البريد الإلكتروني" value={account.email} ltr />
             <Fact label="تاريخ الانضمام" value={formatDateTime(new Date(account.createdAt))} />
-            <Fact label="آخر تسجيل دخول" value={account.lastLoginAt ? formatDateTime(new Date(account.lastLoginAt)) : "لم يسجّل دخولاً بعد"} />
+            <Fact label="آخر تسجيل دخول" value={account.lastLoginAt ? formatDateTime(new Date(account.lastLoginAt)) : "لم يسجّل دخولًا بعد"} />
             <Fact label="الجلسات النشطة" value={String(account.activeSessions)} />
             <Fact
               label="طريقة الدخول"

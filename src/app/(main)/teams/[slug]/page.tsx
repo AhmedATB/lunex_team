@@ -256,10 +256,10 @@ function ApplyToJoinDialog({
         <DialogHeader><DialogTitle>طلب انضمام للفريق</DialogTitle></DialogHeader>
         {submitted ? (
           <p className="py-4 text-center text-sm text-lunex-gray">
-            تم إرسال طلبك بنجاح! سيراجع قائد الفريق طلبك ويرد عليك قريباً.
+            تم إرسال طلبك بنجاح! سيراجع قائد الفريق طلبك ويرد عليك قريبًا.
           </p>
         ) : positions.length === 0 ? (
-          <p className="py-4 text-center text-sm text-lunex-gray">لا توجد وظائف مفتوحة حالياً لدى هذا الفريق.</p>
+          <p className="py-4 text-center text-sm text-lunex-gray">لا توجد وظائف مفتوحة حاليًا لدى هذا الفريق.</p>
         ) : (
           <div className="space-y-3 pt-2">
             <div className="space-y-1.5">
@@ -287,7 +287,7 @@ function ApplyToJoinDialog({
             </div>
             <div className="space-y-1.5">
               <Label>مدى التفرغ</Label>
-              <Input value={availability} onChange={(e) => setAvailability(e.target.value)} placeholder="مثال: 3 فصول أسبوعياً" />
+              <Input value={availability} onChange={(e) => setAvailability(e.target.value)} placeholder="مثال: 3 فصول أسبوعيًا" />
             </div>
             <Button onClick={submit} className="w-full" disabled={!experience.trim() || !availability.trim()}>
               إرسال الطلب

@@ -9,6 +9,7 @@ import {
   Param,
   Patch,
   Post,
+  Query,
   Req,
   Res,
   UploadedFile,
@@ -22,6 +23,7 @@ import { CurrentUser } from "../../common/decorators/current-user.decorator";
 import { Public } from "../../common/decorators/public.decorator";
 import type { AccessTokenPayload } from "../../common/guards/jwt-auth.guard";
 import { ChangeRoleDto } from "./dto/change-role.dto";
+import { ListUsersQueryDto } from "./dto/list-users.dto";
 import { DeleteAccountDto } from "./dto/delete-account.dto";
 import { SetBannedDto } from "./dto/set-banned.dto";
 import { UpdateProfileDto } from "./dto/update-profile.dto";
@@ -44,6 +46,13 @@ export class UsersController {
     @Req() req: Request
   ) {
     return this.users.changeRole(actor.sub, id, dto.role, req.context);
+  }
+
+  @Get()
+  @HttpCode(HttpStatus.OK)
+  @Throttle({ default: { limit: 60, ttl: 60_000 } })
+  listAll(@Query() query: ListUsersQueryDto, @CurrentUser() actor: AccessTokenPayload) {
+    return this.users.listAll(actor.sub, query);
   }
 
   @Get("banned")

@@ -1,4 +1,5 @@
 import { Injectable } from "@nestjs/common";
+import { fixTanween } from "../../common/text/arabic.util";
 import { NotificationsRepository } from "./notifications.repository";
 
 const LIST_LIMIT = 30;
@@ -16,7 +17,7 @@ export class NotificationsService {
   constructor(private readonly repo: NotificationsRepository) {}
 
   notify(userId: string, type: string, title: string, body?: string, link?: string) {
-    return this.repo.create({ userId, type, title, body, link });
+    return this.repo.create({ userId, type, title: fixTanween(title), body: fixTanween(body), link });
   }
 
   async list(userId: string) {
@@ -24,7 +25,7 @@ export class NotificationsService {
       this.repo.listForUser(userId, LIST_LIMIT),
       this.repo.countUnread(userId),
     ]);
-    return { items, unreadCount };
+    return { items: items.map((item) => ({ ...item, title: fixTanween(item.title), body: fixTanween(item.body) })), unreadCount };
   }
 
   async markRead(userId: string, id: string): Promise<void> {

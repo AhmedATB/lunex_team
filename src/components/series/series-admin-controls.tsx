@@ -28,7 +28,7 @@ import {
 const STATUS_OPTIONS: { value: SeriesStatus; label: string }[] = [
   { value: "ongoing", label: "مستمر" },
   { value: "completed", label: "مكتمل" },
-  { value: "hiatus", label: "متوقف مؤقتاً" },
+  { value: "hiatus", label: "متوقف مؤقتًا" },
   { value: "dropped", label: "متروك" },
 ];
 
@@ -237,7 +237,7 @@ function DeleteSeriesDialog({ onDelete }: { onDelete: () => void }) {
         <Button size="sm" variant="destructive"><Trash2 className="h-3.5 w-3.5" /> حذف</Button>
       </DialogTrigger>
       <DialogContent>
-        <DialogHeader><DialogTitle>حذف العمل نهائياً</DialogTitle></DialogHeader>
+        <DialogHeader><DialogTitle>حذف العمل نهائيًا</DialogTitle></DialogHeader>
         <p className="text-sm text-lunex-gray">
           سيختفي العمل وجميع فصوله من المنصة. هل أنت متأكد؟
         </p>
@@ -272,7 +272,7 @@ export function SeriesRemovedGuard({ seriesId }: { seriesId: string }) {
     <div className="fixed inset-0 z-50 flex flex-col items-center justify-center gap-4 bg-[#09090B] text-center">
       <Trash2 className="h-12 w-12 text-red-400" />
       <h1 className="font-display text-2xl font-bold text-white">تم حذف هذا العمل</h1>
-      <p className="text-sm text-lunex-gray">هذا العمل لم يعد متاحاً على المنصة.</p>
+      <p className="text-sm text-lunex-gray">هذا العمل لم يعد متاحًا على المنصة.</p>
       <Button asChild><Link href="/series">تصفح الأعمال الأخرى</Link></Button>
     </div>
   );

@@ -37,7 +37,7 @@ export async function resizeImageToDataUrl(file: File): Promise<string> {
     dataUrl = canvas.toDataURL("image/jpeg", quality);
   }
   if (dataUrl.length > MAX_OUTPUT_BYTES) {
-    throw new Error("الصورة كبيرة جداً حتى بعد الضغط، جرّب صورة أخرى.");
+    throw new Error("الصورة كبيرة جدًا حتى بعد الضغط، جرّب صورة أخرى.");
   }
 
   return dataUrl;

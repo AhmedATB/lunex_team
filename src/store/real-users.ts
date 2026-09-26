@@ -37,7 +37,9 @@ export const useRealUsers = create<RealUsersState>()(
  * below (level/xp/badges/team affiliation) still belongs to features that
  * are mock-data-backed, so those stay zero-state defaults.
  */
-export function synthesizeProfile(backendUser: BackendPublicUser): User {
+export function synthesizeProfile(
+  backendUser: Pick<BackendPublicUser, "id" | "username" | "displayName" | "avatarVersion" | "email" | "role" | "createdAt" | "bio" | "isBanned">
+): User {
   return {
     id: backendUser.id,
     username: backendUser.username,

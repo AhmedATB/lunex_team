@@ -44,7 +44,7 @@ function usernameProblem(username: string): string | null {
   if (!username) return null;
   if (!USERNAME_PATTERN.test(username)) return "أحرف إنجليزية وأرقام و _ فقط.";
   if (username.length < 3) return "٣ أحرف على الأقل.";
-  if (username.length > 24) return "٢٤ حرفاً كحد أقصى.";
+  if (username.length > 24) return "٢٤ حرفًا كحد أقصى.";
   return null;
 }
 
@@ -204,7 +204,7 @@ export default function RegisterPage() {
         const message: string = body?.message ?? "تعذر إنشاء الحساب.";
         if (body?.code === "display_name_reserved") {
           setStep(1);
-          setError("هذا الاسم الظاهر محجوز للفريق، اختر اسماً آخر.");
+          setError("هذا الاسم الظاهر محجوز للفريق، اختر اسمًا آخر.");
           return;
         }
         if (body?.code === "registration_failed") {
@@ -214,10 +214,10 @@ export default function RegisterPage() {
             setAvailability(again);
             setSuggestions(again === "taken" ? suggestNames(form.username) : []);
             setStep(1);
-            setError("سبقك أحدهم إلى هذا الاسم. اختر اسماً آخر.");
+            setError("سبقك أحدهم إلى هذا الاسم. اختر اسمًا آخر.");
           } else {
             setStep(2);
-            setError("تعذر إكمال التسجيل. قد يكون هذا البريد مسجّلاً من قبل؛ جرّب تسجيل الدخول أو بريداً آخر.");
+            setError("تعذر إكمال التسجيل. قد يكون هذا البريد مسجّلًا من قبل؛ جرّب تسجيل الدخول أو بريدًا آخر.");
           }
           return;
         }
@@ -251,8 +251,8 @@ export default function RegisterPage() {
       return goTo(2);
     }
     if (step === 2) {
-      if (!emailValid) return setError("اكتب بريداً إلكترونياً صحيحاً.");
-      if (!passwordValid) return setError("يجب أن تتكون كلمة المرور من 12 حرفاً على الأقل.");
+      if (!emailValid) return setError("اكتب بريدًا إلكترونيًا صحيحًا.");
+      if (!passwordValid) return setError("يجب أن تتكون كلمة المرور من 12 حرفًا على الأقل.");
       return goTo(3);
     }
     if (!agree) return setError("يجب الموافقة على الشروط والأحكام وسياسة الخصوصية.");
@@ -305,7 +305,7 @@ export default function RegisterPage() {
                   </FieldMessage>
                 ) : (
                   <FieldMessage id="display-name-note" tone="hint">
-                    بأي لغة، ويمكنك تغييره لاحقاً. لا يُشترط أن يكون فريداً.
+                    بأي لغة، ويمكنك تغييره لاحقًا. لا يُشترط أن يكون فريدًا.
                   </FieldMessage>
                 )}
               </div>
@@ -343,12 +343,12 @@ export default function RegisterPage() {
                   </FieldMessage>
                 ) : nameValid && availability === "reserved" ? (
                   <FieldMessage id="username-note" tone="error">
-                    هذا الاسم محجوز للفريق، اختر اسماً آخر.
+                    هذا الاسم محجوز للفريق، اختر اسمًا آخر.
                   </FieldMessage>
                 ) : nameValid && availability === "taken" ? (
                   <div id="username-note" aria-live="polite" className="space-y-1.5">
                     <p className="flex items-center gap-1.5 text-xs text-red-400">
-                      <AlertCircle className="h-3.5 w-3.5 shrink-0" /> هذا الاسم مستخدم أو يشبه اسماً مستخدماً. جرّب:
+                      <AlertCircle className="h-3.5 w-3.5 shrink-0" /> هذا الاسم مستخدم أو يشبه اسمًا مستخدمًا. جرّب:
                     </p>
                     <div className="flex flex-wrap gap-2" dir="ltr">
                       {suggestions.map((name) => (
@@ -369,7 +369,7 @@ export default function RegisterPage() {
                   </FieldMessage>
                 ) : (
                   <FieldMessage id="username-note" tone="hint">
-                    ٣–٢٤ حرفاً: إنجليزية وأرقام و _ — يظهر في رابط ملفك ولا يتكرر.
+                    ٣–٢٤ حرفًا: إنجليزية وأرقام و _ — يظهر في رابط ملفك ولا يتكرر.
                   </FieldMessage>
                 )}
               </div>
@@ -439,7 +439,7 @@ export default function RegisterPage() {
                 </div>
                 <ul id="password-note" aria-live="polite" className="space-y-1 pt-1 text-xs">
                   {[
-                    { ok: form.password.length >= 12, text: "١٢ حرفاً على الأقل (مطلوب)" },
+                    { ok: form.password.length >= 12, text: "١٢ حرفًا على الأقل (مطلوب)" },
                     { ok: /[a-z]/.test(form.password) && /[A-Z]/.test(form.password), text: "حروف كبيرة وصغيرة (يقوّيها)" },
                     { ok: /\d/.test(form.password) && /[^A-Za-z0-9]/.test(form.password), text: "أرقام ورمز (يقوّيها)" },
                   ].map((rule) => (
@@ -516,7 +516,7 @@ export default function RegisterPage() {
               </>
             ) : busy ? (
               <>
-                <Loader2 className="h-4 w-4 animate-spin" /> {sealed ? "أهلاً بك في LUNEX" : "جاري الختم..."}
+                <Loader2 className="h-4 w-4 animate-spin" /> {sealed ? "أهلًا بك في LUNEX" : "جاري الختم..."}
               </>
             ) : (
               <>

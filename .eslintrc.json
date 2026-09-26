@@ -1,3 +1,20 @@
 {
-  "extends": ["next/core-web-vitals", "next/typescript"]
+  "extends": ["next/core-web-vitals", "next/typescript"],
+  "rules": {
+    "no-restricted-syntax": [
+      "error",
+      {
+        "selector": "Literal[value=/\u0627\u064B/]",
+        "message": "Arabic tanween goes on the letter before the alef (دائمًا), never on the alef itself."
+      },
+      {
+        "selector": "JSXText[value=/\u0627\u064B/]",
+        "message": "Arabic tanween goes on the letter before the alef (دائمًا), never on the alef itself."
+      },
+      {
+        "selector": "TemplateElement[value.raw=/\u0627\u064B/]",
+        "message": "Arabic tanween goes on the letter before the alef (دائمًا), never on the alef itself."
+      }
+    ]
+  }
 }

@@ -102,7 +102,7 @@ export default function CreateTeamPage() {
         </div>
         <h1 className="section-title font-display text-2xl font-black text-white">تم إرسال طلبك بنجاح</h1>
         <p className="max-w-md text-sm text-lunex-gray">
-          سيقوم فريق إدارة المنصة بمراجعة طلبك والرد عليه قريباً. يمكنك متابعة حالة الطلب من لوحة إدارة الطلبات إذا كنت مسؤولاً.
+          سيقوم فريق إدارة المنصة بمراجعة طلبك والرد عليه قريبًا. يمكنك متابعة حالة الطلب من لوحة إدارة الطلبات إذا كنت مسؤولًا.
         </p>
         <Button onClick={() => router.push("/teams")}>العودة إلى الفرق</Button>
       </div>
@@ -152,7 +152,7 @@ export default function CreateTeamPage() {
                     onChange={(e) => setForm((f) => ({ ...f, logoUrl: e.target.value }))}
                     placeholder="رابط صورة الشعار (اختياري)"
                   />
-                  <p className="text-xs text-lunex-gray">إن لم تضع رابطاً، سيظهر شعار بحرف اسم الفريق مع اللون المختار.</p>
+                  <p className="text-xs text-lunex-gray">إن لم تضع رابطًا، سيظهر شعار بحرف اسم الفريق مع اللون المختار.</p>
                 </div>
               </div>
               <div className="flex flex-wrap gap-2 pt-1">
@@ -259,7 +259,7 @@ export default function CreateTeamPage() {
                 rows={2}
                 value={form.previousExperience}
                 onChange={(e) => setForm((f) => ({ ...f, previousExperience: e.target.value }))}
-                placeholder="هل عمل أعضاء الفريق سابقاً في فرق ترجمة أخرى؟"
+                placeholder="هل عمل أعضاء الفريق سابقًا في فرق ترجمة أخرى؟"
               />
             </div>
 

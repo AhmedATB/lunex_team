@@ -14,7 +14,7 @@ const MESSAGES: Record<string, string> = {
   global_manager_only: "حالة الفريق وقائده يغيّرها مدير الفرق أو المالك فقط.",
   insufficient_permissions: "لا تملك صلاحية لهذا الإجراء.",
   account_banned: "هذا الحساب محظور.",
-  tag_exists: "هذا الاسم موجود مسبقاً.",
+  tag_exists: "هذا الاسم موجود مسبقًا.",
 };
 
 function messageFor(body: unknown): string {

@@ -126,7 +126,7 @@ export function ChapterGate({
             </div>
             <Progress value={(progressToNext / perCredit) * 100} />
             <p className="text-xs text-lunex-gray">
-              كل {perCredit} فصول تُنهيها تمنحك فتح فصل مقفل مجاناً. المتبقي للرصيد القادم: {Math.max(0, perCredit - progressToNext)} فصلاً.
+              كل {perCredit} فصول تُنهيها تمنحك فتح فصل مقفل مجانًا. المتبقي للرصيد القادم: {Math.max(0, perCredit - progressToNext)} فصلًا.
             </p>
             <Button className="w-full" disabled={credits < 1 || busy !== null} onClick={() => void open("credit")}>
               {busy === "credit" ? <Loader2 className="h-4 w-4 animate-spin" /> : <BookOpenCheck className="h-4 w-4" />}

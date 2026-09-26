@@ -135,7 +135,7 @@ export default function LegacyImportPage() {
     setReport(null);
     const result = await ownerCall<ImportReport>("/api/catalog/import/legacy", "POST");
     if (result.ok) setReport(result.body);
-    else setError(result.status === 429 ? "استخدمت الاستيراد عدة مرات خلال الساعة الماضية. انتظر قليلاً." : result.message);
+    else setError(result.status === 429 ? "استخدمت الاستيراد عدة مرات خلال الساعة الماضية. انتظر قليلًا." : result.message);
     setRunning(false);
   }
 
@@ -191,7 +191,7 @@ export default function LegacyImportPage() {
         <CardContent className="space-y-4">
           <p className="text-sm leading-relaxed text-lunex-gray">
             يقرأ الأعمال والتصنيفات وفرق الترجمة وأغلفة الأعمال من الموقع القديم (lunexteam.com) ويضيفها إلى هذا الموقع. آمن للتكرار: ما هو
-            موجود مسبقاً لا يُعدَّل ولا يتكرر، ولا يُحذف شيء. تستغرق العملية نحو دقيقة.
+            موجود مسبقًا لا يُعدَّل ولا يتكرر، ولا يُحذف شيء. تستغرق العملية نحو دقيقة.
           </p>
           <p className="text-xs text-lunex-gray">الفرق المستوردة بلا قائد إلى أن يسجّل قادتها هنا وتعيّنهم من إدارة الفرق.</p>
 
@@ -208,10 +208,10 @@ export default function LegacyImportPage() {
                 <Check className="h-4 w-4" /> اكتمل الاستيراد
               </p>
               <ul className="space-y-1 text-lunex-gray">
-                <li>التصنيفات: أُضيف {report.tags.created}، موجود مسبقاً {report.tags.existing}</li>
-                <li>الفرق: أُضيف {report.teams.created}، موجود مسبقاً {report.teams.existing}</li>
+                <li>التصنيفات: أُضيف {report.tags.created}، موجود مسبقًا {report.tags.existing}</li>
+                <li>الفرق: أُضيف {report.teams.created}، موجود مسبقًا {report.teams.existing}</li>
                 <li>
-                  الأعمال: أُضيف {report.series.created}، موجود مسبقاً {report.series.existing}
+                  الأعمال: أُضيف {report.series.created}، موجود مسبقًا {report.series.existing}
                   {report.series.skippedUnapproved > 0 && `، تم تجاهل ${report.series.skippedUnapproved} غير معتمد`}
                 </li>
                 <li>
@@ -234,7 +234,7 @@ export default function LegacyImportPage() {
         </CardHeader>
         <CardContent className="space-y-4">
           <p className="text-sm leading-relaxed text-lunex-gray">
-            صور الفصول تحتاج مخزناً خاصاً بها؛ ثلاثة آلاف صفحة تقريباً لا تتسع في قاعدة البيانات. أنشئ حاوية R2 وأضف مفاتيحها في إعدادات Railway
+            صور الفصول تحتاج مخزنًا خاصًا بها؛ ثلاثة آلاف صفحة تقريبًا لا تتسع في قاعدة البيانات. أنشئ حاوية R2 وأضف مفاتيحها في إعدادات Railway
             (R2_ACCOUNT_ID وR2_BUCKET_NAME وR2_ACCESS_KEY_ID وR2_SECRET_ACCESS_KEY)، ثم انسخ الصور الموجودة هنا، ثم غيّر IMAGE_STORAGE_BACKEND إلى r2 في Railway.
           </p>
 
@@ -258,7 +258,7 @@ export default function LegacyImportPage() {
           </Button>
           {storage && !canCopy && (
             <p className="text-xs text-lunex-gray">
-              {!storage.r2Configured ? "أضف مفاتيح R2 في Railway أولاً." : "لا توجد صور في قاعدة البيانات لنسخها."}
+              {!storage.r2Configured ? "أضف مفاتيح R2 في Railway أولًا." : "لا توجد صور في قاعدة البيانات لنسخها."}
             </p>
           )}
 
@@ -286,7 +286,7 @@ export default function LegacyImportPage() {
         </CardHeader>
         <CardContent className="space-y-4">
           <p className="text-sm leading-relaxed text-lunex-gray">
-            ينسخ فصول الأعمال المستوردة وصفحاتها من الموقع القديم إلى المخزن. يعمل على دفعات ويكمل تلقائياً من حيث توقف إن انقطع، ولا ينشر الفصل إلا بعد اكتمال
+            ينسخ فصول الأعمال المستوردة وصفحاتها من الموقع القديم إلى المخزن. يعمل على دفعات ويكمل تلقائيًا من حيث توقف إن انقطع، ولا ينشر الفصل إلا بعد اكتمال
             صفحاته. الفصل الذي أضفتَه بنفس الرقم يبقى كما هو. الفصول المستوردة كلها مفتوحة للقراء كما في الموقع القديم.
           </p>
 
@@ -309,7 +309,7 @@ export default function LegacyImportPage() {
               <ul className="space-y-1 text-lunex-gray">
                 <li>فصول نُشرت في هذه الجولة: {job.published}، وصفحات حُفظت: {job.pagesSaved}</li>
                 <li>
-                  فصول جاهزة مسبقاً: {job.alreadyDone}، المتبقي: {job.remaining ?? "—"}
+                  فصول جاهزة مسبقًا: {job.alreadyDone}، المتبقي: {job.remaining ?? "—"}
                   {job.noPages > 0 && `، بلا صفحات في الموقع القديم: ${job.noPages}`}
                 </li>
               </ul>

@@ -78,8 +78,8 @@ export function ChapterAdminMenu({
               <SelectTrigger><SelectValue /></SelectTrigger>
               <SelectContent>
                 <SelectItem value="auto">تلقائي (حسب إعدادات المنصة)</SelectItem>
-                <SelectItem value="locked">مقفل دائماً</SelectItem>
-                <SelectItem value="open">مفتوح دائماً</SelectItem>
+                <SelectItem value="locked">مقفل دائمًا</SelectItem>
+                <SelectItem value="open">مفتوح دائمًا</SelectItem>
               </SelectContent>
             </Select>
           </div>

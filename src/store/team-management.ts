@@ -246,7 +246,7 @@ export const useTeamManagement = create<TeamManagementState>()(
                 ? "رفض طلب انضمام"
                 : status === "interview"
                   ? "طلب إجراء مقابلة مع متقدم"
-                  : "وضع متقدماً في قائمة الانتظار",
+                  : "وضع متقدمًا في قائمة الانتظار",
         });
       },
 
@@ -269,7 +269,7 @@ export const useTeamManagement = create<TeamManagementState>()(
           createdAt: new Date().toISOString(),
         };
         set((s) => ({ addedCustomRoles: [...s.addedCustomRoles, newRole] }));
-        get().logActivity({ teamId: role.teamId, userId: role.teamId, action: `أنشأ دوراً مخصصاً جديداً "${role.nameAr}"` });
+        get().logActivity({ teamId: role.teamId, userId: role.teamId, action: `أنشأ دورًا مخصصًا جديدًا "${role.nameAr}"` });
       },
 
       respondToCollaboration: (request, teamId, status) => {
@@ -286,7 +286,7 @@ export const useTeamManagement = create<TeamManagementState>()(
         get().logActivity({
           teamId,
           userId: teamId,
-          action: status === "accepted" ? "قبل طلب تعاون من فريق آخر — دخل الفريق الطالب على العمل" : status === "rejected" ? "رفض طلب تعاون" : "بدأ تفاوضاً على طلب تعاون",
+          action: status === "accepted" ? "قبل طلب تعاون من فريق آخر — دخل الفريق الطالب على العمل" : status === "rejected" ? "رفض طلب تعاون" : "بدأ تفاوضًا على طلب تعاون",
         });
       },
 
@@ -304,7 +304,7 @@ export const useTeamManagement = create<TeamManagementState>()(
             [teamId]: [...(s.removedMemberIds[teamId] ?? []), userId],
           },
         }));
-        get().logActivity({ teamId, userId: actorId, action: "أزال عضواً من الفريق", target: userId });
+        get().logActivity({ teamId, userId: actorId, action: "أزال عضوًا من الفريق", target: userId });
       },
 
       setSeriesAssignment: (seriesId, role, userId, assignedBy) => {
@@ -371,7 +371,7 @@ export const useTeamManagement = create<TeamManagementState>()(
       createDepartment: (dept, actorId) => {
         const newDept: Department = { ...dept, id: `dept-added-${Date.now()}` };
         set((s) => ({ addedDepartments: [...s.addedDepartments, newDept] }));
-        get().logActivity({ teamId: dept.teamId, userId: actorId, action: `أنشأ قسماً جديداً "${dept.nameAr}"` });
+        get().logActivity({ teamId: dept.teamId, userId: actorId, action: `أنشأ قسمًا جديدًا "${dept.nameAr}"` });
       },
 
       updateDepartment: (id, patch, teamId, actorId) => {
@@ -383,7 +383,7 @@ export const useTeamManagement = create<TeamManagementState>()(
 
       removeDepartment: (id, teamId, actorId) => {
         set((s) => ({ removedDepartmentIds: [...s.removedDepartmentIds, id] }));
-        get().logActivity({ teamId, userId: actorId, action: "حذف قسماً" });
+        get().logActivity({ teamId, userId: actorId, action: "حذف قسمًا" });
       },
 
       createRecruitmentPosition: (pos, actorId) => {
@@ -403,12 +403,12 @@ export const useTeamManagement = create<TeamManagementState>()(
         set((s) => ({
           customRoleOverrides: { ...s.customRoleOverrides, [id]: { ...s.customRoleOverrides[id], ...patch } },
         }));
-        get().logActivity({ teamId, userId: actorId, action: "عدّل دوراً مخصصاً" });
+        get().logActivity({ teamId, userId: actorId, action: "عدّل دورًا مخصصًا" });
       },
 
       removeCustomRole: (id, teamId, actorId) => {
         set((s) => ({ removedCustomRoleIds: [...s.removedCustomRoleIds, id] }));
-        get().logActivity({ teamId, userId: actorId, action: "حذف دوراً مخصصاً" });
+        get().logActivity({ teamId, userId: actorId, action: "حذف دورًا مخصصًا" });
       },
 
       createSeries: (series, actorId) => {
@@ -442,7 +442,7 @@ export const useTeamManagement = create<TeamManagementState>()(
 
       removeSeries: (seriesId, teamId, actorId) => {
         set((s) => ({ removedSeriesIds: [...s.removedSeriesIds, seriesId] }));
-        get().logActivity({ teamId, userId: actorId, action: "حذف عملاً من المنصة" });
+        get().logActivity({ teamId, userId: actorId, action: "حذف عملًا من المنصة" });
       },
 
       updateChapter: (chapterId, patch, teamId, actorId) => {
@@ -462,13 +462,13 @@ export const useTeamManagement = create<TeamManagementState>()(
         get().logActivity({
           teamId,
           userId: actorId,
-          action: locked === undefined ? "أعاد قفل الفصل للوضع التلقائي" : locked ? "قفل الفصل يدوياً" : "فتح الفصل يدوياً",
+          action: locked === undefined ? "أعاد قفل الفصل للوضع التلقائي" : locked ? "قفل الفصل يدويًا" : "فتح الفصل يدويًا",
         });
       },
 
       removeChapter: (chapterId, teamId, actorId) => {
         set((s) => ({ removedChapterIds: [...s.removedChapterIds, chapterId] }));
-        get().logActivity({ teamId, userId: actorId, action: "حذف فصلاً" });
+        get().logActivity({ teamId, userId: actorId, action: "حذف فصلًا" });
       },
 
       createChapter: (chapter, actorId) => {

@@ -26,7 +26,7 @@ describe("cleanCommentText", () => {
   });
 
   it("keeps Arabic text intact", () => {
-    expect(cleanCommentText("  فصل رائع، شكراً للفريق  ")).toBe("فصل رائع، شكراً للفريق");
+    expect(cleanCommentText("  فصل رائع، شكرًا للفريق  ")).toBe("فصل رائع، شكرًا للفريق");
   });
 
   it("does not truncate", () => {

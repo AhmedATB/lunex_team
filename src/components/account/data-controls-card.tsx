@@ -14,8 +14,8 @@ import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, Di
 /** Backend messages are English by convention; the ones a person can actually hit here get Arabic copy. */
 const DELETE_ERRORS: Record<string, string> = {
   invalid_password: "كلمة المرور غير صحيحة.",
-  confirmation_mismatch: "اكتب اسم المستخدم كما هو تماماً.",
-  owner_cannot_delete: "لا يمكن حذف حساب المالك. انقل الملكية إلى حساب آخر أولاً.",
+  confirmation_mismatch: "اكتب اسم المستخدم كما هو تمامًا.",
+  owner_cannot_delete: "لا يمكن حذف حساب المالك. انقل الملكية إلى حساب آخر أولًا.",
 };
 
 /**
@@ -93,17 +93,17 @@ export function DataControlsCard({ user }: { user: BackendPublicUser }) {
         </div>
 
         <div className="space-y-2 rounded-xl border border-red-500/30 bg-red-500/5 p-4">
-          <h3 className="text-sm font-bold text-red-300">حذف الحساب نهائياً</h3>
+          <h3 className="text-sm font-bold text-red-300">حذف الحساب نهائيًا</h3>
           <p className="text-sm leading-relaxed text-lunex-gray">
             يُحذف حسابك وجلساتك وأجهزتك وإشعاراتك والحسابات المرتبطة به، ولا يمكن التراجع. تبقى فقط السجلات الأمنية التقنية إلى أن تنتهي مدة
-            حفظها ثم تُحذف تلقائياً، كما في{" "}
+            حفظها ثم تُحذف تلقائيًا، كما في{" "}
             <Link href="/privacy" className="text-primary-300 underline-offset-2 hover:underline">
               سياسة الخصوصية
             </Link>
             .
           </p>
           {user.role === "owner" ? (
-            <p className="text-sm text-amber-300">حساب المالك لا يُحذف من هنا. انقل الملكية إلى حساب آخر أولاً.</p>
+            <p className="text-sm text-amber-300">حساب المالك لا يُحذف من هنا. انقل الملكية إلى حساب آخر أولًا.</p>
           ) : (
             <DeleteAccountDialog user={user} />
           )}
@@ -158,7 +158,7 @@ function DeleteAccountDialog({ user }: { user: BackendPublicUser }) {
       });
       if (!res.ok) {
         const body = await res.json().catch(() => null);
-        setError(DELETE_ERRORS[body?.code] ?? (res.status === 429 ? "محاولات كثيرة، حاول لاحقاً." : "تعذر حذف الحساب، حاول مرة أخرى."));
+        setError(DELETE_ERRORS[body?.code] ?? (res.status === 429 ? "محاولات كثيرة، حاول لاحقًا." : "تعذر حذف الحساب، حاول مرة أخرى."));
         return;
       }
       clearLocalUserData();
@@ -192,7 +192,7 @@ function DeleteAccountDialog({ user }: { user: BackendPublicUser }) {
         ) : (
           <form onSubmit={submit} className="space-y-4" autoComplete="off">
             <DialogHeader>
-              <DialogTitle>حذف الحساب نهائياً؟</DialogTitle>
+              <DialogTitle>حذف الحساب نهائيًا؟</DialogTitle>
               <DialogDescription>
                 لا يمكن التراجع عن هذا الإجراء. لن تستطيع استعادة حسابك أو الفصول التي فتحتها.
               </DialogDescription>

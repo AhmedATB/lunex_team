@@ -25,7 +25,7 @@ const STATUS_LABEL: Record<TeamCreationRequest["status"], string> = {
   pending: "قيد المراجعة",
   approved: "مقبول",
   rejected: "مرفوض",
-  needs_modification: "يحتاج تعديلاً",
+  needs_modification: "يحتاج تعديلًا",
   suspended: "معلّق",
   archived: "مؤرشف",
 };

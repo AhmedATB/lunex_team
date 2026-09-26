@@ -51,8 +51,8 @@ export function AuthShell({ children }: { children: ReactNode }) {
 
   const real = series.filter((s) => s.cover.startsWith("/api/catalog/")).length;
   const facts = [
-    real > 0 && { icon: Layers, text: `${real} عملاً مترجماً` },
-    stats.chapters > 0 && { icon: BookOpen, text: `${stats.chapters} فصلاً` },
+    real > 0 && { icon: Layers, text: `${real} عملًا مترجمًا` },
+    stats.chapters > 0 && { icon: BookOpen, text: `${stats.chapters} فصلًا` },
     { icon: CalendarClock, text: "تحديثات أسبوعية" },
   ].filter(Boolean) as { icon: typeof Layers; text: string }[];
 

@@ -25,7 +25,7 @@ import { cn } from "@/lib/utils";
 const STATUS_OPTIONS: { value: Series["status"]; label: string }[] = [
   { value: "ongoing", label: "مستمر" },
   { value: "completed", label: "مكتمل" },
-  { value: "hiatus", label: "متوقف مؤقتاً" },
+  { value: "hiatus", label: "متوقف مؤقتًا" },
   { value: "dropped", label: "متروك" },
 ];
 
@@ -48,8 +48,8 @@ const SORT_OPTIONS = [
   { value: "views", label: "الأكثر مشاهدة" },
   { value: "followers", label: "الأكثر متابعة" },
   { value: "latest", label: "آخر تحديث" },
-  { value: "rating", label: "الأعلى تقييماً" },
-  { value: "az", label: "أبجدياً" },
+  { value: "rating", label: "الأعلى تقييمًا" },
+  { value: "az", label: "أبجديًا" },
 ] as const;
 
 interface Filters {

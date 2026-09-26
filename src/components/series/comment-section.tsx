@@ -277,7 +277,7 @@ export function CommentSection({
                   onChange={(e) => setDraftIsSpoiler(e.target.checked)}
                   className="h-3.5 w-3.5 accent-primary-500"
                 />
-                هذا التعليق فيه حرق (سيظهر مشوشاً للآخرين)
+                هذا التعليق فيه حرق (سيظهر مشوشًا للآخرين)
               </label>
               <Button size="sm" onClick={post} disabled={!draft.trim() || mute.muted || busy === "post"}>
                 {busy === "post" ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Send className="h-3.5 w-3.5" />} نشر

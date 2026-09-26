@@ -11,7 +11,7 @@ export function displayNameProblem(name: string): string | null {
   const clean = cleanDisplayName(name);
   if (!clean) return null;
   if (clean.length < 2) return "حرفان على الأقل.";
-  if (clean.length > 40) return "٤٠ حرفاً كحد أقصى.";
+  if (clean.length > 40) return "٤٠ حرفًا كحد أقصى.";
   if (!DISPLAY_NAME_PATTERN.test(clean)) return "حروف وأرقام ومسافات ونقطة وشرطة فقط.";
   return null;
 }

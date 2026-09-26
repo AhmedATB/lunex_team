@@ -110,14 +110,14 @@ export async function commentApi<T = unknown>(method: string, path: string, body
 
 const ERRORS: Record<string, string> = {
   account_banned: "هذا الحساب محظور.",
-  comment_rate_limited: "تكتب بسرعة كبيرة. انتظر قليلاً ثم حاول مجدداً.",
+  comment_rate_limited: "تكتب بسرعة كبيرة. انتظر قليلًا ثم حاول مجددًا.",
   duplicate_comment: "نشرت هذا التعليق قبل قليل.",
-  empty_comment: "اكتب تعليقاً أولاً.",
+  empty_comment: "اكتب تعليقًا أولًا.",
   comment_too_long: "التعليق أطول من 2000 حرف.",
   not_comment_author: "لا يمكنك تعديل تعليق غيرك.",
   insufficient_permissions: "لا تملك صلاحية لهذا الإجراء.",
   cannot_moderate_higher_rank: "لا يمكنك حذف تعليق من رتبته أعلى منك.",
-  comment_not_found: "هذا التعليق لم يعد موجوداً.",
+  comment_not_found: "هذا التعليق لم يعد موجودًا.",
   cannot_react_own: "لا يمكنك التفاعل مع تعليقك.",
   cannot_report_own: "لا يمكنك الإبلاغ عن تعليقك.",
 };
@@ -130,11 +130,11 @@ export function commentErrorMessage(result: ApiResult<unknown>): string {
     const date = until ? new Date(until) : null;
     return date && !Number.isNaN(date.getTime())
       ? `أنت في تايم أوت من الإدارة ولا يمكنك التعليق حتى ${formatDateTime(date)}.`
-      : "أنت في تايم أوت من الإدارة ولا يمكنك التعليق حالياً.";
+      : "أنت في تايم أوت من الإدارة ولا يمكنك التعليق حاليًا.";
   }
   if (code && ERRORS[code]) return ERRORS[code];
-  if (result.status === 401) return "سجّل الدخول أولاً.";
+  if (result.status === 401) return "سجّل الدخول أولًا.";
   if (result.status === 0) return "تعذر الاتصال بالخادم، حاول مرة أخرى.";
-  if (result.status === 429) return "محاولات كثيرة، انتظر قليلاً.";
+  if (result.status === 429) return "محاولات كثيرة، انتظر قليلًا.";
   return "تعذر تنفيذ الإجراء، حاول مرة أخرى.";
 }

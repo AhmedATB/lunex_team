@@ -1,3 +1,4 @@
+import { fixTanween } from "../../common/text/arabic.util";
 import {
   BadRequestException,
   ConflictException,
@@ -154,7 +155,7 @@ export class CommentsService {
       comment.userId,
       "moderation",
       "تم حذف أحد تعليقاتك",
-      "حذفت الإدارة تعليقاً لك لمخالفته الشروط.",
+      "حذفت الإدارة تعليقًا لك لمخالفته الشروط.",
       "/terms"
     );
   }
@@ -252,7 +253,7 @@ export class CommentsService {
       return {
         id: row.id,
         seriesId: row.seriesId,
-        content: row.content,
+        content: fixTanween(row.content),
         isSpoiler: row.isSpoiler,
         isPinned: row.isPinned,
         createdAt: row.createdAt,

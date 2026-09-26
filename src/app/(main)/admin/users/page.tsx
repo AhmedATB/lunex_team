@@ -3,11 +3,10 @@
 import { useEffect, useMemo, useState } from "react";
 import Image from "next/image";
 import { Search, MoreVertical, Ban, ShieldCheck, Loader2 } from "lucide-react";
-import { mergeRealUsers } from "@/lib/mock/generate";
 import { useCatalog } from "@/components/catalog-provider";
 import { GLOBAL_ROLE_LABELS } from "@/lib/rbac";
 import type { GlobalRole, User } from "@/lib/types";
-import { useRealUsers, synthesizeProfile } from "@/store/real-users";
+import { synthesizeProfile } from "@/store/real-users";
 import { useSession } from "@/store/session";
 import type { BackendPublicUser } from "@/lib/auth-types";
 import { Input } from "@/components/ui/input";
@@ -37,89 +36,110 @@ import {
 import { timeAgo } from "@/lib/utils";
 import { useProfile, avatarSrcFor } from "@/store/profile";
 
+interface ListedUser extends BackendPublicUser {
+  level: number;
+  chaptersRead: number;
+}
+
+interface UserPage {
+  items: ListedUser[];
+  total: number;
+  page: number;
+  pageSize: number;
+}
+
+const PAGE_SIZE = 50;
+
+function toUser(row: ListedUser): User {
+  return { ...synthesizeProfile(row), level: row.level, readCount: row.chaptersRead, isOnline: false };
+}
+
 export default function AdminUsersPage() {
   useEffect(() => {
     document.title = "المستخدمون | LUNEX TEAM";
   }, []);
   const [query, setQuery] = useState("");
   const [role, setRole] = useState<GlobalRole | "all">("all");
+  const [bannedOnly, setBannedOnly] = useState(false);
   const catalog = useCatalog();
-  const [users, setUsers] = useState<User[]>(() => catalog.users);
-  const realProfiles = useRealUsers((s) => s.profiles);
   const avatarOverrides = useProfile((s) => s.avatarOverrides);
   const currentUserId = useSession((s) => s.currentUserId);
-  const [bannedOnly, setBannedOnly] = useState(false);
-  const [loadingBanned, setLoadingBanned] = useState(false);
 
-  const filtered = useMemo(() => {
-    return users.filter((u) => {
-      if (bannedOnly) return Boolean(u.isBanned);
-      if (role !== "all" && u.role !== role) return false;
-      if (query && !u.displayName.includes(query) && !u.username.includes(query)) return false;
-      return true;
-    });
-  }, [users, query, role, bannedOnly]);
+  // Every real account comes from the server, a page at a time; the site's own catalogue only knows people who are on a team.
+  const [users, setUsers] = useState<User[]>([]);
+  const [total, setTotal] = useState<number | null>(null);
+  const [page, setPage] = useState(1);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState("");
 
-  /**
-   * The admin's own `users` list is otherwise limited to mock rows plus
-   * whichever real accounts happen to already be cached locally (see
-   * mergeRealUsers) — there's no "list all real users" endpoint, so this is
-   * the one place that actually queries Postgres for every banned account,
-   * real listing or not.
-   */
-  async function toggleBannedOnly() {
-    const next = !bannedOnly;
-    setBannedOnly(next);
-    if (!next) return;
-    setLoadingBanned(true);
-    try {
-      const res = await fetch("/api/admin/users/banned");
-      if (!res.ok) return;
-      const list: BackendPublicUser[] = await res.json();
-      setUsers((prev) => {
-        const byId = new Map(prev.map((u) => [u.id, u] as const));
-        for (const backendUser of list) {
-          const profile = synthesizeProfile(backendUser);
-          byId.set(profile.id, profile);
-          useRealUsers.getState().upsertProfile(profile);
+  const search = useMemo(() => {
+    const params = new URLSearchParams({ pageSize: String(PAGE_SIZE) });
+    if (query.trim()) params.set("q", query.trim());
+    if (role !== "all") params.set("role", role);
+    if (bannedOnly) params.set("banned", "true");
+    return params;
+  }, [query, role, bannedOnly]);
+
+  useEffect(() => {
+    let cancelled = false;
+    setLoading(true);
+    const timer = setTimeout(async () => {
+      try {
+        const params = new URLSearchParams(search);
+        params.set("page", String(page));
+        const res = await fetch(`/api/admin/users?${params}`, { cache: "no-store" });
+        const body = await res.json().catch(() => null);
+        if (cancelled) return;
+        if (!res.ok) {
+          setError(body?.message ?? "تعذر تحميل المستخدمين.");
+          if (page === 1) {
+            setUsers(catalog.users);
+            setTotal(null);
+          }
+          return;
         }
-        return Array.from(byId.values());
-      });
-    } finally {
-      setLoadingBanned(false);
-    }
-  }
+        const data = body as UserPage;
+        setError("");
+        setTotal(data.total);
+        setUsers((prev) => (page === 1 ? data.items.map(toUser) : [...prev, ...data.items.map(toUser)]));
+      } catch {
+        if (!cancelled) setError("تعذر الاتصال بالخادم.");
+      } finally {
+        if (!cancelled) setLoading(false);
+      }
+    }, page === 1 ? 250 : 0);
+    return () => {
+      cancelled = true;
+      clearTimeout(timer);
+    };
+  }, [search, page, catalog.users]);
+
+  // Changing what is searched starts again from the first page (set together, so the list is fetched once).
+  const restartWith = <T,>(set: (value: T) => void) => (value: T) => {
+    setPage(1);
+    set(value);
+  };
+
+  const fromServer = total !== null;
 
   function applyRoleChange(userId: string, newRole: GlobalRole) {
     setUsers((prev) => prev.map((u) => (u.id === userId ? { ...u, role: newRole } : u)));
-    const existing = realProfiles[userId];
-    if (existing) {
-      const updated = { ...existing, role: newRole };
-      useRealUsers.getState().upsertProfile(updated);
-      mergeRealUsers({ [userId]: updated });
-    }
   }
 
   function applyBanChange(userId: string, isBanned: boolean) {
-    setUsers((prev) => prev.map((u) => (u.id === userId ? { ...u, isBanned } : u)));
-    const existing = realProfiles[userId];
-    if (existing) {
-      const updated = { ...existing, isBanned };
-      useRealUsers.getState().upsertProfile(updated);
-      mergeRealUsers({ [userId]: updated });
-    }
+    setUsers((prev) => (bannedOnly && !isBanned ? prev.filter((u) => u.id !== userId) : prev.map((u) => (u.id === userId ? { ...u, isBanned } : u))));
   }
 
   return (
     <div className="space-y-4">
       <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
-        <h1 className="font-display text-2xl font-bold text-white">المستخدمون ({filtered.length})</h1>
+        <h1 className="font-display text-2xl font-bold text-white">المستخدمون{total !== null && ` (${total})`}</h1>
         <div className="flex flex-wrap gap-2">
           <div className="relative w-full sm:w-56">
             <Search className="pointer-events-none absolute start-3 top-1/2 h-4 w-4 -translate-y-1/2 text-lunex-gray" />
-            <Input value={query} onChange={(e) => setQuery(e.target.value)} placeholder="ابحث..." className="ps-9" />
+            <Input value={query} onChange={(e) => restartWith(setQuery)(e.target.value)} placeholder="ابحث بالاسم أو البريد..." className="ps-9" />
           </div>
-          <Select value={role} onValueChange={(v) => setRole(v as GlobalRole | "all")} disabled={bannedOnly}>
+          <Select value={role} onValueChange={(v) => restartWith(setRole)(v as GlobalRole | "all")}>
             <SelectTrigger className="w-40"><SelectValue /></SelectTrigger>
             <SelectContent>
               <SelectItem value="all">كل الأدوار</SelectItem>
@@ -128,8 +148,7 @@ export default function AdminUsersPage() {
               ))}
             </SelectContent>
           </Select>
-          <Button variant={bannedOnly ? "destructive" : "secondary"} size="sm" onClick={toggleBannedOnly} disabled={loadingBanned}>
-            {loadingBanned && <Loader2 className="h-3.5 w-3.5 animate-spin" />}
+          <Button variant={bannedOnly ? "destructive" : "secondary"} size="sm" onClick={() => restartWith(setBannedOnly)(!bannedOnly)}>
             <Ban className="h-3.5 w-3.5" /> {bannedOnly ? "عرض الكل" : "المحظورون فقط"}
           </Button>
         </div>
@@ -149,7 +168,7 @@ export default function AdminUsersPage() {
               </tr>
             </thead>
             <tbody>
-              {filtered.slice(0, 40).map((u) => (
+              {users.map((u) => (
                 <tr key={u.id} className="border-b border-white/5 last:border-0 hover:bg-white/[0.02]">
                   <td className="flex items-center gap-2 p-3">
                     <div className="relative h-8 w-8 shrink-0 overflow-hidden rounded-full ring-2 ring-white/10">
@@ -175,21 +194,21 @@ export default function AdminUsersPage() {
                         </button>
                       </DropdownMenuTrigger>
                       <DropdownMenuContent align="end">
-                        {realProfiles[u.id] ? (
+                        {fromServer ? (
                           <ChangeRoleDialog user={u} onChanged={(newRole) => applyRoleChange(u.id, newRole)} />
                         ) : (
                           <DropdownMenuItem disabled title="حساب تجريبي غير مرتبط بحساب حقيقي">
                             <ShieldCheck className="h-4 w-4" /> تغيير الدور (حساب تجريبي)
                           </DropdownMenuItem>
                         )}
-                        {realProfiles[u.id] && u.id !== currentUserId && u.role !== "owner" ? (
+                        {fromServer && u.id !== currentUserId && u.role !== "owner" ? (
                           <BanUserDialog user={u} onChanged={(isBanned) => applyBanChange(u.id, isBanned)} />
                         ) : (
                           <DropdownMenuItem
                             disabled
                             className="text-red-400"
                             title={
-                              !realProfiles[u.id]
+                              !fromServer
                                 ? "حساب تجريبي غير مرتبط بحساب حقيقي"
                                 : u.id === currentUserId
                                   ? "لا يمكنك حظر حسابك"
@@ -204,10 +223,21 @@ export default function AdminUsersPage() {
                   </td>
                 </tr>
               ))}
+              {users.length === 0 && !loading && (
+                <tr><td colSpan={6} className="p-8 text-center text-lunex-gray">لا يوجد مستخدمون مطابقون.</td></tr>
+              )}
             </tbody>
           </table>
         </CardContent>
       </Card>
+
+      {error && <p className="text-sm text-red-400" role="alert">{error}</p>}
+      <div className="flex flex-col items-center gap-2">
+        {loading && <Loader2 className="h-5 w-5 animate-spin text-lunex-gray" />}
+        {fromServer && !loading && total !== null && users.length < total && (
+          <Button variant="secondary" onClick={() => setPage((p) => p + 1)}>عرض المزيد ({total - users.length} متبقٍ)</Button>
+        )}
+      </div>
     </div>
   );
 }
@@ -315,7 +345,7 @@ function BanUserDialog({ user, onChanged }: { user: User; onChanged: (isBanned: 
         <div className="space-y-3 pt-2">
           <p className="text-sm text-lunex-gray">
             {willBan
-              ? "لن يستطيع هذا المستخدم تسجيل الدخول بعد الآن، وستُنهى كل جلساته الحالية فوراً."
+              ? "لن يستطيع هذا المستخدم تسجيل الدخول بعد الآن، وستُنهى كل جلساته الحالية فورًا."
               : "سيستطيع هذا المستخدم تسجيل الدخول مرة أخرى."}
           </p>
           {error && <p className="text-sm text-red-400">{error}</p>}

@@ -14,7 +14,7 @@ const SECTIONS: { key: keyof PrivacySettings; label: string; hint: string }[] = 
   {
     key: "profileVisibility",
     label: "صفحة ملفي الشخصي",
-    hint: "النبذة وتاريخ الانضمام. اسمك وصورتك يظهران دائماً بجانب تعليقاتك.",
+    hint: "النبذة وتاريخ الانضمام. اسمك وصورتك يظهران دائمًا بجانب تعليقاتك.",
   },
   { key: "historyVisibility", label: "سجل القراءة", hint: "الأعمال التي قرأتها وآخر فصل وصلت إليه." },
   { key: "favoritesVisibility", label: "المفضلة", hint: "الأعمال التي أضفتها إلى مفضلتك." },

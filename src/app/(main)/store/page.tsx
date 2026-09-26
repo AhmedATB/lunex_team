@@ -61,13 +61,13 @@ export default function StorePage() {
       <Card>
         <CardHeader>
           <CardTitle className="flex items-center gap-2">
-            <BookOpenCheck className="h-4 w-4 text-emerald-400" /> افتح بالقراءة (مجاناً)
+            <BookOpenCheck className="h-4 w-4 text-emerald-400" /> افتح بالقراءة (مجانًا)
           </CardTitle>
         </CardHeader>
         <CardContent className="space-y-2 text-sm leading-relaxed text-lunex-gray">
           <p>
-            كل <span className="font-bold text-white">{perCredit} فصول</span> تُنهيها (تصل فيها إلى نهاية الفصل) تمنحك رصيد قراءة واحداً، وكل رصيد
-            يفتح فصلاً مقفلاً واحداً.
+            كل <span className="font-bold text-white">{perCredit} فصول</span> تُنهيها (تصل فيها إلى نهاية الفصل) تمنحك رصيد قراءة واحدًا، وكل رصيد
+            يفتح فصلًا مقفلًا واحدًا.
           </p>
           <p>يُحسب الفصل مرة واحدة فقط، فإعادة قراءة فصل أنهيته لا تزيد رصيدك، وتُحسب الفصول من النهاية الفعلية لا من فتح الصفحة.</p>
         </CardContent>
@@ -105,7 +105,7 @@ export default function StorePage() {
       </Card>
 
       <p className="flex items-center justify-center gap-1.5 text-xs text-lunex-gray">
-        <Lock className="h-3.5 w-3.5" /> الفصل الذي تفتحه يبقى مفتوحاً لحسابك.
+        <Lock className="h-3.5 w-3.5" /> الفصل الذي تفتحه يبقى مفتوحًا لحسابك.
       </p>
     </div>
   );

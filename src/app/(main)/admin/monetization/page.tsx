@@ -22,7 +22,7 @@ const REASONS: Record<LedgerRow["reason"], string> = { grant: "منح عملات
 
 const ERRORS: Record<string, string> = {
   user_not_found: "لا يوجد عضو بهذا اسم المستخدم.",
-  invalid_amount: "الكمية يجب أن تكون عدداً صحيحاً بين 1 و100000.",
+  invalid_amount: "الكمية يجب أن تكون عددًا صحيحًا بين 1 و100000.",
   insufficient_permissions: "هذا الإجراء للمالك والمدير العام فقط.",
 };
 
@@ -114,7 +114,7 @@ export default function AdminMonetizationPage() {
             </div>
             <div className="space-y-1.5 sm:col-span-2">
               <Label htmlFor="grant-note">ملاحظة (اختياري)</Label>
-              <Input id="grant-note" value={note} onChange={(e) => setNote(e.target.value)} maxLength={200} placeholder="مثلاً: تحويل بتاريخ ..." />
+              <Input id="grant-note" value={note} onChange={(e) => setNote(e.target.value)} maxLength={200} placeholder="مثلًا: تحويل بتاريخ ..." />
             </div>
             <div className="flex items-center gap-3 sm:col-span-2">
               <Button type="submit" disabled={busy || !username.trim() || !amount}>
@@ -133,7 +133,7 @@ export default function AdminMonetizationPage() {
       <Card>
         <CardHeader>
           <CardTitle>إعدادات القفل الحالية</CardTitle>
-          <CardDescription>تُضبط من متغيرات Railway لخدمة الباك إند، وتنطبق فوراً بعد إعادة تشغيلها.</CardDescription>
+          <CardDescription>تُضبط من متغيرات Railway لخدمة الباك إند، وتنطبق فورًا بعد إعادة تشغيلها.</CardDescription>
         </CardHeader>
         <CardContent className="grid gap-3 sm:grid-cols-2">
           {settings.map(({ icon: Icon, label, value, env }) => (

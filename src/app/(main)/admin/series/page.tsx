@@ -318,7 +318,7 @@ function CreateSeriesDialog({
           <div className="space-y-1.5">
             <Label>الفريق الناشر</Label>
             <Select value={teamId} onValueChange={setTeamId}>
-              <SelectTrigger><SelectValue placeholder="اختر فريقاً" /></SelectTrigger>
+              <SelectTrigger><SelectValue placeholder="اختر فريقًا" /></SelectTrigger>
               <SelectContent>
                 {teams.map((t) => <SelectItem key={t.id} value={t.id}>{t.name}</SelectItem>)}
               </SelectContent>

@@ -45,7 +45,7 @@ export function Sidebar() {
         <Sparkles className="mb-2 h-5 w-5 text-primary-300" />
         <p className="text-sm font-black text-white">انضم إلى فريق LUNEX</p>
         <p className="mt-1 text-xs text-lunex-gray">
-          نبحث دائماً عن مترجمين ومدققين وموزعي صفحات موهوبين.
+          نبحث دائمًا عن مترجمين ومدققين وموزعي صفحات موهوبين.
         </p>
         <Link
           href="/teams"

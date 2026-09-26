@@ -165,7 +165,7 @@ export default function ProfilePage() {
 
         <TabsContent value="bookmarks">
           {bookmarkedSeries.length === 0 ? (
-            <EmptyState text="قائمة مفضلتك فارغة حالياً." />
+            <EmptyState text="قائمة مفضلتك فارغة حاليًا." />
           ) : (
             <div className="grid grid-cols-2 gap-4 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6">
               {bookmarkedSeries.map((s) => <SeriesCard key={s.id} series={s} />)}

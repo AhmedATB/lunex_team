@@ -60,7 +60,7 @@ export function AddMemberForm({ teamId, onAdded }: { teamId: string; onAdded: ()
         </Button>
       </div>
       {error && <p className="text-xs text-red-400" role="alert">{error}</p>}
-      <p className="text-xs text-lunex-gray">يجب أن يكون للشخص حساب على الموقع. ينضم فوراً دون طلب توظيف.</p>
+      <p className="text-xs text-lunex-gray">يجب أن يكون للشخص حساب على الموقع. ينضم فورًا دون طلب توظيف.</p>
     </form>
   );
 }

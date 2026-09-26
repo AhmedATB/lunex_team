@@ -12,7 +12,7 @@ import { genreLabelsFor, GENRE_CHIP_STYLES } from "@/lib/genre-helpers";
 const STATUS_LABEL: Record<Series["status"], string> = {
   ongoing: "مستمر",
   completed: "مكتمل",
-  hiatus: "متوقف مؤقتاً",
+  hiatus: "متوقف مؤقتًا",
   dropped: "متروك",
 };
 

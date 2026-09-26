@@ -79,7 +79,7 @@ export default async function AdminDashboardPage() {
 
       <div className="grid gap-4 lg:grid-cols-3">
         <Card className="lg:col-span-2">
-          <CardHeader><CardTitle>الفصول المنشورة أسبوعياً</CardTitle></CardHeader>
+          <CardHeader><CardTitle>الفصول المنشورة أسبوعيًا</CardTitle></CardHeader>
           <CardContent><ChaptersOverTimeChart data={buckets} /></CardContent>
         </Card>
         <Card>
@@ -126,7 +126,7 @@ export default async function AdminDashboardPage() {
       </div>
 
       <Card>
-        <CardHeader><CardTitle>أعلى الأدوار نشاطاً</CardTitle></CardHeader>
+        <CardHeader><CardTitle>أعلى الأدوار نشاطًا</CardTitle></CardHeader>
         <CardContent className="flex flex-wrap gap-3">
           {db.users
             .filter((u) => u.role !== "reader")

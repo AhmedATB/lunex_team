@@ -22,7 +22,7 @@ function loginErrorMessage(body: { code?: string; message?: string } | null): st
     const until = /until (\S+?)\.?$/.exec(body.message ?? "")?.[1];
     const date = until ? new Date(until) : null;
     return date && !Number.isNaN(date.getTime())
-      ? `تم حظر هذا الحساب مؤقتاً حتى ${new Intl.DateTimeFormat("ar", { dateStyle: "medium", timeStyle: "short" }).format(date)}.`
+      ? `تم حظر هذا الحساب مؤقتًا حتى ${new Intl.DateTimeFormat("ar", { dateStyle: "medium", timeStyle: "short" }).format(date)}.`
       : "تم حظر هذا الحساب. تواصل مع الإدارة عبر Discord إن كنت تراه خطأً.";
   }
   return body?.message ?? "فشل تسجيل الدخول.";
@@ -83,7 +83,7 @@ export default function LoginPage() {
     <Card className="rounded-3xl border-white/10 bg-card/70 shadow-glow-lg backdrop-blur-xl">
       <CardHeader className="text-center">
         <CardTitle>تسجيل الدخول</CardTitle>
-        <CardDescription>أهلاً بعودتك إلى LUNEX TEAM</CardDescription>
+        <CardDescription>أهلًا بعودتك إلى LUNEX TEAM</CardDescription>
       </CardHeader>
       <CardContent className="space-y-4">
         <form onSubmit={submit} className="space-y-4">
@@ -147,7 +147,7 @@ export default function LoginPage() {
         <p className="text-center text-sm text-lunex-gray">
           ليس لديك حساب؟{" "}
           <Link href="/register" className="font-semibold text-primary-300 hover:text-primary-200">
-            أنشئ حساباً
+            أنشئ حسابًا
           </Link>
         </p>
       </CardContent>

@@ -1,3 +1,4 @@
+import { fixTanween, fixTanweenAll } from "../../common/text/arabic.util";
 import { levelInfo } from "../progress/progress.util";
 export const SERIES_TYPES = ["manhwa", "manga", "manhua", "novel"] as const;
 export const SERIES_STATUSES = ["ongoing", "completed", "hiatus", "dropped"] as const;
@@ -129,11 +130,11 @@ export function toSeriesDto(row: SeriesRow, stats: SeriesStats = EMPTY_STATS) {
     id: row.id,
     slug: row.slug,
     title: row.titleEn || row.titleAr,
-    titleAr: row.titleAr,
-    alternativeTitles: row.alternativeTitles,
+    titleAr: fixTanween(row.titleAr),
+    alternativeTitles: fixTanweenAll(row.alternativeTitles),
     cover,
     banner: imageUrl("banner", row.id, row.bannerAssetId, row.updatedAt) ?? cover,
-    synopsis: row.synopsis,
+    synopsis: fixTanween(row.synopsis),
     type: row.type,
     status: row.status,
     country: row.country,
@@ -185,11 +186,11 @@ export function toTeamDto(row: TeamRow, rank: number, lastActivityAt: Date | nul
   return {
     id: row.id,
     slug: row.slug,
-    name: row.name,
+    name: fixTanween(row.name),
     logoHue: row.logoHue,
     color: row.color,
     logoUrl: imageUrl("team", row.id, row.logoAssetId, row.updatedAt) ?? undefined,
-    description: row.description,
+    description: fixTanween(row.description),
     leaderId: row.leaderId ?? "",
     memberIds: [...memberIds],
     discordUrl: row.discordUrl ?? undefined,
@@ -198,7 +199,7 @@ export function toTeamDto(row: TeamRow, rank: number, lastActivityAt: Date | nul
     recruiting: row.recruiting,
     createdAt: row.createdAt.toISOString(),
     category: row.category,
-    goals: row.goals,
+    goals: fixTanween(row.goals),
     status: row.status,
     lastActivityAt: (lastActivityAt && lastActivityAt > row.updatedAt ? lastActivityAt : row.updatedAt).toISOString(),
   };
@@ -225,7 +226,7 @@ export function toChapterDto(row: ChapterRow) {
     id: row.id,
     seriesId: row.seriesId,
     number: row.number,
-    title: row.title,
+    title: fixTanween(row.title),
     pages: row._count?.pages ?? 0,
     hasContent: row.content !== null && row.content.length > 0,
     releasedAt: (row.publishedAt ?? row.createdAt).toISOString(),
@@ -252,9 +253,9 @@ export interface NewsRow {
 export function toNewsDto(row: NewsRow) {
   return {
     id: row.id,
-    title: row.title,
-    excerpt: row.excerpt,
-    content: row.content,
+    title: fixTanween(row.title),
+    excerpt: fixTanween(row.excerpt),
+    content: fixTanween(row.content),
     cover: imageUrl("news", row.id, row.coverAssetId, row.updatedAt) ?? COVER_PLACEHOLDER,
     category: row.category,
     createdAt: row.createdAt.toISOString(),
@@ -300,7 +301,7 @@ export function toPersonDto(row: PersonRow, extra: { teamId?: string; teamRole?:
     xpToNext: info.levelSpan,
     xpTotal: shown ? (row.xp ?? 0) : 0,
     joinedAt: row.createdAt.toISOString(),
-    bio: row.bio ?? "",
+    bio: fixTanween(row.bio ?? ""),
     isOnline: false,
     readCount: shown ? (row.chaptersRead ?? 0) : (extra.readCount ?? 0),
     commentCount: 0,

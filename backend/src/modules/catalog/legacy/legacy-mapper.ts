@@ -49,7 +49,7 @@ export const TAG_AR: Record<string, string> = {
   "Fan Colored": "ملوّن من المعجبين",
   "Full Color": "ملوّن بالكامل",
   "Long Strip": "شريط طويل",
-  "Official Colored": "ملوّن رسمياً",
+  "Official Colored": "ملوّن رسميًا",
   Oneshot: "فصل واحد",
   "Self-Published": "نشر ذاتي",
   "Web Comic": "ويب كوميك",

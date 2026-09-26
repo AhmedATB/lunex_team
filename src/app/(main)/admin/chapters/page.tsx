@@ -154,7 +154,7 @@ export default function AdminChaptersPage() {
           >
             <UploadCloud className="h-10 w-10 text-primary-300" />
             <p className="text-sm text-white">اسحب وأفلت صور الفصل هنا (001.webp, 002.webp...) لسلاسل المانهوا</p>
-            <p className="text-xs text-lunex-gray">تُحفظ الصور بشكل خاص ومحمي تلقائياً — أو أنشئ فصلاً نصياً لسلسلة رواية من الزر أدناه</p>
+            <p className="text-xs text-lunex-gray">تُحفظ الصور بشكل خاص ومحمي تلقائيًا — أو أنشئ فصلًا نصيًا لسلسلة رواية من الزر أدناه</p>
             {currentUserId && (
               <div className="flex gap-2 pt-2">
                 <CreateChapterDialog

@@ -30,7 +30,7 @@ interface Actor {
 function describeDuration(hours: number): string {
   if (hours < 24) return hours === 1 ? "ساعة واحدة" : hours === 2 ? "ساعتان" : `${hours} ${hours <= 10 ? "ساعات" : "ساعة"}`;
   const days = Math.round(hours / 24);
-  return days === 1 ? "يوم واحد" : days === 2 ? "يومان" : `${days} ${days <= 10 ? "أيام" : "يوماً"}`;
+  return days === 1 ? "يوم واحد" : days === 2 ? "يومان" : `${days} ${days <= 10 ? "أيام" : "يومًا"}`;
 }
 
 @Injectable()
@@ -298,7 +298,7 @@ export class ModerationService {
       return this.notifications.notify(
         userId,
         "moderation",
-        "تم إيقاف تعليقك ومراسلتك مؤقتاً",
+        "تم إيقاف تعليقك ومراسلتك مؤقتًا",
         `المدة: ${describeDuration(hours ?? 0)}. السبب: ${reason}`,
         "/terms"
       );

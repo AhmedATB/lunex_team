@@ -291,7 +291,7 @@ export default function TeamDashboardPage() {
           {ownSeries.length > 0 && (
             <div className="grid gap-4 lg:grid-cols-3">
               <Card className="lg:col-span-2">
-                <CardHeader><CardTitle>الفصول المنشورة أسبوعياً</CardTitle></CardHeader>
+                <CardHeader><CardTitle>الفصول المنشورة أسبوعيًا</CardTitle></CardHeader>
                 <CardContent><ChaptersOverTimeChart data={chapterWeeklyData} /></CardContent>
               </Card>
               <Card>
@@ -556,7 +556,7 @@ export default function TeamDashboardPage() {
                 </div>
               ))}
               {recruitmentPositions.length === 0 && (
-                <p className="text-sm text-lunex-gray">لا توجد وظائف مفتوحة حالياً.</p>
+                <p className="text-sm text-lunex-gray">لا توجد وظائف مفتوحة حاليًا.</p>
               )}
             </CardContent>
           </Card>
@@ -829,7 +829,7 @@ function CreateCollaborationDialog({
           <div className="space-y-1.5">
             <Label>الفريق المستهدف</Label>
             <Select value={toTeamId} onValueChange={setToTeamId}>
-              <SelectTrigger><SelectValue placeholder="اختر فريقاً" /></SelectTrigger>
+              <SelectTrigger><SelectValue placeholder="اختر فريقًا" /></SelectTrigger>
               <SelectContent>
                 {teams.filter((t) => t.id !== teamId).map((t) => <SelectItem key={t.id} value={t.id}>{t.name}</SelectItem>)}
               </SelectContent>
@@ -1054,7 +1054,7 @@ function LeaderTransferPanel({
           <div className="space-y-1.5">
             <Label>القائد الجديد</Label>
             <Select value={selectedId} onValueChange={setSelectedId}>
-              <SelectTrigger><SelectValue placeholder="اختر عضواً" /></SelectTrigger>
+              <SelectTrigger><SelectValue placeholder="اختر عضوًا" /></SelectTrigger>
               <SelectContent>
                 {candidates.map((m) => <SelectItem key={m.id} value={m.id}>{m.displayName}</SelectItem>)}
               </SelectContent>
@@ -1305,7 +1305,7 @@ function CreateRecruitmentPositionDialog({
 }
 
 const SERIES_TYPE_LABELS: Record<SeriesType, string> = { manhwa: "مانهوا", manga: "مانجا", manhua: "مانها", novel: "رواية" };
-const SERIES_STATUS_LABELS: Record<SeriesStatus, string> = { ongoing: "مستمر", completed: "مكتمل", hiatus: "متوقف مؤقتاً", dropped: "متروك" };
+const SERIES_STATUS_LABELS: Record<SeriesStatus, string> = { ongoing: "مستمر", completed: "مكتمل", hiatus: "متوقف مؤقتًا", dropped: "متروك" };
 
 function CreateSeriesDialog({
   teamId,

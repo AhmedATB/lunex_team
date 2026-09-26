@@ -115,7 +115,7 @@ function ProfileInfoCard({
       return;
     }
     if (!usernameValid) {
-      setError("اسم المستخدم يجب أن يكون بين 3 و24 حرفاً، ويتكون من أحرف إنجليزية وأرقام و _ فقط.");
+      setError("اسم المستخدم يجب أن يكون بين 3 و24 حرفًا، ويتكون من أحرف إنجليزية وأرقام و _ فقط.");
       return;
     }
     setLoading(true);
@@ -127,7 +127,7 @@ function ProfileInfoCard({
       });
       const body = await res.json();
       if (!res.ok) {
-        setError(body?.code === "display_name_reserved" ? "اسم العرض هذا محجوز للفريق، اختر اسماً آخر." : (body?.message ?? "تعذر حفظ التغييرات."));
+        setError(body?.code === "display_name_reserved" ? "اسم العرض هذا محجوز للفريق، اختر اسمًا آخر." : (body?.message ?? "تعذر حفظ التغييرات."));
         return;
       }
       applyUpdatedUser(body);
@@ -190,7 +190,7 @@ function ProfileInfoCard({
               onChange={(e) => setBio(e.target.value)}
               maxLength={280}
               rows={3}
-              placeholder="اكتب شيئاً عن نفسك..."
+              placeholder="اكتب شيئًا عن نفسك..."
             />
             <p className="text-end text-xs text-lunex-gray">{bio.length}/280</p>
           </div>
@@ -227,7 +227,7 @@ function PasswordCard() {
       return;
     }
     if (newPassword.length < 12) {
-      setError("يجب أن تتكون كلمة المرور الجديدة من 12 حرفاً على الأقل.");
+      setError("يجب أن تتكون كلمة المرور الجديدة من 12 حرفًا على الأقل.");
       return;
     }
     if (newPassword !== confirmPassword) {
@@ -318,7 +318,7 @@ function PasswordCard() {
               />
             </div>
           </div>
-          <p className="text-xs text-lunex-gray">12 حرفاً على الأقل.</p>
+          <p className="text-xs text-lunex-gray">12 حرفًا على الأقل.</p>
 
           {error && <FieldMessage kind="error" text={error} />}
           {success && <FieldMessage kind="success" text="تم تغيير كلمة المرور بنجاح." />}

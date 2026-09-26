@@ -16,6 +16,8 @@ import { UsersRepository } from "./users.repository";
 import { isReservedDisplayName, isReservedUsername } from "./username.util";
 import type { DeleteAccountDto } from "./dto/delete-account.dto";
 import type { UpdateProfileDto } from "./dto/update-profile.dto";
+import type { ListUsersQueryDto } from "./dto/list-users.dto";
+import { levelInfo } from "../progress/progress.util";
 
 const ROLE_MANAGER_ROLES = new Set(["owner", "super_administrator"]);
 const ALLOWED_AVATAR_MIME_TYPES = new Set(["image/jpeg", "image/png", "image/webp", "image/gif"]);
@@ -122,6 +124,42 @@ export class UsersService {
     }
     const banned = await this.repo.listBanned();
     return banned.map((u) => this.toPublic(u));
+  }
+
+  /** Every account, a page at a time, with search and a role filter — the owner's user list (the site's own catalogue only knows people who are on a team). */
+  async listAll(actorId: string, query: ListUsersQueryDto) {
+    const actor = await this.repo.findById(actorId);
+    if (!actor || !ROLE_MANAGER_ROLES.has(actor.role)) {
+      throw new ForbiddenException({ code: "insufficient_permissions", message: "You cannot view the user list." });
+    }
+    const pageSize = query.pageSize ?? 50;
+    const page = query.page ?? 1;
+    const { total, rows } = await this.repo.listAll({
+      query: query.q,
+      role: query.role,
+      bannedOnly: query.banned,
+      skip: (page - 1) * pageSize,
+      take: pageSize,
+    });
+    return {
+      total,
+      page,
+      pageSize,
+      items: rows.map((u) => ({
+        id: u.id,
+        email: u.email,
+        username: u.username,
+        role: u.role,
+        createdAt: u.createdAt,
+        displayName: u.displayName,
+        bio: u.bio,
+        avatarVersion: u.avatarMimeType ? u.updatedAt.toISOString() : null,
+        isBanned: isEffectivelyBanned(u),
+        mutedUntil: activeMutedUntil(u),
+        level: levelInfo(u.xp).level,
+        chaptersRead: u.chaptersRead,
+      })),
+    };
   }
 
   /** Self-service — a user editing their own username/displayName/bio. Username uniqueness is pre-checked (matches AuthService.register's approach) rather than caught as a DB constraint error. */

@@ -28,7 +28,7 @@ export const SIDEBAR_NAV: NavItem[] = [
   { href: "/series", label: "استكشاف", icon: Compass },
   { href: "/series?type=novel", label: "الروايات", icon: BookText },
   { href: "/store", label: "المتجر", icon: Coins },
-  { href: "/search?sort=views", label: "الأكثر رواجاً", icon: Flame },
+  { href: "/search?sort=views", label: "الأكثر رواجًا", icon: Flame },
   { href: "/bookmarks", label: "مفضلتي", icon: Bookmark },
   { href: "/teams", label: "الفرق", icon: Users },
 ];

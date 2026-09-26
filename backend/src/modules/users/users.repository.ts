@@ -34,6 +34,57 @@ export class UsersRepository {
     });
   }
 
+  /**
+   * One page of every account, newest first, for the owner's user list. Avatar bytes are not loaded: the list only needs
+   * to know whether a picture exists.
+   */
+  async listAll(params: { query?: string; role?: string; bannedOnly?: boolean; skip: number; take: number }) {
+    const q = params.query?.trim();
+    const where = {
+      ...(params.role ? { role: params.role } : {}),
+      ...(params.bannedOnly ? { isBanned: true, OR: [{ bannedUntil: null }, { bannedUntil: { gt: new Date() } }] } : {}),
+      ...(q
+        ? {
+            AND: [
+              {
+                OR: [
+                  { username: { contains: q, mode: "insensitive" as const } },
+                  { displayName: { contains: q, mode: "insensitive" as const } },
+                  { email: { contains: q, mode: "insensitive" as const } },
+                ],
+              },
+            ],
+          }
+        : {}),
+    };
+    const [total, rows] = await this.prisma.$transaction([
+      this.prisma.user.count({ where }),
+      this.prisma.user.findMany({
+        where,
+        orderBy: { createdAt: "desc" },
+        skip: params.skip,
+        take: params.take,
+        select: {
+          id: true,
+          email: true,
+          username: true,
+          role: true,
+          createdAt: true,
+          updatedAt: true,
+          displayName: true,
+          bio: true,
+          avatarMimeType: true,
+          isBanned: true,
+          bannedUntil: true,
+          mutedUntil: true,
+          xp: true,
+          chaptersRead: true,
+        },
+      }),
+    ]);
+    return { total, rows };
+  }
+
   updateProfile(id: string, patch: { username?: string; displayName?: string; bio?: string }) {
     // A new username brings its key along, so the unique index keeps refusing look-alikes.
     const data = patch.username ? { ...patch, usernameKey: usernameKey(patch.username) } : patch;
