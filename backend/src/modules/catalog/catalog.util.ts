@@ -281,19 +281,20 @@ export interface PersonRow {
   createdAt: Date;
   updatedAt: Date;
   avatarMimeType: string | null;
-  /** Reader progression (modules/progress). Shown to others only when the owner made their reading history public. */
+  /** Reader progression (modules/progress): counters shown to everyone while the account's profile is public. */
   xp?: number;
   chaptersRead?: number;
-  historyVisibility?: string;
+  profileVisibility?: string;
 }
 
 /**
- * A member as the frontend's `User` type wants it: identity from the account, and the level and experience only when the
- * owner made their reading history public (they say how much someone has read); otherwise the neutral starting values.
+ * A member as the frontend's `User` type wants it: identity from the account, and the level, experience and chapter count
+ * (counters — the reading *history* is a separate, private setting) while the profile is public; a hidden profile shows the
+ * neutral starting values.
  * `xp` / `xpToNext` are the progress inside the current level (a bar's numerator and denominator); `xpTotal` is the total.
  */
 export function toPersonDto(row: PersonRow, extra: { teamId?: string; teamRole?: string; readCount?: number } = {}) {
-  const shown = row.historyVisibility === "public";
+  const shown = row.profileVisibility === "public";
   const info = levelInfo(shown ? (row.xp ?? 0) : 0);
   return {
     id: row.id,

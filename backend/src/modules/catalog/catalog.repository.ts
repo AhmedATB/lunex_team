@@ -15,7 +15,7 @@ const PERSON_SELECT = {
   avatarMimeType: true,
   xp: true,
   chaptersRead: true,
-  historyVisibility: true,
+  profileVisibility: true,
 } as const;
 
 @Injectable()
@@ -358,14 +358,15 @@ export class CatalogRepository {
   }
 
   /**
-   * Readers ranked by experience. Only accounts that made their reading history public appear (and only those who have
-   * earned some): a ranking must not reveal a number the owner chose to keep private.
+   * Readers ranked by experience: every account with a public profile that has earned some. The reading *history* (which
+   * works) is a separate, private-by-default setting and does not matter here — the ranking shows only the counters. An
+   * account that hides its whole profile stays out.
    */
   async topReaders(take: number): Promise<{ userId: string; total: number }[]> {
     const rows = await this.prisma.$queryRaw<{ userId: string; total: number }[]>`
       SELECT u.id AS "userId", CAST(u.xp AS DOUBLE PRECISION) AS "total"
       FROM users u
-      WHERE u."historyVisibility" = 'public' AND u."isBanned" = false AND u.xp > 0
+      WHERE u."profileVisibility" = 'public' AND u."isBanned" = false AND u.xp > 0
       ORDER BY u.xp DESC, u."chaptersRead" DESC, u."createdAt" ASC
       LIMIT ${take}`;
     return rows;

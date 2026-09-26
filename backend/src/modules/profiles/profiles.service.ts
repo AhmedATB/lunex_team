@@ -81,22 +81,20 @@ export class ProfilesService {
             },
           }
         : {}),
-      // Level, experience, streak and achievements say how much someone reads, so they follow the history setting.
-      ...(access.history
-        ? {
-            progress: publicProgress(
-              {
-                xp: user.xp,
-                chaptersRead: user.chaptersRead,
-                streakDays: user.streakDays,
-                bestStreak: user.bestStreak,
-                streakLastDay: user.streakLastDay ? dayKey(user.streakLastDay) : null,
-                achievements: user.achievements,
-              },
-              dayKey(new Date())
-            ),
-          }
-        : {}),
+      // The counters (level, experience, streak, chapter count, achievements) show on any profile that is visible, whatever the
+      // history setting says: that setting hides *which* works someone read, not how many. They are also what the home page's
+      // ranking lists.
+      progress: publicProgress(
+        {
+          xp: user.xp,
+          chaptersRead: user.chaptersRead,
+          streakDays: user.streakDays,
+          bestStreak: user.bestStreak,
+          streakLastDay: user.streakLastDay ? dayKey(user.streakLastDay) : null,
+          achievements: user.achievements,
+        },
+        dayKey(new Date())
+      ),
       ...(bookmarks ? { bookmarks: bookmarks.map((b) => b.seriesId) } : {}),
       ...(history
         ? {

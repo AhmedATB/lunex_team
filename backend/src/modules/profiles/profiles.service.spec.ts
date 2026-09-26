@@ -41,6 +41,12 @@ interface ProfileRow {
   profileVisibility: string;
   historyVisibility: string;
   favoritesVisibility: string;
+  xp?: number;
+  chaptersRead?: number;
+  streakDays?: number;
+  bestStreak?: number;
+  streakLastDay?: Date | null;
+  achievements?: string[];
 }
 
 const ALICE: ProfileRow = {
@@ -90,6 +96,15 @@ describe("ProfilesService.getProfile", () => {
     expect(profile).not.toHaveProperty("history");
     expect(profile).not.toHaveProperty("visibility");
     expect(repo.listBookmarks).not.toHaveBeenCalled();
+    expect(repo.listProgress).not.toHaveBeenCalled();
+  });
+
+  it("shows the level and counters to a stranger while the reading history stays hidden", async () => {
+    const { service, repo } = build({ xp: 250, chaptersRead: 12, streakDays: 3, bestStreak: 5, streakLastDay: null, achievements: ["first_chapter"] });
+    const profile = await service.getProfile("alice", undefined); // history is private
+    expect(profile).toMatchObject({ access: { history: false }, progress: { xp: 250, chaptersRead: 12, bestStreak: 5, achievements: ["first_chapter"] } });
+    expect((profile as { progress: { level: number } }).progress.level).toBeGreaterThanOrEqual(1);
+    expect(profile).not.toHaveProperty("history"); // which works were read is still private
     expect(repo.listProgress).not.toHaveBeenCalled();
   });
 

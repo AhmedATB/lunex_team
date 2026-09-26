@@ -1,4 +1,4 @@
-import { COVER_PLACEHOLDER, EMPTY_STATS, imageUrl, roundRating, slugify, toChapterDto, toSeriesDto, toTeamDto, trendingSince, uniqueSlug, utcDay, type SeriesRow } from "./catalog.util";
+import { COVER_PLACEHOLDER, EMPTY_STATS, imageUrl, roundRating, slugify, toChapterDto, toPersonDto, toSeriesDto, toTeamDto, trendingSince, uniqueSlug, utcDay, type SeriesRow } from "./catalog.util";
 
 describe("slugify", () => {
   it("keeps Arabic letters and turns everything else into single hyphens", () => {
@@ -180,5 +180,20 @@ describe("views and ratings helpers", () => {
     expect(roundRating(4.3333)).toBe(4.3);
     expect(roundRating(4.25)).toBe(4.3);
     expect(roundRating(0)).toBe(0);
+  });
+});
+
+describe("toPersonDto (the counters)", () => {
+  const person = { id: "u1", username: "reader", displayName: null, bio: null, role: "reader", createdAt: new Date("2026-01-01"), updatedAt: new Date("2026-01-02"), avatarMimeType: null, xp: 250, chaptersRead: 12 };
+
+  it("shows the level, experience and chapter count while the profile is public — the reading history setting does not matter", () => {
+    const dto = toPersonDto({ ...person, profileVisibility: "public" });
+    expect(dto).toMatchObject({ readCount: 12, xpTotal: 250 });
+    expect(dto.level).toBeGreaterThan(1);
+  });
+
+  it("shows neutral values for a profile that is hidden", () => {
+    expect(toPersonDto({ ...person, profileVisibility: "private" })).toMatchObject({ level: 1, xpTotal: 0, readCount: 0 });
+    expect(toPersonDto({ ...person, profileVisibility: "members" })).toMatchObject({ level: 1, xpTotal: 0, readCount: 0 }); // the catalogue is public
   });
 });
