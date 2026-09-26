@@ -41,7 +41,7 @@ export class ChaptersRepository {
     });
   }
 
-  update(id: string, data: { isPublished?: boolean; manualLock?: boolean | null }) {
+  update(id: string, data: { isPublished?: boolean; manualLock?: boolean | null; publishedAt?: Date | null }) {
     return this.prisma.chapter.update({ where: { id }, data });
   }
 

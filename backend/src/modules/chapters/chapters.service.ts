@@ -1,5 +1,6 @@
 import { BadRequestException, ConflictException, ForbiddenException, Injectable, NotFoundException } from "@nestjs/common";
 import { randomUUID } from "node:crypto";
+import { CatalogService } from "../catalog/catalog.service";
 import { ImagesService, type IssuedImageToken } from "../images/images.service";
 import { StorageService } from "../images/storage/storage.interface";
 import type { RequestContext } from "../../common/middleware/request-context.middleware";
@@ -35,7 +36,8 @@ export class ChaptersService {
     private readonly storage: StorageService,
     private readonly images: ImagesService,
     private readonly wallet: WalletService,
-    private readonly notifications: NotificationsService
+    private readonly notifications: NotificationsService,
+    private readonly catalog: CatalogService
   ) {}
 
   private assertCanPublish(role: string) {
@@ -75,16 +77,24 @@ export class ChaptersService {
   async update(role: string, id: string, patch: { isPublished?: boolean; manualLock?: boolean | null }) {
     this.assertCanPublish(role);
     const before = await this.get(id);
-    const updated = await this.repo.update(id, patch);
+    const publishing = patch.isPublished === true && !before.isPublished;
+    const unpublishing = patch.isPublished === false && before.isPublished;
+    // The catalogue's "latest chapters" (and each work's and team's last update) go by the publication time, so going live
+    // stamps it and taking a chapter down clears it — without it a chapter published here sorted after every imported one.
+    const stamp = publishing ? { publishedAt: new Date() } : unpublishing ? { publishedAt: null } : {};
+    const updated = await this.repo.update(id, { ...patch, ...stamp });
+    this.catalog.invalidate(); // the home page and the work's page show the change at once, not after the cache runs out
     // Going live is what readers who follow the series want to hear about (never for a chapter already live).
-    if (patch.isPublished === true && !before.isPublished) void this.notifications.chapterPublished(before.seriesId, before.number);
+    if (publishing) void this.notifications.chapterPublished(before.seriesId, before.number);
     return updated;
   }
 
   async remove(role: string, id: string) {
     this.assertCanPublish(role);
     await this.get(id);
-    return this.repo.delete(id);
+    const removed = await this.repo.delete(id);
+    this.catalog.invalidate();
+    return removed;
   }
 
   /**

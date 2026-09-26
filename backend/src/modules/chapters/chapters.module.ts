@@ -1,4 +1,5 @@
 import { Module } from "@nestjs/common";
+import { CatalogModule } from "../catalog/catalog.module";
 import { ImagesModule } from "../images/images.module";
 import { WalletModule } from "../wallet/wallet.module";
 import { NotificationsModule } from "../notifications/notifications.module";
@@ -8,7 +9,7 @@ import { ChaptersRepository } from "./chapters.repository";
 import { ChaptersService } from "./chapters.service";
 
 @Module({
-  imports: [ImagesModule, WalletModule, NotificationsModule],
+  imports: [CatalogModule, ImagesModule, WalletModule, NotificationsModule],
   controllers: [ChaptersController],
   providers: [ChaptersService, ChaptersRepository, ChapterImportService],
   exports: [ChaptersService],
