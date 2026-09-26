@@ -293,7 +293,7 @@ export class UsersService {
     if (!data.user) {
       throw new NotFoundException({ code: "user_not_found", message: "Account no longer exists." });
     }
-    const { avatarMimeType, profileVisibility, historyVisibility, favoritesVisibility, ...account } = data.user;
+    const { avatarMimeType, profileVisibility, historyVisibility, favoritesVisibility, coins, unlockCredits, creditProgress, ...account } = data.user;
     return {
       exportedAt: new Date().toISOString(),
       account: { ...account, hasCustomAvatar: avatarMimeType !== null },
@@ -308,6 +308,12 @@ export class UsersService {
       favorites: data.bookmarks,
       readingHistory: data.readingProgress,
       notifications: data.notifications,
+      ratings: data.ratings,
+      openedChapters: data.chapterViews,
+      wallet: { coins, readingCredits: unlockCredits, creditProgress, transactions: data.coinTransactions },
+      messagesSent: data.messages,
+      conversations: data.conversations.map((c) => ({ ...c.conversation, joinedAt: c.joinedAt })),
+      teamApplications: data.recruitmentApplications,
       chapterAccessLog: data.imageAccess,
       accountActivity: data.activity,
     };

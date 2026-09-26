@@ -139,6 +139,10 @@ export class UsersRepository {
       comments,
       ratings,
       chapterViews,
+      coinTransactions,
+      messages,
+      conversations,
+      recruitmentApplications,
     ] = await Promise.all([
         this.prisma.user.findUnique({
           where: { id: userId },
@@ -161,6 +165,9 @@ export class UsersRepository {
             streakDays: true,
             bestStreak: true,
             achievements: true,
+            coins: true,
+            unlockCredits: true,
+            creditProgress: true,
           },
         }),
         this.prisma.oAuthAccount.findMany({
@@ -237,6 +244,41 @@ export class UsersRepository {
           take: EXPORT_LOG_LIMIT,
           select: { seriesId: true, chapterId: true, day: true },
         }),
+        // The staff account that granted coins is left out: it is someone else's identifier.
+        this.prisma.coinTransaction.findMany({
+          where: { userId },
+          orderBy: { createdAt: "desc" },
+          take: EXPORT_LOG_LIMIT,
+          select: { amount: true, reason: true, chapterId: true, note: true, createdAt: true },
+        }),
+        // Only what the person wrote: messages other people sent them are those people's data, not theirs to export.
+        this.prisma.message.findMany({
+          where: { senderId: userId },
+          orderBy: { createdAt: "desc" },
+          take: EXPORT_LOG_LIMIT,
+          select: { conversationId: true, text: true, createdAt: true },
+        }),
+        this.prisma.conversationMember.findMany({
+          where: { userId },
+          orderBy: { joinedAt: "desc" },
+          select: { joinedAt: true, conversation: { select: { id: true, title: true, isGroup: true } } },
+        }),
+        this.prisma.recruitmentApplication.findMany({
+          where: { userId },
+          orderBy: { createdAt: "desc" },
+          select: {
+            teamId: true,
+            preferredRole: true,
+            experience: true,
+            portfolioUrl: true,
+            languages: true,
+            availability: true,
+            status: true,
+            note: true,
+            createdAt: true,
+            reviewedAt: true,
+          },
+        }),
       ]);
 
     return {
@@ -255,6 +297,10 @@ export class UsersRepository {
       comments,
       ratings,
       chapterViews,
+      coinTransactions,
+      messages,
+      conversations,
+      recruitmentApplications,
     };
   }
 

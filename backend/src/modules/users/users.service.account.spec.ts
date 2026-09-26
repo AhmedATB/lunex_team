@@ -88,6 +88,9 @@ describe("UsersService.exportData", () => {
       profileVisibility: "public",
       historyVisibility: "private",
       favoritesVisibility: "private",
+      coins: 30,
+      unlockCredits: 2,
+      creditProgress: 1,
     },
     oauthAccounts: [{ provider: "discord", providerAccountId: "123", createdAt: new Date("2026-01-02T00:00:00Z") }],
     devices: [],
@@ -101,6 +104,12 @@ describe("UsersService.exportData", () => {
     readingProgress: [],
     sanctions: [],
     comments: [],
+    ratings: [{ seriesId: "s1", value: 5, createdAt: new Date("2026-03-02T00:00:00Z"), updatedAt: new Date("2026-03-02T00:00:00Z") }],
+    chapterViews: [{ seriesId: "s1", chapterId: "c1", day: new Date("2026-03-03T00:00:00Z") }],
+    coinTransactions: [{ amount: 30, reason: "grant", chapterId: null, note: null, createdAt: new Date("2026-03-04T00:00:00Z") }],
+    messages: [{ conversationId: "conv-1", text: "مرحبا", createdAt: new Date("2026-03-05T00:00:00Z") }],
+    conversations: [{ joinedAt: new Date("2026-03-05T00:00:00Z"), conversation: { id: "conv-1", title: null, isGroup: false } }],
+    recruitmentApplications: [{ teamId: "t1", preferredRole: "translator", experience: "سنتان", portfolioUrl: null, languages: ["ar"], availability: "مساءً", status: "pending", note: null, createdAt: new Date("2026-03-06T00:00:00Z"), reviewedAt: null }],
   };
 
   it("returns the caller's data with a hasCustomAvatar flag instead of the mime type", async () => {
@@ -114,6 +123,21 @@ describe("UsersService.exportData", () => {
     expect(result.loginHistory).toHaveLength(1);
     expect(result.linkedAccounts[0]).toMatchObject({ provider: "discord" });
     expect(typeof result.exportedAt).toBe("string");
+  });
+
+  it("includes everything the privacy policy says it does: ratings, opened chapters, the wallet, sent messages, chats and applications", async () => {
+    const { service, repo } = build(baseUser());
+    repo.collectExport.mockResolvedValue(exported);
+    const result = await service.exportData("user-1");
+    expect(result.ratings).toHaveLength(1);
+    expect(result.openedChapters).toHaveLength(1);
+    expect(result.wallet).toMatchObject({ coins: 30, readingCredits: 2, creditProgress: 1 });
+    expect(result.wallet.transactions).toHaveLength(1);
+    expect(result.messagesSent).toEqual([expect.objectContaining({ conversationId: "conv-1", text: "مرحبا" })]);
+    expect(result.conversations).toEqual([expect.objectContaining({ id: "conv-1", isGroup: false, joinedAt: expect.any(Date) })]);
+    expect(result.teamApplications).toEqual([expect.objectContaining({ teamId: "t1", status: "pending" })]);
+    // The wallet numbers sit under `wallet`, not loose in the account block.
+    expect(result.account).not.toHaveProperty("coins");
   });
 
   it("never carries a secret field", async () => {
