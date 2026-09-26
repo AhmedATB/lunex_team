@@ -12,6 +12,14 @@
  */
 export const ADS_ENABLED = process.env.NEXT_PUBLIC_ADS_ENABLED !== "false";
 
+/**
+ * The popunder is the network's click trap: it lays an invisible layer over the whole page, so a visitor's first click — on a
+ * work's card, a chapter, a menu — opens an advertiser's page in a new tab instead of doing what they clicked. It reads as
+ * a page that "loads slowly and sends you back to the home page". Off unless NEXT_PUBLIC_ADS_POPUNDER=true (build time);
+ * the social bar and the banners keep running.
+ */
+export const POPUNDER_ENABLED = process.env.NEXT_PUBLIC_ADS_POPUNDER === "true";
+
 export const POPUNDER_SRC = "https://movementssubscriptionobjection.com/7b/5f/9f/7b5f9f10106213dda3868111f8cdee82.js";
 export const SOCIAL_BAR_SRC = "https://movementssubscriptionobjection.com/be/5b/5b/be5b5b89c50e388d54f1b6f8210aa398.js";
 
