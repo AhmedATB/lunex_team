@@ -1,5 +1,5 @@
 import Image from "next/image";
-import { AdUnit, ResponsiveBanner } from "@/components/ads/ad-unit";
+import { ResponsiveBanner } from "@/components/ads/ad-unit";
 import Link from "next/link";
 import { Star, Sparkles, Megaphone, Calendar, Newspaper } from "lucide-react";
 import type { Series, NewsItem } from "@/lib/types";
@@ -300,8 +300,6 @@ export function EditorialHome(data: HomeLayoutData) {
         <h2 className="section-title font-display text-xl font-bold text-white sm:text-2xl">تصفح حسب التصنيف</h2>
         <GenreGrid genres={data.genres} />
       </section>
-
-      <AdUnit unit="native" />
 
       <NewsGrid news={data.news} />
 
