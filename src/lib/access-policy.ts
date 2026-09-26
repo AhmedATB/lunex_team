@@ -16,7 +16,15 @@ const STATIC_FILE = /\.(?:png|jpe?g|webp|avif|gif|svg|ico|css|js|map|woff2?|ttf|
 /** Series covers are the shop window of the sign-in pages (see components/auth/cover-wall.tsx); they show nothing a visitor could read. */
 const COVER_IMAGE = /^\/api\/catalog\/series\/[^/]+\/cover$/;
 
+/**
+ * A member's profile picture. Pages show it through next/image, whose optimizer fetches the picture itself, on the
+ * server and without the visitor's cookies — so behind the sign-in gate it got a "sign in" answer instead of an image
+ * and every avatar came out broken (except the header's, which is a plain <img>). It is public on the backend too
+ * (`GET /v1/users/:id/avatar`), keyed by an unguessable id, and only reachable from pages that need an account anyway.
+ */
+const AVATAR_IMAGE = /^\/api\/users\/[^/]+\/avatar$/;
+
 export function isPublicPath(pathname: string): boolean {
-  if (STATIC_FILE.test(pathname) || COVER_IMAGE.test(pathname)) return true;
+  if (STATIC_FILE.test(pathname) || COVER_IMAGE.test(pathname) || AVATAR_IMAGE.test(pathname)) return true;
   return PUBLIC_PAGES.some((page) => pathname === page || pathname.startsWith(`${page}/`));
 }

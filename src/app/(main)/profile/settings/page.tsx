@@ -20,6 +20,7 @@ import { Label } from "@/components/ui/label";
 import { Button } from "@/components/ui/button";
 import { Switch } from "@/components/ui/switch";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
+import { AvatarCropper } from "@/components/account/avatar-cropper";
 import { DataControlsCard } from "@/components/account/data-controls-card";
 import { PrivacyCard } from "@/components/account/privacy-card";
 
@@ -370,6 +371,8 @@ function AvatarPickerDialog({
   const [open, setOpen] = useState(false);
   const [uploading, setUploading] = useState(false);
   const [error, setError] = useState("");
+  /** The photo just chosen, waiting for the person to frame it (see AvatarCropper). */
+  const [pending, setPending] = useState<File | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   function pick(seed: string) {
@@ -377,7 +380,15 @@ function AvatarPickerDialog({
     setOpen(false);
   }
 
-  async function handleFile(e: React.ChangeEvent<HTMLInputElement>) {
+  function handleOpenChange(next: boolean) {
+    setOpen(next);
+    if (!next) {
+      setPending(null);
+      setError("");
+    }
+  }
+
+  function handleFile(e: React.ChangeEvent<HTMLInputElement>) {
     const file = e.target.files?.[0];
     e.target.value = "";
     if (!file) return;
@@ -386,10 +397,16 @@ function AvatarPickerDialog({
       setError("حجم الصورة يجب أن لا يتجاوز 5 ميغابايت.");
       return;
     }
+    setPending(file);
+  }
+
+  /** Uploads the square the person framed, not the original photo. */
+  async function upload(image: Blob) {
     setUploading(true);
+    setError("");
     try {
       const formData = new FormData();
-      formData.append("file", file);
+      formData.append("file", image, "avatar.webp");
       const res = await fetch("/api/users/me/avatar", { method: "POST", body: formData });
       const body = await res.json();
       if (!res.ok) {
@@ -398,6 +415,7 @@ function AvatarPickerDialog({
       }
       onUploaded(body);
       setOpen(false);
+      setPending(null);
     } catch {
       setError("تعذر الاتصال بالخادم، حاول مرة أخرى.");
     } finally {
@@ -406,27 +424,28 @@ function AvatarPickerDialog({
   }
 
   return (
-    <Dialog open={open} onOpenChange={setOpen}>
+    <Dialog open={open} onOpenChange={handleOpenChange}>
       <DialogTrigger asChild>
         <Button size="icon" className="hover-pop absolute bottom-0 end-0 h-7 w-7 rounded-full shadow-lg" aria-label="تغيير الصورة الرمزية">
           <Pencil className="h-3 w-3" />
         </Button>
       </DialogTrigger>
-      <DialogContent className="max-h-[80vh] overflow-y-auto">
+      <DialogContent className="max-h-[85vh] overflow-y-auto">
         <DialogHeader>
-          <DialogTitle>تغيير الصورة الرمزية</DialogTitle>
+          <DialogTitle>{pending ? "اقصّ صورتك" : "تغيير الصورة الرمزية"}</DialogTitle>
         </DialogHeader>
 
+        {pending ? (
+          <div className="space-y-2">
+            <AvatarCropper file={pending} saving={uploading} onCancel={() => setPending(null)} onCropped={upload} />
+            {error && <FieldMessage kind="error" text={error} />}
+          </div>
+        ) : (
+          <>
         <div className="space-y-2 pt-1">
           <input ref={fileInputRef} type="file" accept={AVATAR_ACCEPT} className="hidden" onChange={handleFile} />
-          <Button
-            type="button"
-            variant="secondary"
-            className="w-full"
-            disabled={uploading}
-            onClick={() => fileInputRef.current?.click()}
-          >
-            {uploading ? <Loader2 className="h-4 w-4 animate-spin" /> : <Upload className="h-4 w-4" />}
+          <Button type="button" variant="secondary" className="w-full" onClick={() => fileInputRef.current?.click()}>
+            <Upload className="h-4 w-4" />
             رفع صورة من جهازك
           </Button>
           {error && <FieldMessage kind="error" text={error} />}
@@ -451,6 +470,8 @@ function AvatarPickerDialog({
             ))}
           </div>
         </div>
+          </>
+        )}
       </DialogContent>
     </Dialog>
   );
