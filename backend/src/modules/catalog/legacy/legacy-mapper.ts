@@ -120,6 +120,12 @@ export const TAG_AR: Record<string, string> = {
   "Sexual Violence": "عنف جنسي",
 };
 
+/**
+ * Old-site tags this platform does not carry (owner's decision, 2026-09-30): the import skips them, and the migration
+ * `remove_hidden_tags` deleted the ones already imported. A series that arrives tagged with one simply loses that tag.
+ */
+export const HIDDEN_TAGS = new Set(["Boys' Love", "Girls' Love", "Loli"]);
+
 /** Genres this platform already used before the import that the old site does not have. */
 export const EXTRA_TAGS: { nameEn: string; nameAr: string; group: string }[] = [
   { nameEn: "Regression", nameAr: "رجوع بالزمن", group: "theme" },

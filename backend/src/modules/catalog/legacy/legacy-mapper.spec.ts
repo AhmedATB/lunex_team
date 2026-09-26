@@ -1,4 +1,4 @@
-import { EXTRA_TAGS, findCoverUrl, mapGroup, mapManga, mapTag, safeUrl, TAG_AR, type LegacyManga } from "./legacy-mapper";
+import { EXTRA_TAGS, HIDDEN_TAGS, findCoverUrl, mapGroup, mapManga, mapTag, safeUrl, TAG_AR, type LegacyManga } from "./legacy-mapper";
 
 // Captured from the old site's GET /v2/manga (trimmed).
 const GODDESS: LegacyManga = {
@@ -107,6 +107,11 @@ describe("mapTag", () => {
   it("has an Arabic name for every tag the old site is known to use, and the extras are not duplicates", () => {
     expect(Object.keys(TAG_AR)).toHaveLength(77);
     for (const extra of EXTRA_TAGS) expect(TAG_AR[extra.nameEn]).toBeUndefined();
+  });
+
+  it("names the tags the platform does not carry, exactly as the old site spells them", () => {
+    expect([...HIDDEN_TAGS].sort()).toEqual(["Boys' Love", "Girls' Love", "Loli"]);
+    for (const name of HIDDEN_TAGS) expect(TAG_AR[name]).toBeDefined();
   });
 });
 

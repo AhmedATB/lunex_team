@@ -5,7 +5,7 @@ import { StorageService } from "../../images/storage/storage.interface";
 import { CatalogRepository } from "../catalog.repository";
 import { CatalogService } from "../catalog.service";
 import { slugify, uniqueSlug } from "../catalog.util";
-import { EXTRA_TAGS, findCoverUrl, mapGroup, mapManga, mapTag, type LegacyGroup, type LegacyManga, type LegacyTag } from "./legacy-mapper";
+import { EXTRA_TAGS, HIDDEN_TAGS, findCoverUrl, mapGroup, mapManga, mapTag, type LegacyGroup, type LegacyManga, type LegacyTag } from "./legacy-mapper";
 
 const PAGE_SIZE = 100;
 const MAX_PAGES = 20; // 2,000 records is far more than the old site holds; a safety stop, not a limit anyone should reach
@@ -73,7 +73,7 @@ export class LegacyImportService {
   private async importTags(report: ImportReport) {
     const legacy = await this.fetchAll<LegacyTag>("/v2/manga/tag");
     const wanted = [
-      ...legacy.map(mapTag),
+      ...legacy.map(mapTag).filter((tag) => !HIDDEN_TAGS.has(tag.nameEn)),
       ...EXTRA_TAGS.map((t) => ({ legacyId: undefined, slug: slugify(t.nameEn, "tag"), ...t })),
     ];
 

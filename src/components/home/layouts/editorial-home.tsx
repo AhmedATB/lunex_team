@@ -5,6 +5,7 @@ import { Star, Sparkles, Megaphone, Calendar, Newspaper } from "lucide-react";
 import type { Series, NewsItem } from "@/lib/types";
 import type { HomeLayoutData } from "./types";
 import { GenreGrid } from "@/components/home/genre-grid";
+import { pickEssentialGenres } from "@/lib/essential-genres";
 import { TopReaders } from "@/components/home/top-readers";
 import { LatestComments } from "@/components/home/latest-comments";
 import { ContinueReading } from "@/components/home/continue-reading";
@@ -298,7 +299,7 @@ export function EditorialHome(data: HomeLayoutData) {
 
       <section className="space-y-4">
         <h2 className="section-title font-display text-xl font-bold text-white sm:text-2xl">تصفح حسب التصنيف</h2>
-        <GenreGrid genres={data.genres} />
+        <GenreGrid genres={pickEssentialGenres(data.genres, data.seriesMap.values())} showAllHref="/search" />
       </section>
 
       <NewsGrid news={data.news} />
