@@ -1,5 +1,20 @@
 # Cloudflare protection
 
+## Current state (2026-09-26, after the cutover — the zone is in the owner's own account)
+
+Set in the dashboard, by hand:
+
+| Where | What | Notes |
+|---|---|---|
+| Security → Settings | **Bot Fight Mode** on; **Browser Integrity Check** on; Security Level is automatic (nothing to set) | Bot Fight Mode cannot be exempted on the Free plan. Everything server-to-server (the frontend → backend, the Discord bot, the Drive import) goes straight to the Railway backend, not through `lunexteam.com`, so it is not affected. It *would* block a script that reads the old site's `cdn.lunexteam.com` |
+| Security → Settings | **Hotlink Protection** on | Other sites cannot embed our images (a foreign `Referer` gets 403; our own pages and a direct open pass) |
+| Security rules → Custom rules (3 of 5) | 1 `lunex:` skip lane for the old site's API/CDN · 2 `lunex:` block probes for `/.env`, `/wp-admin` … · 3 **`block scrapers`**: Block when the User-Agent is empty or contains `python`, `curl`, `wget`, `scrapy`, `go-http-client`, `aiohttp`, `httpx`, `axios`, `node-fetch`, `headlesschrome` | Googlebot and real browsers pass. Checked from outside: those user agents get 403, a browser gets 200 |
+| Security rules → Rate limiting (1 of 1, the Free limit) | `lunex: slow down floods of sign-in and sign-up attempts`: `POST` on `/api/auth/login`, `/register`, `/forgot-password`, `/reset-password` → Block | Deliberately narrow. A rule over all of `/api/` would block real readers, because mobile subscribers in Iraq share one address (carrier NAT). Chapter pages are limited by the backend's per-visitor throttle, signed tokens and the watermark instead |
+
+Checked after the change with a real browser: the series list, a chapter's page tokens and image streams, and sign-in/Google redirect all answer normally.
+
+Left for later: the skip lane (rule 1) and the `cdn`/`api` hostnames still in DNS belong to the old site; remove them once nothing reads the old site any more. Turnstile on sign-up/sign-in/forgot-password is the next real step against fake accounts.
+
 ## Who controls what (as found on 2026-09-25)
 
 - The **registrar** account (Spaceship) belongs to the site's owner; the domain was registered 2026-02-23 and renews 2027-02-23.
