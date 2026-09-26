@@ -130,6 +130,42 @@ export default function AdminUsersPage() {
     setUsers((prev) => (bannedOnly && !isBanned ? prev.filter((u) => u.id !== userId) : prev.map((u) => (u.id === userId ? { ...u, isBanned } : u))));
   }
 
+  const menuFor = (u: User) => (
+      <DropdownMenu>
+        <DropdownMenuTrigger asChild>
+          <button className="rounded-lg p-2.5 text-lunex-gray hover:bg-white/10 hover:text-white md:p-1.5" aria-label={`خيارات ${u.displayName}`}>
+            <MoreVertical className="h-4 w-4" />
+          </button>
+        </DropdownMenuTrigger>
+        <DropdownMenuContent align="end">
+          {fromServer ? (
+            <ChangeRoleDialog user={u} onChanged={(newRole) => applyRoleChange(u.id, newRole)} />
+          ) : (
+            <DropdownMenuItem disabled title="حساب تجريبي غير مرتبط بحساب حقيقي">
+              <ShieldCheck className="h-4 w-4" /> تغيير الدور (حساب تجريبي)
+            </DropdownMenuItem>
+          )}
+          {fromServer && u.id !== currentUserId && u.role !== "owner" ? (
+            <BanUserDialog user={u} onChanged={(isBanned) => applyBanChange(u.id, isBanned)} />
+          ) : (
+            <DropdownMenuItem
+              disabled
+              className="text-red-400"
+              title={
+                !fromServer
+                  ? "حساب تجريبي غير مرتبط بحساب حقيقي"
+                  : u.id === currentUserId
+                    ? "لا يمكنك حظر حسابك"
+                    : "لا يمكن حظر حساب المالك"
+              }
+            >
+              <Ban className="h-4 w-4" /> حظر المستخدم
+            </DropdownMenuItem>
+          )}
+        </DropdownMenuContent>
+      </DropdownMenu>
+  );
+
   return (
     <div className="space-y-4">
       <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
@@ -140,7 +176,7 @@ export default function AdminUsersPage() {
             <Input value={query} onChange={(e) => restartWith(setQuery)(e.target.value)} placeholder="ابحث بالاسم أو البريد..." className="ps-9" />
           </div>
           <Select value={role} onValueChange={(v) => restartWith(setRole)(v as GlobalRole | "all")}>
-            <SelectTrigger className="w-40"><SelectValue /></SelectTrigger>
+            <SelectTrigger className="min-w-0 flex-1 sm:w-40 sm:flex-none"><SelectValue /></SelectTrigger>
             <SelectContent>
               <SelectItem value="all">كل الأدوار</SelectItem>
               {Object.entries(GLOBAL_ROLE_LABELS).map(([value, label]) => (
@@ -156,7 +192,33 @@ export default function AdminUsersPage() {
 
       <Card>
         <CardContent className="overflow-x-auto p-0">
-          <table className="w-full text-sm">
+          <div className="md:hidden">
+            <ul className="divide-y divide-white/5">
+              {users.map((u) => (
+                <li key={u.id} className="flex items-start gap-3 p-3">
+                  <div className="relative h-11 w-11 shrink-0 overflow-hidden rounded-full ring-2 ring-white/10">
+                    <Image src={avatarSrcFor(u, avatarOverrides)} alt={u.displayName} fill sizes="44px" className="object-cover" />
+                  </div>
+                  <div className="min-w-0 flex-1 space-y-1.5">
+                    <div className="flex items-start justify-between gap-1">
+                      <div className="min-w-0">
+                        <p className="truncate font-bold text-white">{u.displayName}</p>
+                        <p className="truncate text-xs text-lunex-gray" dir="ltr">@{u.username}</p>
+                      </div>
+                      <div className="-me-1 -mt-1 shrink-0">{menuFor(u)}</div>
+                    </div>
+                    <div className="flex flex-wrap items-center gap-1.5">
+                      <Badge variant="secondary">{GLOBAL_ROLE_LABELS[u.role]}</Badge>
+                      {u.isBanned && <Badge variant="destructive">محظور</Badge>}
+                    </div>
+                    <p className="text-xs text-lunex-gray">المستوى {u.level} · {u.readCount} قراءة · انضم {timeAgo(u.joinedAt)}</p>
+                  </div>
+                </li>
+              ))}
+            </ul>
+            {users.length === 0 && !loading && <p className="p-8 text-center text-sm text-lunex-gray">لا يوجد مستخدمون مطابقون.</p>}
+          </div>
+          <table className="hidden w-full text-sm md:table">
             <thead>
               <tr className="border-b border-white/10 text-start text-xs text-lunex-gray">
                 <th className="p-3 text-start font-medium">المستخدم</th>
@@ -187,39 +249,7 @@ export default function AdminUsersPage() {
                   <td className="p-3 text-lunex-gray">{u.readCount}</td>
                   <td className="p-3 text-lunex-gray">{timeAgo(u.joinedAt)}</td>
                   <td className="p-3 text-end">
-                    <DropdownMenu>
-                      <DropdownMenuTrigger asChild>
-                        <button className="rounded-lg p-1.5 text-lunex-gray hover:bg-white/10 hover:text-white">
-                          <MoreVertical className="h-4 w-4" />
-                        </button>
-                      </DropdownMenuTrigger>
-                      <DropdownMenuContent align="end">
-                        {fromServer ? (
-                          <ChangeRoleDialog user={u} onChanged={(newRole) => applyRoleChange(u.id, newRole)} />
-                        ) : (
-                          <DropdownMenuItem disabled title="حساب تجريبي غير مرتبط بحساب حقيقي">
-                            <ShieldCheck className="h-4 w-4" /> تغيير الدور (حساب تجريبي)
-                          </DropdownMenuItem>
-                        )}
-                        {fromServer && u.id !== currentUserId && u.role !== "owner" ? (
-                          <BanUserDialog user={u} onChanged={(isBanned) => applyBanChange(u.id, isBanned)} />
-                        ) : (
-                          <DropdownMenuItem
-                            disabled
-                            className="text-red-400"
-                            title={
-                              !fromServer
-                                ? "حساب تجريبي غير مرتبط بحساب حقيقي"
-                                : u.id === currentUserId
-                                  ? "لا يمكنك حظر حسابك"
-                                  : "لا يمكن حظر حساب المالك"
-                            }
-                          >
-                            <Ban className="h-4 w-4" /> حظر المستخدم
-                          </DropdownMenuItem>
-                        )}
-                      </DropdownMenuContent>
-                    </DropdownMenu>
+                    {menuFor(u)}
                   </td>
                 </tr>
               ))}

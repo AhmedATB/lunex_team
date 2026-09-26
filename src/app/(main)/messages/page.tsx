@@ -339,7 +339,7 @@ function MessagesPageInner() {
           )}
         </div>
 
-        <div className={cn("panel flex h-[calc(100dvh-9rem)] min-h-[20rem] flex-col overflow-hidden lg:h-[72vh]", !active && "hidden lg:flex")}>
+        <div className={cn("panel flex h-[calc(100dvh-12rem-env(safe-area-inset-bottom))] min-h-[20rem] flex-col overflow-hidden lg:h-[72vh]", !active && "hidden lg:flex")}>
           {!active ? (
             <div className="flex flex-1 flex-col items-center justify-center gap-2 p-10 text-center text-lunex-gray">
               <MessageCircle className="h-10 w-10" />

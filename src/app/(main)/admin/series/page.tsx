@@ -110,17 +110,41 @@ export default function AdminSeriesPage() {
     router.refresh();
   }
 
+  const menuFor = (s: Series) => (
+    <DropdownMenu>
+      <DropdownMenuTrigger asChild>
+        <button className="rounded-lg p-2.5 text-lunex-gray hover:bg-white/10 hover:text-white md:p-1.5" aria-label={`خيارات ${s.titleAr}`} disabled={busy === s.id}>
+          {busy === s.id ? <Loader2 className="h-4 w-4 animate-spin" /> : <MoreVertical className="h-4 w-4" />}
+        </button>
+      </DropdownMenuTrigger>
+      <DropdownMenuContent align="end">
+        <DropdownMenuItem onSelect={() => setEditing(s)}>
+          <Pencil className="h-4 w-4" /> تعديل
+        </DropdownMenuItem>
+        <DropdownMenuItem onSelect={() => setMoving([s.id])}>
+          <ArrowRightLeft className="h-4 w-4" /> نقل إلى فريق
+        </DropdownMenuItem>
+        <DropdownMenuItem onSelect={() => togglePin(s)}>
+          {s.isFeatured ? <PinOff className="h-4 w-4" /> : <Pin className="h-4 w-4" />} {s.isFeatured ? "إلغاء التثبيت في الرئيسية" : "تثبيت في الرئيسية"}
+        </DropdownMenuItem>
+        <DropdownMenuItem className="text-red-400 focus:bg-red-500/10" onSelect={() => setDeleting(s)}>
+          <Trash2 className="h-4 w-4" /> حذف
+        </DropdownMenuItem>
+      </DropdownMenuContent>
+    </DropdownMenu>
+  );
+
   return (
     <div className="space-y-4">
       <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
         <h1 className="font-display text-2xl font-bold text-white">إدارة السلاسل ({filtered.length})</h1>
         <div className="flex gap-2">
-          <div className="relative w-full sm:w-56">
+          <div className="relative min-w-0 flex-1 sm:w-56 sm:flex-none">
             <Search className="pointer-events-none absolute start-3 top-1/2 h-4 w-4 -translate-y-1/2 text-lunex-gray" />
             <Input value={query} onChange={(e) => { setQuery(e.target.value); setShown(PAGE); }} placeholder="ابحث عن سلسلة..." className="ps-9" />
           </div>
           {canManage && (
-            <Button onClick={() => setCreating(true)}>
+            <Button className="shrink-0" onClick={() => setCreating(true)}>
               <Plus className="h-4 w-4" /> سلسلة جديدة
             </Button>
           )}
@@ -139,7 +163,37 @@ export default function AdminSeriesPage() {
 
       <Card>
         <CardContent className="overflow-x-auto p-0">
-          <table className="w-full text-sm">
+          <div className="md:hidden">
+            {canManage && visible.length > 0 && (
+              <label className="flex items-center gap-3 border-b border-white/10 p-3 text-xs text-lunex-gray">
+                <Checkbox aria-label="تحديد كل الأعمال المعروضة" checked={allVisibleSelected} onCheckedChange={() => setSelected(allVisibleSelected ? new Set() : new Set(visibleIds))} />
+                تحديد كل المعروض
+              </label>
+            )}
+            <ul className="divide-y divide-white/5">
+              {visible.map((s) => (
+                <li key={s.id} className="flex items-start gap-3 p-3">
+                  {canManage && <Checkbox className="mt-1" aria-label={`تحديد ${s.titleAr}`} checked={selected.has(s.id)} onCheckedChange={() => toggle(s.id)} />}
+                  <div className="relative h-20 w-14 shrink-0 overflow-hidden rounded-lg">
+                    <Image src={s.cover} alt="" fill sizes="56px" className="object-cover" unoptimized />
+                  </div>
+                  <div className="min-w-0 flex-1 space-y-1.5">
+                    <div className="flex items-start justify-between gap-1">
+                      <Link href={`/series/${s.slug}`} className="line-clamp-2 font-bold leading-snug text-white hover:text-primary-300">{s.titleAr}</Link>
+                      {canManage && <div className="-me-1 -mt-1 shrink-0">{menuFor(s)}</div>}
+                    </div>
+                    <div className="flex flex-wrap items-center gap-1.5">
+                      <Badge variant={STATUS_VARIANT[s.status]}>{STATUS_LABEL[s.status]}</Badge>
+                      {s.isFeatured && <Badge variant="outline" className="text-[10px]">مثبّت</Badge>}
+                    </div>
+                    <p className="text-xs text-lunex-gray">{teamName.get(s.teamId) ?? "بدون فريق"} · {s.chapterCount} فصل · {formatNumber(s.views)} مشاهدة</p>
+                  </div>
+                </li>
+              ))}
+            </ul>
+            {filtered.length === 0 && <p className="p-8 text-center text-sm text-lunex-gray">لا توجد سلاسل مطابقة.</p>}
+          </div>
+          <table className="hidden w-full text-sm md:table">
             <thead>
               <tr className="border-b border-white/10 text-xs text-lunex-gray">
                 {canManage && (
@@ -177,29 +231,7 @@ export default function AdminSeriesPage() {
                   <td className="p-3 text-lunex-gray">{s.chapterCount}</td>
                   <td className="p-3 text-lunex-gray">{formatNumber(s.views)}</td>
                   <td className="p-3 text-end">
-                    {canManage && (
-                      <DropdownMenu>
-                        <DropdownMenuTrigger asChild>
-                          <button className="rounded-lg p-1.5 text-lunex-gray hover:bg-white/10 hover:text-white" aria-label={`خيارات ${s.titleAr}`} disabled={busy === s.id}>
-                            {busy === s.id ? <Loader2 className="h-4 w-4 animate-spin" /> : <MoreVertical className="h-4 w-4" />}
-                          </button>
-                        </DropdownMenuTrigger>
-                        <DropdownMenuContent align="end">
-                          <DropdownMenuItem onSelect={() => setEditing(s)}>
-                            <Pencil className="h-4 w-4" /> تعديل
-                          </DropdownMenuItem>
-                          <DropdownMenuItem onSelect={() => setMoving([s.id])}>
-                            <ArrowRightLeft className="h-4 w-4" /> نقل إلى فريق
-                          </DropdownMenuItem>
-                          <DropdownMenuItem onSelect={() => togglePin(s)}>
-                            {s.isFeatured ? <PinOff className="h-4 w-4" /> : <Pin className="h-4 w-4" />} {s.isFeatured ? "إلغاء التثبيت في الرئيسية" : "تثبيت في الرئيسية"}
-                          </DropdownMenuItem>
-                          <DropdownMenuItem className="text-red-400 focus:bg-red-500/10" onSelect={() => setDeleting(s)}>
-                            <Trash2 className="h-4 w-4" /> حذف
-                          </DropdownMenuItem>
-                        </DropdownMenuContent>
-                      </DropdownMenu>
-                    )}
+                    {canManage && menuFor(s)}
                   </td>
                 </tr>
               ))}

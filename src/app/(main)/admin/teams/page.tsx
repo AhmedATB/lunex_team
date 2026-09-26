@@ -70,7 +70,7 @@ export default function AdminTeamsPage() {
       <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
         <h1 className="font-display text-2xl font-bold text-white">إدارة الفرق ({teams.length})</h1>
         <div className="flex gap-2">
-          <div className="relative w-full sm:w-56">
+          <div className="relative min-w-0 flex-1 sm:w-56 sm:flex-none">
             <Search className="pointer-events-none absolute start-3 top-1/2 h-4 w-4 -translate-y-1/2 text-lunex-gray" />
             <Input value={query} onChange={(e) => setQuery(e.target.value)} placeholder="ابحث عن فريق..." className="ps-9" />
           </div>
@@ -83,7 +83,8 @@ export default function AdminTeamsPage() {
           const leader = db.users.find((u) => u.id === team.leaderId);
           return (
             <Card key={team.id} className="panel-hover">
-              <CardContent className="flex flex-wrap items-center gap-3 p-3.5">
+              <CardContent className="flex flex-wrap items-center gap-x-3 gap-y-2.5 p-3.5">
+                <div className="flex min-w-0 basis-full items-center gap-3 sm:flex-1 sm:basis-0">
                 <div
                   className="relative flex h-11 w-11 shrink-0 items-center justify-center overflow-hidden rounded-xl font-display text-lg font-black text-white"
                   style={team.logoUrl ? undefined : { background: `linear-gradient(135deg, ${team.color}, #C084FC)` }}
@@ -95,6 +96,7 @@ export default function AdminTeamsPage() {
                   <p className="truncate text-xs text-lunex-gray">
                     القائد: {leader?.displayName ?? "غير معيّن"} · {team.memberIds.length} عضو · {worksOf(team.id)} عمل
                   </p>
+                </div>
                 </div>
                 <div className="flex items-center gap-1.5">
                   {team.recruiting && <Badge variant="success">يستقبل طلبات</Badge>}
@@ -155,7 +157,7 @@ function CreateTeamDialog({ onCreated }: { onCreated: () => void }) {
   return (
     <Dialog open={open} onOpenChange={setOpen}>
       <DialogTrigger asChild>
-        <Button><Plus className="h-4 w-4" /> فريق جديد</Button>
+        <Button className="shrink-0"><Plus className="h-4 w-4" /> فريق جديد</Button>
       </DialogTrigger>
       <DialogContent>
         <DialogHeader><DialogTitle>إنشاء فريق</DialogTitle></DialogHeader>

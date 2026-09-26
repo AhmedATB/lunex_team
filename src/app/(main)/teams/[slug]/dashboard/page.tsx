@@ -49,6 +49,7 @@ import { AddMemberForm } from "@/components/admin/add-member-form";
 import { ActivityPanel } from "@/components/teams/activity-panel";
 import { CollaborationPanel } from "@/components/teams/collaboration-panel";
 import { RecruitmentPanel } from "@/components/teams/recruitment-panel";
+import { ImagePicker } from "@/components/admin/image-picker";
 import { teamApi, type MemberRole, type TeamPatch } from "@/lib/team-api";
 import { useToast } from "@/store/toast";
 
@@ -226,10 +227,10 @@ export default function TeamDashboardPage() {
       store.updateTeamInfo(team!.id, patch, currentUser!.id);
       return true;
     }
+    // (the logo is not part of this: it is chosen from the device and uploaded on its own)
     const { logoUrl, ...rest } = patch;
-    const ok = await saveToSite({ ...rest, discordUrl: rest.discordUrl || null }, ["name", "description", "goals", "discordUrl", "category", "recruiting", "color"]);
-    if (ok) store.updateTeamInfo(team!.id, { logoUrl }, currentUser!.id);
-    return ok;
+    void logoUrl;
+    return saveToSite({ ...rest, discordUrl: rest.discordUrl || null }, ["name", "description", "goals", "discordUrl", "category", "recruiting", "color"]);
   }
 
 
@@ -263,10 +264,10 @@ export default function TeamDashboardPage() {
   }));
 
   return (
-    <div className="container space-y-6 py-6">
-      <div className="flex flex-wrap items-center gap-3">
+    <div className="container space-y-5 py-5 sm:space-y-6 sm:py-6">
+      <div className="flex items-center gap-3">
         <div
-          className="art-glow shine relative flex h-14 w-14 items-center justify-center overflow-hidden rounded-2xl font-display text-xl font-black text-white"
+          className="art-glow shine relative flex h-12 w-12 shrink-0 items-center justify-center overflow-hidden rounded-2xl font-display text-xl font-black text-white sm:h-14 sm:w-14"
           style={team.logoUrl ? undefined : { background: `linear-gradient(135deg, ${team.color}, #C084FC)` }}
         >
           {team.logoUrl ? (
@@ -275,17 +276,17 @@ export default function TeamDashboardPage() {
             team.name[0]
           )}
         </div>
-        <div>
-          <h1 className="section-title font-display text-2xl font-black text-white sm:text-3xl">لوحة إدارة {team.name}</h1>
-          <p className="text-sm text-lunex-gray">إدارة الأعضاء والمشاريع والصلاحيات الخاصة بالفريق.</p>
+        <div className="min-w-0 flex-1">
+          <h1 className="section-title font-display text-xl font-black leading-tight text-white sm:text-3xl">لوحة إدارة {team.name}</h1>
+          <p className="mt-1 line-clamp-1 text-xs text-lunex-gray sm:text-sm">إدارة الأعضاء والمشاريع والصلاحيات الخاصة بالفريق.</p>
         </div>
-        <Badge className="ms-auto" variant={team.status === "active" ? "success" : "warning"}>
+        <Badge className="shrink-0" variant={team.status === "active" ? "success" : "warning"}>
           {team.status === "active" ? "نشط" : team.status === "suspended" ? "معلّق" : "مؤرشف"}
         </Badge>
       </div>
 
       <Tabs defaultValue="overview">
-        <TabsList className="flex-wrap">
+        <TabsList>
           <TabsTrigger value="overview">نظرة عامة</TabsTrigger>
           <TabsTrigger value="members">الأعضاء</TabsTrigger>
           <TabsTrigger value="series">السلاسل</TabsTrigger>
@@ -425,16 +426,18 @@ export default function TeamDashboardPage() {
                       >
                         <ArrowDown className="h-4 w-4" />
                       </Button>
-                      <Select
-                        value={m.customRoleId ?? "none"}
-                        onValueChange={(v) => store.setMemberRole(m.id, team.id, { customRoleId: v === "none" ? undefined : v }, currentUser.id, `غيّر الدور المخصص لـ ${m.displayName}`)}
-                      >
-                        <SelectTrigger className="w-40"><SelectValue placeholder="دور مخصص" /></SelectTrigger>
-                        <SelectContent>
-                          <SelectItem value="none">بدون دور مخصص</SelectItem>
-                          {customRoles.map((r) => <SelectItem key={r.id} value={r.id}>{r.nameAr}</SelectItem>)}
-                        </SelectContent>
-                      </Select>
+                      {!isRealTeam && (
+                        <Select
+                          value={m.customRoleId ?? "none"}
+                          onValueChange={(v) => store.setMemberRole(m.id, team.id, { customRoleId: v === "none" ? undefined : v }, currentUser.id, `غيّر الدور المخصص لـ ${m.displayName}`)}
+                        >
+                          <SelectTrigger className="w-40"><SelectValue placeholder="دور مخصص" /></SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value="none">بدون دور مخصص</SelectItem>
+                            {customRoles.map((r) => <SelectItem key={r.id} value={r.id}>{r.nameAr}</SelectItem>)}
+                          </SelectContent>
+                        </Select>
+                      )}
                       <Button
                         size="icon" variant="ghost" aria-label="إزالة" className="text-red-400 hover:bg-red-500/10"
                         onClick={() => void removeFromTeam(m.id)}
@@ -450,7 +453,7 @@ export default function TeamDashboardPage() {
         </TabsContent>
 
         <TabsContent value="series" className="space-y-3">
-          {canManage && (
+          {canManage && !isRealTeam && (
             <div className="flex justify-end">
               <CreateSeriesDialog
                 teamId={team.id}
@@ -459,16 +462,30 @@ export default function TeamDashboardPage() {
               />
             </div>
           )}
+          {isRealTeam && (
+            <p className="rounded-xl border border-white/10 bg-white/[0.03] p-3 text-xs leading-relaxed text-lunex-gray">
+              تُضاف الأعمال الجديدة من إدارة الموقع
+              {isGlobalAdmin && (
+                <>
+                  {" "}— <Link href="/admin/series" className="font-bold text-primary-300 hover:text-primary-200">افتح إدارة السلاسل</Link>
+                </>
+              )}
+              . أما تعيين المترجم والمحرر لكل عمل فقيد التطوير وسيتوفر قريبًا.
+            </p>
+          )}
           {teamSeries.map((s) => {
             const isCollaboration = s.teamId !== team.id;
             const assignableMembers = membersForSeries(s);
             return (
             <Card key={s.id} className="panel-hover">
               <CardHeader className="flex-row items-center gap-2">
-                <CardTitle className="text-base">{s.titleAr}</CardTitle>
+                <CardTitle className="text-base">
+                  {isRealTeam ? <Link href={`/series/${s.slug}`} className="hover:text-primary-300">{s.titleAr}</Link> : s.titleAr}
+                </CardTitle>
                 {isCollaboration && <Badge variant="secondary">تعاون</Badge>}
               </CardHeader>
-              <CardContent className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+              {!isRealTeam && (
+              <CardContent className="grid grid-cols-2 gap-3 lg:grid-cols-3">
                 {PRODUCTION_ROLES.map((role) => {
                   const override = store.seriesAssignmentOverrides.find((a) => a.seriesId === s.id && a.role === role);
                   const base = db.seriesAssignments.find((a) => a.seriesId === s.id && a.role === role);
@@ -491,6 +508,7 @@ export default function TeamDashboardPage() {
                   );
                 })}
               </CardContent>
+              )}
             </Card>
             );
           })}
@@ -632,6 +650,7 @@ export default function TeamDashboardPage() {
             {canEditInfo && (
               <TeamInfoSettingsForm
                 team={team}
+                isRealTeam={isRealTeam}
                 onSave={saveInfo}
               />
             )}
@@ -838,9 +857,11 @@ function CreateCollaborationDialog({
 
 function TeamInfoSettingsForm({
   team,
+  isRealTeam,
   onSave,
 }: {
   team: Team;
+  isRealTeam: boolean;
   onSave: (patch: Partial<Pick<Team, "name" | "description" | "goals" | "discordUrl" | "category" | "recruiting" | "logoUrl" | "color">>) => void | Promise<boolean>;
 }) {
   const [form, setForm] = useState({
@@ -850,10 +871,13 @@ function TeamInfoSettingsForm({
     discordUrl: team.discordUrl ?? "",
     category: team.category,
     recruiting: team.recruiting,
-    logoUrl: team.logoUrl ?? "",
     color: team.color,
   });
   const [saved, setSaved] = useState(false);
+  const router = useRouter();
+  /** The logo picked from the device; it goes up on save. */
+  const [logoFile, setLogoFile] = useState<File | null>(null);
+  const [logoError, setLogoError] = useState("");
 
   async function submit(e: React.FormEvent) {
     e.preventDefault();
@@ -864,10 +888,19 @@ function TeamInfoSettingsForm({
       discordUrl: form.discordUrl.trim(),
       category: form.category,
       recruiting: form.recruiting,
-      logoUrl: form.logoUrl.trim() || undefined,
       color: form.color,
     });
     if (ok === false) return;
+    setLogoError("");
+    if (isRealTeam && logoFile) {
+      const logo = await teamApi.setLogo(team.id, logoFile);
+      if (!logo.ok) {
+        setLogoError(logo.message);
+        return;
+      }
+      setLogoFile(null);
+      router.refresh();
+    }
     setSaved(true);
     setTimeout(() => setSaved(false), 2500);
   }
@@ -880,27 +913,21 @@ function TeamInfoSettingsForm({
       </CardHeader>
       <CardContent>
         <form onSubmit={submit} className="space-y-4">
-          <div className="space-y-1.5">
-            <Label>شعار الفريق</Label>
-            <div className="flex flex-wrap items-center gap-4">
-              <div
-                className="art-glow shine relative flex h-16 w-16 shrink-0 items-center justify-center overflow-hidden rounded-2xl font-display text-2xl font-black text-white"
-                style={{ background: `linear-gradient(135deg, ${form.color}, #C084FC)` }}
-              >
-                {form.logoUrl.trim() ? (
-                  <Image src={form.logoUrl.trim()} alt="معاينة الشعار" fill sizes="64px" className="object-cover" unoptimized />
-                ) : (
-                  (form.name.trim()[0] ?? "L").toUpperCase()
-                )}
-              </div>
-              <div className="min-w-[220px] flex-1 space-y-1.5">
-                <Input
-                  value={form.logoUrl}
-                  onChange={(e) => setForm((f) => ({ ...f, logoUrl: e.target.value }))}
-                  placeholder="رابط صورة الشعار (اختياري)"
-                />
-              </div>
-            </div>
+          <div className="space-y-2">
+            {isRealTeam ? (
+              <ImagePicker
+                label="شعار الفريق"
+                hint="من جهازك (PNG أو JPG أو WebP). يُقص إلى مربع ويُحفظ عند الضغط على حفظ. بدون شعار يظهر حرف اسم الفريق بلون من الألوان أدناه."
+                current={team.logoUrl}
+                file={logoFile}
+                onChange={setLogoFile}
+                aspect="aspect-square"
+                className="[&_button:first-of-type]:w-24"
+              />
+            ) : (
+              <Label>لون الفريق</Label>
+            )}
+            {logoError && <p className="text-xs text-red-400" role="alert">{logoError}</p>}
             <div className="flex flex-wrap gap-2 pt-1">
               {TEAM_COLOR_PALETTE.map((c) => (
                 <button

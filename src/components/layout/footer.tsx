@@ -45,10 +45,10 @@ export function Footer() {
       </div>
       <div className="container mt-8 flex flex-col items-center gap-3 border-t border-white/10 pt-6 text-xs text-lunex-gray">
         <nav aria-label="روابط قانونية" className="flex flex-wrap items-center justify-center gap-x-5 gap-y-2">
-          <Link href="/terms" className="transition-colors hover:text-primary-300">
+          <Link href="/terms" className="py-2 transition-colors hover:text-primary-300">
             الشروط والأحكام
           </Link>
-          <Link href="/privacy" className="transition-colors hover:text-primary-300">
+          <Link href="/privacy" className="py-2 transition-colors hover:text-primary-300">
             سياسة الخصوصية
           </Link>
           <CookieSettingsButton className="transition-colors hover:text-primary-300" />
@@ -68,10 +68,10 @@ function FooterCol({ title, links }: { title: string; links: { href: string; lab
   return (
     <div>
       <h4 className="font-display text-sm font-bold text-white">{title}</h4>
-      <ul className="mt-3 space-y-2">
+      <ul className="mt-2 sm:mt-3 sm:space-y-2">
         {links.map((l) => (
           <li key={l.label}>
-            <Link href={l.href} className="text-sm text-lunex-gray transition-colors hover:text-primary-300">
+            <Link href={l.href} className="block py-2 text-sm text-lunex-gray transition-colors hover:text-primary-300 sm:inline sm:py-0">
               {l.label}
             </Link>
           </li>

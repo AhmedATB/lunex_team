@@ -104,15 +104,15 @@ export function RatingWidget({ seriesId, rating, ratingCount }: { seriesId: stri
               aria-pressed={mine === v}
               onMouseEnter={() => setHover(v)}
               onClick={() => save(v)}
-              className="hover-pop p-0.5 disabled:opacity-60"
+              className="hover-pop p-1.5 disabled:opacity-60 sm:p-0.5"
             >
-              <Star className={cn("h-5 w-5 transition-colors", (hover || mine) >= v ? "fill-primary-400 text-primary-400" : "fill-transparent text-lunex-gray")} />
+              <Star className={cn("h-6 w-6 transition-colors sm:h-5 sm:w-5", (hover || mine) >= v ? "fill-primary-400 text-primary-400" : "fill-transparent text-lunex-gray")} />
             </button>
           ))}
           {mine > 0 && (
             <>
               <span className="ms-1 text-[11px] text-primary-300">تقييمك: {mine}</span>
-              <button type="button" onClick={clear} disabled={busy} className="ms-2 text-[11px] text-lunex-gray underline-offset-2 hover:text-white hover:underline disabled:opacity-60">
+              <button type="button" onClick={clear} disabled={busy} className="ms-1 px-2 py-2.5 text-xs text-lunex-gray underline-offset-2 hover:text-white hover:underline disabled:opacity-60">
                 إزالة
               </button>
             </>

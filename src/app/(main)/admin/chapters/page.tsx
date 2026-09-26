@@ -154,12 +154,15 @@ export default function AdminChaptersPage() {
                 setUploadOpen(true);
               }
             }}
-            className={`flex flex-col items-center justify-center gap-2 rounded-2xl border-2 border-dashed p-10 text-center transition-colors ${
+            className={`flex flex-col items-center justify-center gap-2 rounded-2xl border-2 border-dashed p-5 text-center transition-colors sm:p-10 ${
               dragging ? "border-primary-400 bg-primary-500/10" : "border-white/15 bg-white/[0.02]"
             }`}
           >
             <UploadCloud className="h-10 w-10 text-primary-300" />
-            <p className="text-sm text-white">اسحب وأفلت صور الفصل أو ملف ZIP هنا — أو ارفعها من الجهاز أو من مجلد Google Drive</p>
+            <p className="text-sm text-white">
+              <span className="sm:hidden">ارفع صور الفصل أو ملف ZIP من جهازك أو من مجلد Google Drive</span>
+              <span className="hidden sm:inline">اسحب وأفلت صور الفصل أو ملف ZIP هنا — أو ارفعها من الجهاز أو من مجلد Google Drive</span>
+            </p>
             <p className="text-xs text-lunex-gray">تُحفظ الصور بشكل خاص ومحمي تلقائيًا — ولسلاسل الروايات زر الفصل النصي أدناه</p>
             {currentUserId && (
               <div className="flex flex-wrap justify-center gap-2 pt-2">
@@ -186,8 +189,8 @@ export default function AdminChaptersPage() {
         onDone={loadRealChapters}
       />
 
-      <div className="flex items-center justify-between">
-        <div className="relative w-56">
+      <div className="flex flex-wrap items-center justify-between gap-2">
+        <div className="relative min-w-0 flex-1 sm:w-56 sm:flex-none">
           <Search className="pointer-events-none absolute start-3 top-1/2 h-4 w-4 -translate-y-1/2 text-lunex-gray" />
           <Input value={query} onChange={(e) => setQuery(e.target.value)} placeholder="ابحث بالسلسلة..." className="ps-9" />
         </div>
@@ -200,7 +203,37 @@ export default function AdminChaptersPage() {
 
       <Card>
         <CardContent className="overflow-x-auto p-0">
-          <table className="w-full text-sm">
+          <div className="md:hidden">
+            <ul className="divide-y divide-white/5">
+              {rows.map((r) => (
+                <li key={r.id} className="flex items-start gap-3 p-3">
+                  <Checkbox className="mt-1" aria-label="تحديد الفصل" checked={selected.has(r.id)} onCheckedChange={() => toggle(r.id)} />
+                  <div className="min-w-0 flex-1 space-y-1.5">
+                    <p className="line-clamp-1 font-bold text-white">{seriesMap.get(r.seriesId)?.titleAr}</p>
+                    <p className="text-sm text-lunex-gray">{r.title}</p>
+                    <div className="flex flex-wrap items-center gap-x-2 gap-y-1.5 text-xs text-lunex-gray">
+                      {r.isReal ? (
+                        <button type="button" className="-my-1.5 py-1.5" onClick={() => togglePublish(r.id, !r.isPublished)} aria-label="تبديل حالة النشر">
+                          <Badge variant={r.isPublished ? "success" : "secondary"}>{r.isPublished ? "منشور" : "مسودة"}</Badge>
+                        </button>
+                      ) : (
+                        <Badge variant={r.isPublished ? "success" : "secondary"}>{r.isPublished ? "منشور" : "مسودة"}</Badge>
+                      )}
+                      {r.isReal && (
+                        <Badge variant="outline" className="flex items-center gap-1 text-[10px]">
+                          <ShieldCheck className="h-2.5 w-2.5" /> محمي
+                        </Badge>
+                      )}
+                      <span>{r.contentLabel}</span>
+                      <span>· {timeAgo(r.at)}</span>
+                    </div>
+                  </div>
+                </li>
+              ))}
+            </ul>
+            {rows.length === 0 && <p className="p-8 text-center text-sm text-lunex-gray">لا توجد فصول مطابقة.</p>}
+          </div>
+          <table className="hidden w-full text-sm md:table">
             <thead>
               <tr className="border-b border-white/10 text-xs text-lunex-gray">
                 <th className="w-10 p-3"></th>
