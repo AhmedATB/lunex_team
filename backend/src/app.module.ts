@@ -22,6 +22,7 @@ import { NotificationsModule } from "./modules/notifications/notifications.modul
 import { OAuthModule } from "./modules/oauth/oauth.module";
 import { ProfilesModule } from "./modules/profiles/profiles.module";
 import { ProgressModule } from "./modules/progress/progress.module";
+import { RecruitmentModule } from "./modules/recruitment/recruitment.module";
 import { RetentionModule } from "./modules/retention/retention.module";
 import { UsersModule } from "./modules/users/users.module";
 import { WalletModule } from "./modules/wallet/wallet.module";
@@ -50,6 +51,7 @@ import { PrismaModule } from "./prisma/prisma.module";
     OAuthModule,
     ProfilesModule,
     ProgressModule,
+    RecruitmentModule,
     RetentionModule,
     UsersModule,
     WalletModule,

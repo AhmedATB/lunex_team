@@ -8,6 +8,11 @@ export const TEAM_STATUSES = ["active", "suspended", "archived"] as const;
 export const NEWS_CATEGORIES = ["announcement", "event", "news"] as const;
 export const TAG_GROUPS = ["genre", "theme", "format", "content"] as const;
 
+/** Global roles that run teams site-wide (mirrors the frontend's rbac.ts: create_team, edit_team, assign_members). */
+export const TEAM_MANAGER_ROLES: ReadonlySet<string> = new Set(["owner", "super_administrator", "global_team_manager"]);
+/** Roles inside a team that let someone manage it (its leader is always one). */
+export const TEAM_LEAD_ROLES: ReadonlySet<string> = new Set(["team_leader", "assistant_leader", "team_administrator"]);
+
 const MAX_SLUG_LENGTH = 80;
 const GENRE_GROUPS = new Set(["genre", "theme"]);
 

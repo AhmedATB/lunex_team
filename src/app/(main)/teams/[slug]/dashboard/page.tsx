@@ -6,7 +6,7 @@ import Link from "next/link";
 import Image from "next/image";
 import {
   Users, Layers, BookOpen, Star, ShieldAlert, ArrowUp, ArrowDown, Trash2,
-  Plus, Check, X, HandHeart, Clock, ClipboardList, Crown, Settings, MessageCircle,
+  Plus, Check, X, HandHeart, ClipboardList, Crown, Settings, MessageCircle,
 } from "lucide-react";
 import { useCatalog } from "@/components/catalog-provider";
 import { useSession } from "@/store/session";
@@ -25,8 +25,8 @@ import { TEAM_COLOR_PALETTE } from "@/lib/team-colors";
 import { roleTierAvatarClass, roleTierAnimationClass } from "@/lib/role-tier";
 import { cn, formatNumber, safeDecodeURIComponent, timeAgo } from "@/lib/utils";
 import type {
-  TeamRole, SeriesProductionRole, CollaborationType, RecruitmentApplication, CustomRole, Team, TeamCategory, User,
-  Department, DepartmentKind, RecruitmentPosition, Series, SeriesType, SeriesStatus,
+  TeamRole, SeriesProductionRole, CollaborationType, CustomRole, Team, TeamCategory, User,
+  Department, DepartmentKind, Series, SeriesType, SeriesStatus,
 } from "@/lib/types";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -46,6 +46,7 @@ import {
 import { ChaptersOverTimeChart, StatusPieChart } from "@/components/admin/charts";
 import { GridPageSkeleton } from "@/components/shared/skeletons";
 import { AddMemberForm } from "@/components/admin/add-member-form";
+import { RecruitmentPanel } from "@/components/teams/recruitment-panel";
 import { teamApi, type TeamPatch } from "@/lib/team-api";
 import { useToast } from "@/store/toast";
 
@@ -71,10 +72,6 @@ const COLLAB_TYPE_LABELS: Record<CollaborationType, string> = {
   need_publisher: "بحاجة ناشر",
   need_complete_team_support: "بحاجة دعم فريق كامل",
   emergency_assistance: "مساعدة طارئة",
-};
-
-const APPLICATION_STATUS_LABELS: Record<RecruitmentApplication["status"], string> = {
-  pending: "قيد المراجعة", accepted: "مقبول", rejected: "مرفوض", interview: "مقابلة", waitlist: "قائمة انتظار",
 };
 
 export default function TeamDashboardPage() {
@@ -171,10 +168,6 @@ export default function TeamDashboardPage() {
     .filter((d) => !removedDeptIds.has(d.id))
     .map((d) => ({ ...d, ...store.departmentOverrides[d.id] }));
 
-  const recruitmentPositions = [
-    ...db.recruitmentPositions.filter((p) => p.teamId === team.id),
-    ...store.addedRecruitmentPositions.filter((p) => p.teamId === team.id),
-  ].map((p) => ({ ...p, ...store.recruitmentPositionOverrides[p.id] }));
 
   const canManage = isGlobalAdmin || canInTeam(currentUser, "manage_members", customRoles) || currentUser.id === team.leaderId;
   const canManageRoles = isGlobalAdmin || canInTeam(currentUser, "manage_roles", customRoles) || currentUser.id === team.leaderId;
@@ -206,16 +199,6 @@ export default function TeamDashboardPage() {
     return ok;
   }
 
-  /** The "يستقبل طلبات" badge on the team's page and on the teams list follows whether a position is open. */
-  async function syncRecruiting(on: boolean) {
-    if (!isRealTeam) return;
-    if (await saveToSite({ recruiting: on }, ["recruiting"])) {
-      useToast.getState().push({
-        title: on ? "الفريق يستقبل طلبات الآن" : "أُغلق باب الطلبات",
-        description: on ? "ظهرت الشارة على صفحة الفريق وقائمة الفرق." : "لا توجد وظائف مفتوحة، فأُزيلت الشارة.",
-      });
-    }
-  }
 
   const activityLog = [
     ...db.teamActivityLog.filter((a) => a.teamId === team.id),
@@ -528,78 +511,7 @@ export default function TeamDashboardPage() {
         </TabsContent>
 
         <TabsContent value="recruitment" className="space-y-4">
-          <Card>
-            <CardHeader className="flex-row items-center justify-between">
-              <CardTitle>الوظائف المفتوحة</CardTitle>
-              {canManage && <CreateRecruitmentPositionDialog teamId={team.id} onCreate={(p) => {
-                store.createRecruitmentPosition(p, currentUser.id);
-                void syncRecruiting(true);
-              }} />}
-            </CardHeader>
-            <CardContent className="space-y-2">
-              {recruitmentPositions.map((p) => (
-                <div key={p.id} className="flex flex-wrap items-center gap-2 border-b-2 border-white/10 pb-2 last:border-0">
-                  <Badge variant={p.isOpen ? "success" : "secondary"}>{TEAM_ROLE_LABELS[p.role]}</Badge>
-                  <span className="text-xs text-lunex-gray">{p.description}</span>
-                  {canManage && (
-                    <Button
-                      size="sm" variant="secondary" className="ms-auto shrink-0"
-                      onClick={() => {
-                        store.toggleRecruitmentPosition(p.id, team.id, !p.isOpen, currentUser.id);
-                        if (!p.isOpen) void syncRecruiting(true);
-                        else if (!recruitmentPositions.some((o) => o.id !== p.id && o.isOpen)) void syncRecruiting(false);
-                      }}
-                    >
-                      {p.isOpen ? "إغلاق" : "إعادة فتح"}
-                    </Button>
-                  )}
-                </div>
-              ))}
-              {recruitmentPositions.length === 0 && (
-                <p className="text-sm text-lunex-gray">لا توجد وظائف مفتوحة حاليًا.</p>
-              )}
-            </CardContent>
-          </Card>
-
-          <div className="space-y-3">
-            {[...db.recruitmentApplications, ...store.addedApplications].filter((a) => a.teamId === team.id).map((application) => {
-              const applicant = db.users.find((u) => u.id === application.userId);
-              const status = store.applicationOverrides[application.id] ?? application.status;
-              if (!applicant) return null;
-              return (
-                <Card key={application.id} className="panel-hover">
-                  <CardContent className="flex flex-wrap items-center gap-3 p-4">
-                    <div className="relative h-9 w-9 shrink-0 overflow-hidden rounded-full ring-2 ring-primary-500/30">
-                      <Image src={avatarSrcFor(applicant, avatarOverrides)} alt={applicant.displayName} fill sizes="36px" className="object-cover" />
-                    </div>
-                    <div className="min-w-0 flex-1">
-                      <p className="text-sm font-bold text-white">{applicant.displayName} — {TEAM_ROLE_LABELS[application.preferredRole]}</p>
-                      <p className="text-xs text-lunex-gray">{application.experience}</p>
-                      <p className="text-xs text-lunex-gray">اللغات: {application.languages.join("، ")} · {application.availability}</p>
-                    </div>
-                    <Badge variant={status === "accepted" ? "success" : status === "rejected" ? "destructive" : "warning"}>
-                      {APPLICATION_STATUS_LABELS[status]}
-                    </Badge>
-                    {canManage && (
-                      <Button size="sm" variant="secondary" asChild>
-                        <Link href={`/messages?to=${applicant.id}`}><MessageCircle className="h-3.5 w-3.5" /> مراسلة</Link>
-                      </Button>
-                    )}
-                    {canManage && status === "pending" && (
-                      <div className="flex gap-1">
-                        <Button size="sm" onClick={() => store.reviewApplication(application.id, team.id, "accepted")}><Check className="h-3.5 w-3.5" /></Button>
-                        <Button size="sm" variant="secondary" onClick={() => store.reviewApplication(application.id, team.id, "interview")}><Clock className="h-3.5 w-3.5" /></Button>
-                        <Button size="sm" variant="destructive" onClick={() => store.reviewApplication(application.id, team.id, "rejected")}><X className="h-3.5 w-3.5" /></Button>
-                      </div>
-                    )}
-                  </CardContent>
-                </Card>
-              );
-            })}
-            {[...db.recruitmentApplications, ...store.addedApplications].filter((a) => a.teamId === team.id).length === 0 && (
-              <div className="panel p-10 text-center text-lunex-gray">لا توجد طلبات انضمام بعد.</div>
-            )}
-          </div>
+          <RecruitmentPanel teamId={team.id} canManage={canManage} />
         </TabsContent>
 
         <TabsContent value="collaboration" className="space-y-4">
@@ -1251,53 +1163,6 @@ function EditDepartmentDialog({
             </div>
           </div>
           <Button onClick={submit} className="w-full">حفظ التغييرات</Button>
-        </div>
-      </DialogContent>
-    </Dialog>
-  );
-}
-
-function CreateRecruitmentPositionDialog({
-  teamId,
-  onCreate,
-}: {
-  teamId: string;
-  onCreate: (pos: Omit<RecruitmentPosition, "id" | "createdAt" | "isOpen">) => void;
-}) {
-  const [open, setOpen] = useState(false);
-  const [role, setRole] = useState<TeamRole>("translator");
-  const [description, setDescription] = useState("");
-
-  function submit() {
-    if (!description.trim()) return;
-    onCreate({ teamId, role, description: description.trim() });
-    setDescription(""); setRole("translator"); setOpen(false);
-  }
-
-  return (
-    <Dialog open={open} onOpenChange={setOpen}>
-      <DialogTrigger asChild>
-        <Button size="sm"><Plus className="h-3.5 w-3.5" /> فتح وظيفة</Button>
-      </DialogTrigger>
-      <DialogContent>
-        <DialogHeader><DialogTitle>فتح وظيفة توظيف جديدة</DialogTitle></DialogHeader>
-        <div className="space-y-3 pt-2">
-          <div className="space-y-1.5">
-            <Label>الوظيفة المطلوبة</Label>
-            <Select value={role} onValueChange={(v) => setRole(v as TeamRole)}>
-              <SelectTrigger><SelectValue /></SelectTrigger>
-              <SelectContent>
-                {(["translator", "editor", "proofreader", "qc", "publisher"] as TeamRole[]).map((r) => (
-                  <SelectItem key={r} value={r}>{TEAM_ROLE_LABELS[r]}</SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-          </div>
-          <div className="space-y-1.5">
-            <Label>وصف الوظيفة</Label>
-            <Textarea value={description} onChange={(e) => setDescription(e.target.value)} rows={3} placeholder="المتطلبات والمهام المتوقعة..." />
-          </div>
-          <Button onClick={submit} className="w-full">فتح الوظيفة</Button>
         </div>
       </DialogContent>
     </Dialog>

@@ -7,7 +7,7 @@ import { StorageService } from "../images/storage/storage.interface";
 import { NotificationsService } from "../notifications/notifications.service";
 import { CatalogRepository } from "./catalog.repository";
 import { CatalogService } from "./catalog.service";
-import { EMPTY_STATS, slugify, toNewsDto, toSeriesDto, toTagDto, toTeamDto, uniqueSlug, type SeriesRow, type TeamRow } from "./catalog.util";
+import { EMPTY_STATS, TEAM_LEAD_ROLES, TEAM_MANAGER_ROLES, slugify, toNewsDto, toSeriesDto, toTagDto, toTeamDto, uniqueSlug, type SeriesRow, type TeamRow } from "./catalog.util";
 import type {
   AddMemberDto,
   CreateNewsDto,
@@ -23,9 +23,8 @@ import type {
 
 /** Global roles by what they may manage; mirrors the frontend's rbac.ts (manage_series, edit_team, create_announcements). */
 const SERIES_EDITORS: ReadonlySet<string> = new Set(["owner", "super_administrator", "editor"]);
-const TEAM_MANAGERS: ReadonlySet<string> = new Set(["owner", "super_administrator", "global_team_manager"]);
+const TEAM_MANAGERS = TEAM_MANAGER_ROLES;
 const NEWS_EDITORS: ReadonlySet<string> = new Set(["owner", "super_administrator", "news_manager"]);
-const TEAM_LEAD_ROLES: ReadonlySet<string> = new Set(["team_leader", "assistant_leader", "team_administrator"]);
 
 const ALLOWED_IMAGE_TYPES = new Set(["image/jpeg", "image/png", "image/webp", "image/gif"]);
 const IMAGE_SIZES = {
@@ -303,7 +302,11 @@ export class CatalogAdminService {
     const actor = await this.requireActor(actorId);
     await this.requireTeamManagement(actor, teamId);
     const userId = await this.userIdByUsername(dto.username.trim().replace(/^@/, ""));
+    const team = await this.requireTeam(teamId);
     await this.repo.setMember(teamId, userId, dto.role);
+    if (userId !== actor.id) {
+      void this.notifications.notify(userId, "team", `أُضفت إلى فريق ${team.name}`, "أضافك أحد مسؤولي الفريق إلى أعضائه.", `/teams/${team.slug}`, team.id);
+    }
     await this.audit(actor, "catalog.team_member_set", `${teamId}:${userId}:${dto.role}`, ctx);
     this.catalog.invalidate();
     return { userId, role: dto.role };

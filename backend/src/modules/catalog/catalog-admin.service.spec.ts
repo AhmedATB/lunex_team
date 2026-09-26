@@ -87,7 +87,7 @@ function build(roles: Record<string, string>) {
   };
   const catalog = { invalidate: jest.fn() };
   const storage = { put: jest.fn(async () => ({ checksum: "abc" })), get: jest.fn() };
-  const notifications = { seriesAdded: jest.fn().mockResolvedValue(undefined), newsPublished: jest.fn().mockResolvedValue(undefined) };
+  const notifications = { seriesAdded: jest.fn().mockResolvedValue(undefined), newsPublished: jest.fn().mockResolvedValue(undefined), notify: jest.fn().mockResolvedValue(undefined) };
   const service = new CatalogAdminService(
     repo as unknown as CatalogRepository,
     catalog as unknown as CatalogService,
@@ -213,13 +213,14 @@ describe("team permissions", () => {
   });
 
   it("adds an account to a team by username without a recruitment post, for managers and the team's own leader only", async () => {
-    const { service, repo, catalog } = build(roster);
+    const { service, repo, catalog, notifications } = build(roster);
     await expect(service.addMemberByUsername("manager", "t1", { username: "@rahaf", role: "translator" }, CTX)).resolves.toEqual({ userId: "id-rahaf", role: "translator" });
     expect(repo.setMember).toHaveBeenLastCalledWith("t1", "id-rahaf", "translator");
     await service.addMemberByUsername("leader", "t1", { username: " sara ", role: "editor" }, CTX);
     expect(repo.setMember).toHaveBeenLastCalledWith("t1", "id-sara", "editor");
     expect(repo.writeAuditLog).toHaveBeenLastCalledWith(expect.objectContaining({ action: "catalog.team_member_set" }));
     expect(catalog.invalidate).toHaveBeenCalled();
+    expect(notifications.notify).toHaveBeenLastCalledWith("id-sara", "team", expect.stringContaining("أُضفت إلى فريق"), expect.any(String), expect.stringContaining("/teams/"), "t1");
 
     await expect(service.addMemberByUsername("member", "t1", { username: "rahaf", role: "translator" }, CTX)).rejects.toBeInstanceOf(ForbiddenException);
     await expect(service.addMemberByUsername("manager", "t1", { username: "ghost", role: "translator" }, CTX)).rejects.toMatchObject({ response: { code: "user_not_found" } });

@@ -36,7 +36,13 @@ const PUBLIC_READS: readonly RegExp[] = [
   // the chapter lists and page details the reader needs (page bytes only ever come with a signed token)
   /^\/api\/chapters$/,
   /^\/api\/chapters\/(?!admin\/)[^/]+$/,
-  /^\/api\/images\/[^/]+\/stream$/,/^\/api\/catalog\/(?!(?:import|admin)(?:\/|$))/, /^\/api\/comments(?!\/admin(?:\/|$))(?:\/|$)/];
+  /^\/api\/images\/[^/]+\/stream$/,
+  // a team's open positions, shown on its public page
+  /^\/api\/recruitment\/teams\/[^/]+\/positions$/,
+  // the catalogue (not the owner's import tools nor the editors' lists) and the comment threads (not the moderators' list)
+  /^\/api\/catalog\/(?!(?:import|admin)(?:\/|$))/,
+  /^\/api\/comments(?!\/admin(?:\/|$))(?:\/|$)/,
+];
 
 /** The one write a visitor may make: asking for a page of a chapter to read (the server checks the chapter is not locked). */
 const PUBLIC_WRITES: readonly RegExp[] = [/^\/api\/chapters\/[^/]+\/pages\/\d+\/token$/];

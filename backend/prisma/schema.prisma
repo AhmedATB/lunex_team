@@ -96,6 +96,7 @@ model User {
   teamMemberships  TeamMember[]
   conversations    ConversationMember[]
   sentMessages     Message[]
+  applications     RecruitmentApplication[]
 
   @@map("users")
 }
@@ -507,8 +508,10 @@ model Team {
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
 
-  members TeamMember[]
-  series  Series[]
+  members      TeamMember[]
+  series       Series[]
+  positions    RecruitmentPosition[]
+  applications RecruitmentApplication[]
 
   @@map("teams")
 }
@@ -687,4 +690,48 @@ model Message {
 
   @@index([conversationId, createdAt])
   @@map("messages")
+}
+
+/// A role a team is looking for. A team shows as recruiting while it has at least one open position.
+model RecruitmentPosition {
+  id          String   @id @default(uuid())
+  teamId      String
+  team        Team     @relation(fields: [teamId], references: [id], onDelete: Cascade)
+  /// One of the team member roles: translator | editor | proofreader | qc | publisher | uploader | recruiter | reviewer.
+  role        String
+  description String   @default("")
+  isOpen      Boolean  @default(true)
+  createdAt   DateTime @default(now())
+
+  applications RecruitmentApplication[]
+
+  @@index([teamId, isOpen])
+  @@map("recruitment_positions")
+}
+
+/// A member's request to join a team, and what the team decided.
+model RecruitmentApplication {
+  id            String               @id @default(uuid())
+  teamId        String
+  team          Team                 @relation(fields: [teamId], references: [id], onDelete: Cascade)
+  positionId    String?
+  position      RecruitmentPosition? @relation(fields: [positionId], references: [id], onDelete: SetNull)
+  userId        String
+  user          User                 @relation(fields: [userId], references: [id], onDelete: Cascade)
+  preferredRole String
+  experience    String
+  portfolioUrl  String?
+  languages     String[]
+  availability  String
+  /// pending | accepted | rejected | interview | waitlist
+  status        String               @default("pending")
+  /// The reviewer's note to the applicant.
+  note          String?
+  reviewedById  String?
+  createdAt     DateTime             @default(now())
+  reviewedAt    DateTime?
+
+  @@index([teamId, status])
+  @@index([userId, createdAt])
+  @@map("recruitment_applications")
 }
