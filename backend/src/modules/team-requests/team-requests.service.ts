@@ -5,6 +5,7 @@ import { CatalogService } from "../catalog/catalog.service";
 import { slugify, TEAM_MANAGER_ROLES, uniqueSlug } from "../catalog/catalog.util";
 import { isEffectivelyBanned } from "../moderation/moderation.util";
 import { NotificationsService } from "../notifications/notifications.service";
+import { TeamActivityService } from "../team-activity/team-activity.service";
 import type { ReviewTeamRequestDto, TeamRequestDto } from "./dto/team-request.dto";
 import { TeamRequestsRepository, type NewTeamRequest } from "./team-requests.repository";
 
@@ -37,7 +38,8 @@ export class TeamRequestsService {
     private readonly repo: TeamRequestsRepository,
     private readonly catalog: CatalogService,
     private readonly catalogRepo: CatalogRepository,
-    private readonly notifications: NotificationsService
+    private readonly notifications: NotificationsService,
+    private readonly activity: TeamActivityService
   ) {}
 
   async create(actorId: string, dto: TeamRequestDto) {
@@ -109,6 +111,10 @@ export class TeamRequestsService {
     }
 
     const updated = await this.repo.decide(id, { status: dto.status, note, reviewedById: actor.id, createdTeamId: teamId });
+    if (teamId && dto.status === "approved" && !reactivated) await this.activity.record(teamId, "team_created", { actorId: actor.id });
+    else if (teamId && (dto.status === "approved" || dto.status === "suspended" || dto.status === "archived")) {
+      await this.activity.record(teamId, "team_status_changed", { actorId: actor.id, detail: dto.status === "approved" ? "active" : dto.status });
+    }
     await this.repo.writeAuditLog({ actorId: actor.id, action: `team_request.${dto.status}`, target: id, ip: ctx.ip });
     this.catalog.invalidate();
 

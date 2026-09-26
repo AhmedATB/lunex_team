@@ -9,6 +9,11 @@ export class ChaptersRepository {
     return this.prisma.chapter.create({ data });
   }
 
+  /** The Arabic title of a series, for the words of a team's activity log. */
+  seriesTitle(id: string) {
+    return this.prisma.series.findUnique({ where: { id }, select: { titleAr: true } }).then((row) => row?.titleAr ?? null);
+  }
+
   findById(id: string) {
     return this.prisma.chapter.findUnique({
       where: { id },

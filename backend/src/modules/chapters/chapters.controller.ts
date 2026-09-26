@@ -74,7 +74,7 @@ export class ChaptersController {
   @Patch(":id")
   @Throttle({ default: { limit: 30, ttl: 60_000 } })
   update(@Param("id") id: string, @Body() dto: UpdateChapterDto, @CurrentUser() actor: AccessTokenPayload) {
-    return this.chapters.update(actor.role, id, dto);
+    return this.chapters.update(actor.role, id, dto, actor.sub);
   }
 
   @Delete(":id")

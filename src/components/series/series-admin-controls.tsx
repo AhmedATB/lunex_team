@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import Image from "next/image";
+import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { Loader2, Pencil, Pin, PinOff, ShieldCheck, Trash2 } from "lucide-react";
 import { useCatalog } from "@/components/catalog-provider";
@@ -178,8 +179,20 @@ export function SeriesBannerImage({
   return <Image src={initialBanner} alt={alt} fill priority sizes="100vw" className={className} style={style} />;
 }
 
-/** Collaboration between teams is not kept on the server yet, so there is nothing to show here. */
-export function SeriesCollaboratorTeams(props: { seriesId: string }) {
-  void props;
-  return null;
+/** The teams that work on a series without owning it (their collaboration requests were accepted). Nothing shows when there are none. */
+export function SeriesCollaboratorTeams({ seriesId }: { seriesId: string }) {
+  const db = useCatalog();
+  const series = db.series.find((s) => s.id === seriesId);
+  const teams = (series?.collaboratorTeamIds ?? []).flatMap((id) => db.teams.filter((t) => t.id === id));
+  if (teams.length === 0) return null;
+  return (
+    <div className="flex flex-wrap items-center gap-2 text-sm">
+      <span className="text-lunex-gray">بالتعاون مع</span>
+      {teams.map((team) => (
+        <Link key={team.id} href={`/teams/${team.slug}`} className="rounded-full bg-white/5 px-2.5 py-0.5 font-medium text-primary-300 hover:bg-white/10">
+          {team.name}
+        </Link>
+      ))}
+    </div>
+  );
 }

@@ -3,6 +3,7 @@ import type { RequestContext } from "../../common/middleware/request-context.mid
 import type { CatalogRepository } from "../catalog/catalog.repository";
 import type { CatalogService } from "../catalog/catalog.service";
 import type { NotificationsService } from "../notifications/notifications.service";
+import type { TeamActivityService } from "../team-activity/team-activity.service";
 import type { TeamRequestDto } from "./dto/team-request.dto";
 import type { TeamRequestsRepository } from "./team-requests.repository";
 import { TeamRequestsService } from "./team-requests.service";
@@ -77,13 +78,15 @@ function build(options: { request?: Record<string, unknown> | null; openCount?: 
   };
   const catalog = { invalidate: jest.fn() };
   const notifications = { notify: jest.fn(async () => undefined) };
+  const activity = { record: jest.fn(async () => undefined) };
   const service = new TeamRequestsService(
     repo as unknown as TeamRequestsRepository,
     catalog as unknown as CatalogService,
     catalogRepo as unknown as CatalogRepository,
-    notifications as unknown as NotificationsService
+    notifications as unknown as NotificationsService,
+    activity as unknown as TeamActivityService
   );
-  return { service, repo, catalogRepo, catalog, notifications };
+  return { service, repo, catalogRepo, catalog, notifications, activity };
 }
 
 describe("sending a request", () => {
@@ -131,6 +134,15 @@ describe("deciding on a request", () => {
     expect(notifications.notify).toHaveBeenCalledWith("alice", "team", expect.stringContaining("Crescent Ink"), expect.stringContaining("أهلًا بكم"), "/teams/crescent-ink", "team-1");
     expect(catalog.invalidate).toHaveBeenCalled();
     expect(result).toMatchObject({ status: "approved", createdTeamId: "team-1" });
+  });
+
+  it("writes the new team's first entry — and later status changes — to its activity log", async () => {
+    const approved = build();
+    await approved.service.review("boss", "r1", { status: "approved" }, CTX);
+    expect(approved.activity.record).toHaveBeenCalledWith("team-1", "team_created", { actorId: "boss" });
+    const suspended = build({ request: { status: "approved", createdTeamId: "team-1" } });
+    await suspended.service.review("boss", "r1", { status: "suspended" }, CTX);
+    expect(suspended.activity.record).toHaveBeenCalledWith("team-1", "team_status_changed", { actorId: "boss", detail: "suspended" });
   });
 
   it("does not approve when the name was taken in the meantime", async () => {

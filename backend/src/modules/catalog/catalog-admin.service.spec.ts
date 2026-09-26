@@ -5,6 +5,7 @@ import { CatalogAdminService } from "./catalog-admin.service";
 import type { CatalogRepository } from "./catalog.repository";
 import type { CatalogService } from "./catalog.service";
 import type { NotificationsService } from "../notifications/notifications.service";
+import type { TeamActivityService } from "../team-activity/team-activity.service";
 
 const CTX = { ip: "203.0.113.5" } as RequestContext;
 
@@ -88,13 +89,15 @@ function build(roles: Record<string, string>) {
   const catalog = { invalidate: jest.fn() };
   const storage = { put: jest.fn(async () => ({ checksum: "abc" })), get: jest.fn() };
   const notifications = { seriesAdded: jest.fn().mockResolvedValue(undefined), newsPublished: jest.fn().mockResolvedValue(undefined), notify: jest.fn().mockResolvedValue(undefined) };
+  const activity = { record: jest.fn().mockResolvedValue(undefined) };
   const service = new CatalogAdminService(
     repo as unknown as CatalogRepository,
     catalog as unknown as CatalogService,
     storage as unknown as StorageService,
-    notifications as unknown as NotificationsService
+    notifications as unknown as NotificationsService,
+    activity as unknown as TeamActivityService
   );
-  return { service, repo, catalog, storage, notifications };
+  return { service, repo, catalog, storage, notifications, activity };
 }
 
 const roster = { owner: "owner", editor: "editor", manager: "global_team_manager", newsie: "news_manager", leader: "reader", member: "reader", reader: "reader", mod: "moderator" };
@@ -201,6 +204,24 @@ describe("team permissions", () => {
     await service.createTeam("manager", { name: "Nova", leaderUsername: "rahaf" }, CTX);
     expect(repo.createTeam).toHaveBeenCalledWith(expect.objectContaining({ leaderId: "id-rahaf" }));
     await expect(service.createTeam("manager", { name: "Nova", leaderUsername: "ghost" }, CTX)).rejects.toBeInstanceOf(NotFoundException);
+  });
+
+  it("writes member changes to the team's activity log", async () => {
+    const { service, activity } = build(roster);
+    await service.setMember("leader", "t1", "u9", "translator", CTX);
+    expect(activity.record).toHaveBeenLastCalledWith("t1", "member_role_changed", { actorId: "leader", subjectId: "u9", detail: "translator" });
+    await service.removeMember("leader", "t1", "u9", CTX);
+    expect(activity.record).toHaveBeenLastCalledWith("t1", "member_removed", { actorId: "leader", subjectId: "u9" });
+    await service.addMemberByUsername("leader", "t1", { username: "sara", role: "editor" }, CTX);
+    expect(activity.record).toHaveBeenLastCalledWith("t1", "member_added", { actorId: "leader", subjectId: "id-sara", detail: "editor" });
+  });
+
+  it("writes a team's own changes to its activity log: its status, its leader and its details", async () => {
+    const { service, activity } = build(roster);
+    await service.updateTeam("manager", "t1", { status: "suspended", leaderUsername: "rahaf", name: "New name" }, CTX);
+    expect(activity.record).toHaveBeenCalledWith("t1", "team_status_changed", { actorId: "manager", detail: "suspended" });
+    expect(activity.record).toHaveBeenCalledWith("t1", "leader_changed", { actorId: "manager", subjectId: "id-rahaf" });
+    expect(activity.record).toHaveBeenCalledWith("t1", "team_updated", { actorId: "manager" });
   });
 
   it("lets managers and the team's own leader manage members, nobody else", async () => {

@@ -23,6 +23,8 @@ import { OAuthModule } from "./modules/oauth/oauth.module";
 import { ProfilesModule } from "./modules/profiles/profiles.module";
 import { ProgressModule } from "./modules/progress/progress.module";
 import { RecruitmentModule } from "./modules/recruitment/recruitment.module";
+import { CollaborationModule } from "./modules/collaboration/collaboration.module";
+import { TeamActivityModule } from "./modules/team-activity/team-activity.module";
 import { TeamRequestsModule } from "./modules/team-requests/team-requests.module";
 import { RetentionModule } from "./modules/retention/retention.module";
 import { UsersModule } from "./modules/users/users.module";
@@ -54,6 +56,8 @@ import { PrismaModule } from "./prisma/prisma.module";
     ProgressModule,
     RecruitmentModule,
     TeamRequestsModule,
+    TeamActivityModule,
+    CollaborationModule,
     RetentionModule,
     UsersModule,
     WalletModule,

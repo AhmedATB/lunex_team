@@ -295,6 +295,8 @@ export interface Series {
   /** Position among the works pinned to the top of the home page (1 = the lead), when pinned. */
   featuredOrder?: number | null;
   isRecommended: boolean;
+  /** Teams that work on the series without owning it (accepted collaboration requests). */
+  collaboratorTeamIds?: string[];
   /** Set for series that come from the real catalogue; the built-in sample data has none. */
   contentRating?: string;
   /** Readers who opened one of its chapters in the last 7 days (real catalogue only). */

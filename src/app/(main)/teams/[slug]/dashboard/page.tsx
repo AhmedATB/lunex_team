@@ -46,6 +46,8 @@ import {
 import { ChaptersOverTimeChart, StatusPieChart } from "@/components/admin/charts";
 import { GridPageSkeleton } from "@/components/shared/skeletons";
 import { AddMemberForm } from "@/components/admin/add-member-form";
+import { ActivityPanel } from "@/components/teams/activity-panel";
+import { CollaborationPanel } from "@/components/teams/collaboration-panel";
 import { RecruitmentPanel } from "@/components/teams/recruitment-panel";
 import { teamApi, type MemberRole, type TeamPatch } from "@/lib/team-api";
 import { useToast } from "@/store/toast";
@@ -144,7 +146,9 @@ export default function TeamDashboardPage() {
   const allSeriesPool = [...db.series, ...store.addedSeries];
   const ownSeries = allSeriesPool.filter((s) => s.teamId === team.id);
   const collaboratorSeries = allSeriesPool.filter(
-    (s) => s.teamId !== team.id && (store.seriesCollaboratorTeamIds[s.id] ?? []).includes(team.id)
+    (s) =>
+      s.teamId !== team.id &&
+      ((s.collaboratorTeamIds ?? []).includes(team.id) || (!isRealTeam && (store.seriesCollaboratorTeamIds[s.id] ?? []).includes(team.id)))
   );
   const teamSeries = [...ownSeries, ...collaboratorSeries];
 
@@ -544,6 +548,15 @@ export default function TeamDashboardPage() {
         </TabsContent>
 
         <TabsContent value="collaboration" className="space-y-4">
+          {isRealTeam ? (
+            <CollaborationPanel
+              teamId={team.id}
+              teams={db.teams.map((t) => ({ id: t.id, name: t.name, leaderId: t.leaderId, status: t.status }))}
+              ownSeries={db.series.filter((s) => s.teamId === team.id).map((s) => ({ id: s.id, titleAr: s.titleAr }))}
+              canManage={canManage}
+            />
+          ) : (
+            <>
           {canManage && <CreateCollaborationDialog teamId={team.id} teams={db.teams} series={teamSeries} onCreate={store.createCollaborationRequest} />}
 
           {(["وارد", "صادر"] as const).map((direction) => {
@@ -589,11 +602,19 @@ export default function TeamDashboardPage() {
               </div>
             );
           })}
+            </>
+          )}
         </TabsContent>
 
         <TabsContent value="activity" className="space-y-2">
+          {isRealTeam ? (
+            <ActivityPanel teamId={team.id} />
+          ) : (
+            <>
           {activityLog.map((a) => <ActivityRow key={a.id} entry={a} users={db.users} />)}
           {activityLog.length === 0 && <div className="panel p-10 text-center text-lunex-gray">لا يوجد نشاط مسجل بعد.</div>}
+            </>
+          )}
         </TabsContent>
 
         {(canEditInfo || isGlobalAdmin) && (

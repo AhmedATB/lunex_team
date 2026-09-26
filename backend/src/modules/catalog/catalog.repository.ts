@@ -2,7 +2,8 @@ import { Injectable } from "@nestjs/common";
 import { PrismaService } from "../../prisma/prisma.service";
 import { roundRating, trendingSince, type SeriesStats } from "./catalog.util";
 
-const WITH_TAGS = { tags: { include: { tag: true } } } as const;
+/** A series with its tags and the teams that collaborate on it. */
+const WITH_TAGS = { tags: { include: { tag: true } }, collaborators: { select: { teamId: true } } } as const;
 const TEAM_INCLUDE = { members: { select: { userId: true } } } as const;
 const PERSON_SELECT = {
   id: true,

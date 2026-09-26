@@ -6,6 +6,7 @@ import { StorageService } from "../images/storage/storage.interface";
 import type { RequestContext } from "../../common/middleware/request-context.middleware";
 import { WalletService } from "../wallet/wallet.service";
 import { NotificationsService } from "../notifications/notifications.service";
+import { TeamActivityService } from "../team-activity/team-activity.service";
 import type { UnlockMethod } from "../wallet/wallet.repository";
 import { ChaptersRepository } from "./chapters.repository";
 import { PageImageError, preparePage, type PageSlice } from "./page-image.util";
@@ -37,7 +38,8 @@ export class ChaptersService {
     private readonly images: ImagesService,
     private readonly wallet: WalletService,
     private readonly notifications: NotificationsService,
-    private readonly catalog: CatalogService
+    private readonly catalog: CatalogService,
+    private readonly activity: TeamActivityService
   ) {}
 
   private assertCanPublish(role: string) {
@@ -74,7 +76,7 @@ export class ChaptersService {
     return this.repo.listRecent(50);
   }
 
-  async update(role: string, id: string, patch: { isPublished?: boolean; manualLock?: boolean | null }) {
+  async update(role: string, id: string, patch: { isPublished?: boolean; manualLock?: boolean | null }, actorId?: string) {
     this.assertCanPublish(role);
     const before = await this.get(id);
     const publishing = patch.isPublished === true && !before.isPublished;
@@ -84,6 +86,10 @@ export class ChaptersService {
     const stamp = publishing ? { publishedAt: new Date() } : unpublishing ? { publishedAt: null } : {};
     const updated = await this.repo.update(id, { ...patch, ...stamp });
     this.catalog.invalidate(); // the home page and the work's page show the change at once, not after the cache runs out
+    if ((publishing || unpublishing) && before.teamId) {
+      const series = await this.repo.seriesTitle(before.seriesId);
+      await this.activity.record(before.teamId, publishing ? "chapter_published" : "chapter_unpublished", { actorId, detail: `${before.number} من ${series ?? "أحد الأعمال"}` });
+    }
     // Going live is what readers who follow the series want to hear about (never for a chapter already live).
     if (publishing) void this.notifications.chapterPublished(before.seriesId, before.number);
     return updated;

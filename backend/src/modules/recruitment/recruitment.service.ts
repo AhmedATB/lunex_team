@@ -4,6 +4,7 @@ import { CatalogService } from "../catalog/catalog.service";
 import { TEAM_LEAD_ROLES, TEAM_MANAGER_ROLES } from "../catalog/catalog.util";
 import { isEffectivelyBanned } from "../moderation/moderation.util";
 import { NotificationsService } from "../notifications/notifications.service";
+import { TeamActivityService } from "../team-activity/team-activity.service";
 import type { ApplyDto, CreatePositionDto, ReviewApplicationDto } from "./dto/recruitment.dto";
 import { RecruitmentRepository } from "./recruitment.repository";
 
@@ -44,7 +45,8 @@ export class RecruitmentService {
   constructor(
     private readonly repo: RecruitmentRepository,
     private readonly catalog: CatalogService,
-    private readonly notifications: NotificationsService
+    private readonly notifications: NotificationsService,
+    private readonly activity: TeamActivityService
   ) {}
 
   // ---- positions -------------------------------------------------------------
@@ -57,27 +59,30 @@ export class RecruitmentService {
   }
 
   async createPosition(actorId: string, teamId: string, dto: CreatePositionDto) {
-    const { team } = await this.requireLead(actorId, teamId);
+    const { actor, team } = await this.requireLead(actorId, teamId);
     if ((await this.repo.listPositions(teamId, false)).length >= MAX_OPEN_POSITIONS) {
       throw new BadRequestException({ code: "too_many_positions", message: `A team can have at most ${MAX_OPEN_POSITIONS} open positions.` });
     }
     const position = await this.repo.createPosition({ teamId, role: dto.role, description: dto.description?.trim() ?? "" });
+    await this.activity.record(teamId, "position_opened", { actorId: actor.id, detail: dto.role });
     await this.syncRecruiting(team);
     return toPositionDto(position);
   }
 
   async setPositionOpen(actorId: string, positionId: string, isOpen: boolean) {
     const position = await this.requirePosition(positionId);
-    const { team } = await this.requireLead(actorId, position.teamId);
+    const { actor, team } = await this.requireLead(actorId, position.teamId);
     const updated = await this.repo.setPositionOpen(positionId, isOpen);
+    await this.activity.record(team.id, isOpen ? "position_opened" : "position_closed", { actorId: actor.id, detail: position.role });
     await this.syncRecruiting(team);
     return toPositionDto(updated);
   }
 
   async deletePosition(actorId: string, positionId: string): Promise<void> {
     const position = await this.requirePosition(positionId);
-    const { team } = await this.requireLead(actorId, position.teamId);
+    const { actor, team } = await this.requireLead(actorId, position.teamId);
     await this.repo.deletePosition(positionId);
+    await this.activity.record(team.id, "position_deleted", { actorId: actor.id, detail: position.role });
     await this.syncRecruiting(team);
   }
 
@@ -159,6 +164,7 @@ export class RecruitmentService {
     }
     const updated = await this.repo.decide(applicationId, { status: dto.status, note, reviewedById: actor.id });
     await this.repo.writeAuditLog({ actorId: actor.id, action: `recruitment.${dto.status}`, target: `${team.id}:${application.userId}`, ip: ctx.ip });
+    await this.activity.record(team.id, `application_${dto.status}` as "application_accepted", { actorId: actor.id, subjectId: application.userId, detail: dto.status === "accepted" ? role : null });
 
     const [title, body] = decisionText(dto.status, team.name, role, note);
     await this.notifications.notify(application.userId, "team", title, body, `/teams/${team.slug}`, team.id);

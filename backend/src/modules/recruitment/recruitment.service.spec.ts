@@ -2,6 +2,7 @@ import { BadRequestException, ConflictException, ForbiddenException, HttpExcepti
 import type { RequestContext } from "../../common/middleware/request-context.middleware";
 import type { CatalogService } from "../catalog/catalog.service";
 import type { NotificationsService } from "../notifications/notifications.service";
+import type { TeamActivityService } from "../team-activity/team-activity.service";
 import type { RecruitmentRepository } from "./recruitment.repository";
 import { RecruitmentService } from "./recruitment.service";
 
@@ -61,8 +62,9 @@ function build(overrides: Record<string, unknown> = {}) {
   };
   const catalog = { invalidate: jest.fn() };
   const notifications = { notify: jest.fn().mockResolvedValue(undefined) };
-  const service = new RecruitmentService(repo as unknown as RecruitmentRepository, catalog as unknown as CatalogService, notifications as unknown as NotificationsService);
-  return { service, repo, catalog, notifications };
+  const activity = { record: jest.fn().mockResolvedValue(undefined) };
+  const service = new RecruitmentService(repo as unknown as RecruitmentRepository, catalog as unknown as CatalogService, notifications as unknown as NotificationsService, activity as unknown as TeamActivityService);
+  return { service, repo, catalog, notifications, activity };
 }
 
 const application = { positionId: "p1", preferredRole: "translator", experience: "سنتان في الترجمة", languages: ["العربية"], availability: "3 فصول أسبوعيًا" };
@@ -75,6 +77,16 @@ describe("positions", () => {
       expect(repo.setTeamRecruiting).toHaveBeenCalledWith("t1", true);
       expect(catalog.invalidate).toHaveBeenCalled();
     }
+  });
+
+  it("writes what happened to the team's activity log: a position opened, closed and deleted", async () => {
+    const { service, activity } = build();
+    await service.createPosition("leader", "t1", { role: "translator" });
+    expect(activity.record).toHaveBeenLastCalledWith("t1", "position_opened", { actorId: "leader", detail: "translator" });
+    await service.setPositionOpen("leader", "p1", false);
+    expect(activity.record).toHaveBeenLastCalledWith("t1", "position_closed", expect.objectContaining({ actorId: "leader" }));
+    await service.deletePosition("leader", "p1");
+    expect(activity.record).toHaveBeenLastCalledWith("t1", "position_deleted", expect.objectContaining({ actorId: "leader" }));
   });
 
   it("is not for members, editors or strangers, nor for a banned leader", async () => {

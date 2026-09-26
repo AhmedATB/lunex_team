@@ -27,6 +27,7 @@ const MIN_RETENTION_DAYS = 7;
  *   chapter can surface on a piracy site weeks after it was read.
  * - audit_log: admin/security actions (bans, role changes, password changes).
  * - chapter views: the per-day rows behind "most read this week" (who opened what); only the totals need to last.
+ * - team activity: what happened in a team (members, roles, recruitment, chapters), for its leaders to look back on.
  * - removed comments: a moderator's removal is soft, so the text stays reviewable (an appeal,
  *   a harassment report) for this long before it is deleted for good.
  */
@@ -34,6 +35,7 @@ export const DEFAULT_RETENTION_DAYS = {
   loginEvents: 90,
   imageAccessLog: 180,
   auditLog: 365,
+  teamActivity: 365,
   removedComments: 90,
   chapterViews: 90,
 } as const;
@@ -42,6 +44,7 @@ export interface RetentionResult {
   loginEvents: number;
   imageAccessLog: number;
   auditLog: number;
+  teamActivity: number;
   removedComments: number;
   chapterViews: number;
 }
@@ -89,7 +92,7 @@ export class RetentionService implements OnModuleInit, OnModuleDestroy {
 
   /** One full sweep. Public so it can be triggered from a script or test; the timer goes through safeRun() instead. */
   async runOnce(now: Date = new Date()): Promise<RetentionResult> {
-    const result: RetentionResult = { loginEvents: 0, imageAccessLog: 0, auditLog: 0, removedComments: 0, chapterViews: 0 };
+    const result: RetentionResult = { loginEvents: 0, imageAccessLog: 0, auditLog: 0, teamActivity: 0, removedComments: 0, chapterViews: 0 };
 
     for (const sweep of this.sweeps()) {
       const cutoff = new Date(now.getTime() - sweep.days * DAY_MS);
@@ -104,7 +107,7 @@ export class RetentionService implements OnModuleInit, OnModuleDestroy {
     try {
       const result = await this.runOnce();
       this.logger.log(
-        `Retention sweep removed login_events=${result.loginEvents}, image_access_log=${result.imageAccessLog}, audit_log=${result.auditLog}, removed_comments=${result.removedComments}, chapter_views=${result.chapterViews}`
+        `Retention sweep removed login_events=${result.loginEvents}, image_access_log=${result.imageAccessLog}, audit_log=${result.auditLog}, team_activity=${result.teamActivity}, removed_comments=${result.removedComments}, chapter_views=${result.chapterViews}`
       );
     } catch (error) {
       this.logger.error("Retention sweep failed", error instanceof Error ? error.stack : String(error));
@@ -145,6 +148,13 @@ export class RetentionService implements OnModuleInit, OnModuleDestroy {
         findIds: (before, take) =>
           this.prisma.auditLog.findMany({ where: { at: { lt: before } }, select: { id: true }, take }),
         deleteByIds: (ids) => this.prisma.auditLog.deleteMany({ where: { id: { in: ids } } }),
+      },
+      {
+        name: "teamActivity",
+        days: this.days("RETENTION_TEAM_ACTIVITY_DAYS", DEFAULT_RETENTION_DAYS.teamActivity),
+        findIds: (before, take) =>
+          this.prisma.teamActivity.findMany({ where: { at: { lt: before } }, select: { id: true }, take }),
+        deleteByIds: (ids) => this.prisma.teamActivity.deleteMany({ where: { id: { in: ids } } }),
       },
       {
         name: "removedComments",

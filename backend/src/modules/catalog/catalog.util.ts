@@ -106,6 +106,8 @@ export interface SeriesRow {
   createdAt: Date;
   updatedAt: Date;
   tags: { tag: TagRow }[];
+  /** Teams that work on it without owning it (accepted collaboration requests). */
+  collaborators?: { teamId: string }[];
 }
 
 export interface SeriesStats {
@@ -171,6 +173,7 @@ export function toSeriesDto(row: SeriesRow, stats: SeriesStats = EMPTY_STATS) {
     genreIds: row.tags.filter((t) => GENRE_GROUPS.has(t.tag.group)).map((t) => t.tag.slug),
     tags: row.tags.filter((t) => !GENRE_GROUPS.has(t.tag.group)).map((t) => t.tag.nameAr),
     teamId: row.teamId ?? "",
+    collaboratorTeamIds: row.collaborators?.map((c) => c.teamId) ?? [],
     chapterCount: stats.chapterCount,
     latestChapterNumber: stats.latestChapterNumber,
     updatedAt: updatedAt.toISOString(),

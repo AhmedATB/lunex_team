@@ -100,6 +100,7 @@ model User {
   teamRequests     TeamRequest[]
   blocksMade       UserBlock[]      @relation("Blocker")
   blocksReceived   UserBlock[]      @relation("Blocked")
+  teamActivity     TeamActivity[]   @relation("TeamActivityActor")
 
   @@map("users")
 }
@@ -517,6 +518,11 @@ model Team {
   positions    RecruitmentPosition[]
   applications RecruitmentApplication[]
 
+  collaborationsSent     TeamCollaboration[] @relation("CollaborationFrom")
+  collaborationsReceived TeamCollaboration[] @relation("CollaborationTo")
+  collaborations         SeriesCollaborator[]
+  activity               TeamActivity[]
+
   @@map("teams")
 }
 
@@ -579,6 +585,9 @@ model Series {
   updatedAt         DateTime @updatedAt
 
   tags SeriesTag[]
+
+  collaborationRequests TeamCollaboration[]
+  collaborators         SeriesCollaborator[]
 
   @@index([teamId])
   @@index([updatedAt])
@@ -785,4 +794,63 @@ model UserBlock {
   @@id([blockerId, blockedId])
   @@index([blockedId])
   @@map("user_blocks")
+}
+
+/// One team asking another to help with one of its series (a translator, an editor, a whole team ...). Accepting makes the asked
+/// team a collaborator on that series (`SeriesCollaborator`).
+model TeamCollaboration {
+  id            String    @id @default(uuid())
+  fromTeamId    String
+  fromTeam      Team      @relation("CollaborationFrom", fields: [fromTeamId], references: [id], onDelete: Cascade)
+  toTeamId      String
+  toTeam        Team      @relation("CollaborationTo", fields: [toTeamId], references: [id], onDelete: Cascade)
+  seriesId      String
+  series        Series    @relation(fields: [seriesId], references: [id], onDelete: Cascade)
+  /// need_translator | need_editor | need_proofreader | need_qc | need_publisher | need_complete_team_support | emergency_assistance
+  type          String
+  message       String
+  /// pending | negotiating | accepted | rejected
+  status        String    @default("pending")
+  createdById   String?
+  respondedById String?
+  respondedAt   DateTime?
+  createdAt     DateTime  @default(now())
+
+  @@index([toTeamId, status])
+  @@index([fromTeamId, createdAt])
+  @@index([seriesId])
+  @@map("team_collaborations")
+}
+
+/// A team that works on a series it does not own, because its help was asked for and accepted.
+model SeriesCollaborator {
+  seriesId  String
+  series    Series   @relation(fields: [seriesId], references: [id], onDelete: Cascade)
+  teamId    String
+  team      Team     @relation(fields: [teamId], references: [id], onDelete: Cascade)
+  createdAt DateTime @default(now())
+
+  @@id([seriesId, teamId])
+  @@index([teamId])
+  @@map("series_collaborators")
+}
+
+/// What happened in a team, for its leaders: members and roles changing, recruitment, collaboration, chapters going live. It stores
+/// who and what (codes and ids), never the sentence: the words and the names are put together when it is read, so a deleted
+/// account leaves no name behind.
+model TeamActivity {
+  id        String   @id @default(uuid())
+  teamId    String
+  team      Team     @relation(fields: [teamId], references: [id], onDelete: Cascade)
+  actorId   String?
+  actor     User?    @relation("TeamActivityActor", fields: [actorId], references: [id], onDelete: SetNull)
+  action    String
+  /// The account the action was about, when there is one.
+  subjectId String?
+  /// A role, a team's name, a chapter's number: what the sentence needs beyond the people.
+  detail    String?
+  at        DateTime @default(now())
+
+  @@index([teamId, at])
+  @@map("team_activity")
 }

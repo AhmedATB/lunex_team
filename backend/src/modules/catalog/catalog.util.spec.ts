@@ -88,6 +88,8 @@ describe("toSeriesDto", () => {
 
   it("uses a placeholder when there is no cover, and the cover for the banner when there is no banner", () => {
     expect(toSeriesDto(seriesRow()).cover).toBe(COVER_PLACEHOLDER);
+    expect(toSeriesDto(seriesRow()).collaboratorTeamIds).toEqual([]);
+    expect(toSeriesDto(seriesRow({ collaborators: [{ teamId: "t2" }, { teamId: "t3" }] })).collaboratorTeamIds).toEqual(["t2", "t3"]);
     const withCover = toSeriesDto(seriesRow({ coverAssetId: "a1" }));
     expect(withCover.cover).toContain("/api/catalog/series/s1/cover?v=");
     expect(withCover.banner).toBe(withCover.cover);

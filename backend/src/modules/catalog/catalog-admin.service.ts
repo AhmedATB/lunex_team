@@ -5,6 +5,7 @@ import type { RequestContext } from "../../common/middleware/request-context.mid
 import { isEffectivelyBanned } from "../moderation/moderation.util";
 import { StorageService } from "../images/storage/storage.interface";
 import { NotificationsService } from "../notifications/notifications.service";
+import { TeamActivityService } from "../team-activity/team-activity.service";
 import { CatalogRepository } from "./catalog.repository";
 import { CatalogService } from "./catalog.service";
 import { EMPTY_STATS, TEAM_LEAD_ROLES, TEAM_MANAGER_ROLES, slugify, teamRoleRank, toNewsDto, toSeriesDto, toTagDto, toTeamDto, uniqueSlug, type SeriesRow, type TeamRow } from "./catalog.util";
@@ -46,7 +47,8 @@ export class CatalogAdminService {
     private readonly repo: CatalogRepository,
     private readonly catalog: CatalogService,
     private readonly storage: StorageService,
-    private readonly notifications: NotificationsService
+    private readonly notifications: NotificationsService,
+    private readonly activity: TeamActivityService
   ) {}
 
   // ---- series ----------------------------------------------------------------
@@ -242,6 +244,7 @@ export class CatalogAdminService {
       leaderId,
     });
     await this.audit(actor, "catalog.team_created", row.id, ctx);
+    await this.activity.record(row.id, "team_created", { actorId: actor.id });
     this.catalog.invalidate();
     return toTeamDto(row as TeamRow, row.members.length, null);
   }
@@ -271,6 +274,10 @@ export class CatalogAdminService {
       leaderId,
     });
     await this.audit(actor, "catalog.team_updated", id, ctx);
+    if (dto.status !== undefined && dto.status !== team.status) await this.activity.record(id, "team_status_changed", { actorId: actor.id, detail: dto.status });
+    if (leaderId !== undefined && leaderId !== team.leaderId) await this.activity.record(id, "leader_changed", { actorId: actor.id, subjectId: leaderId });
+    const infoFields = [dto.name, dto.description, dto.goals, dto.color, dto.category, dto.discordUrl, dto.websiteUrl, dto.recruiting];
+    if (infoFields.some((value) => value !== undefined)) await this.activity.record(id, "team_updated", { actorId: actor.id });
     this.catalog.invalidate();
     return toTeamDto(row as TeamRow, 0, null);
   }
@@ -294,6 +301,7 @@ export class CatalogAdminService {
     }
     await this.repo.setMember(teamId, userId, role);
     await this.audit(actor, "catalog.team_member_set", `${teamId}:${userId}:${role}`, ctx);
+    await this.activity.record(teamId, "member_role_changed", { actorId: actor.id, subjectId: userId, detail: role });
     this.catalog.invalidate();
   }
 
@@ -309,6 +317,7 @@ export class CatalogAdminService {
       void this.notifications.notify(userId, "team", `أُضفت إلى فريق ${team.name}`, "أضافك أحد مسؤولي الفريق إلى أعضائه.", `/teams/${team.slug}`, team.id);
     }
     await this.audit(actor, "catalog.team_member_set", `${teamId}:${userId}:${dto.role}`, ctx);
+    await this.activity.record(teamId, "member_added", { actorId: actor.id, subjectId: userId, detail: dto.role });
     this.catalog.invalidate();
     return { userId, role: dto.role };
   }
@@ -318,6 +327,7 @@ export class CatalogAdminService {
     await this.requireRankOver(actor, teamId, userId);
     await this.repo.removeMember(teamId, userId);
     await this.audit(actor, "catalog.team_member_removed", `${teamId}:${userId}`, ctx);
+    await this.activity.record(teamId, "member_removed", { actorId: actor.id, subjectId: userId });
     this.catalog.invalidate();
   }
 
