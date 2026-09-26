@@ -178,7 +178,10 @@ function Form({ series, canEditorial, fixedTeamId, teams = [], onClose, onSaved 
 
       <div className="space-y-1.5">
         <Label htmlFor="f-alt">أسماء بديلة (اسم في كل سطر)</Label>
-        <Textarea id="f-alt" rows={2} value={alternatives} onChange={(e) => setAlternatives(e.target.value)} placeholder="يظهر العمل في البحث بهذه الأسماء أيضًا" />
+        <Textarea id="f-alt" rows={3} value={alternatives} onChange={(e) => setAlternatives(e.target.value)} placeholder="الاسم الأصلي · الاسم الإنجليزي · كتابات عربية أخرى للاسم" />
+        <p className="text-xs text-lunex-gray">
+          يظهر العمل في بحث الموقع وفي جوجل بهذه الأسماء أيضًا. اكتب كل ما يبحث به الناس عنه: الاسم الأصلي، والاسم الإنجليزي، وطرق الكتابة العربية المختلفة (مثل: بحذف الألف واللام، أو بالهمزة وبدونها، أو بكتابة مختلفة للحروف الأجنبية).
+        </p>
       </div>
 
       <div className="space-y-1.5">

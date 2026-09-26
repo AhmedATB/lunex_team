@@ -14,6 +14,8 @@ import {
 } from "./catalog.util";
 
 const BOOTSTRAP_TTL_MS = 15_000;
+/** The sitemap and the pages that list chapter links for crawlers can be a minute behind. */
+const SITEMAP_TTL_MS = 60_000;
 const RECENT_CHAPTERS = 60;
 const NEWS_ON_BOOTSTRAP = 20;
 const TOP_READERS = 10;
@@ -58,6 +60,43 @@ export class CatalogService {
 
   invalidate() {
     this.cachedBootstrap = undefined;
+    this.cachedSitemap = undefined;
+  }
+
+  private cachedSitemap?: { at: number; value: ReturnType<CatalogService["sitemap"]> };
+
+  /** {@link sitemap}, kept for a minute: search engines and link previews ask for it far more often than it changes. */
+  sitemapCached() {
+    const now = Date.now();
+    if (this.cachedSitemap && now - this.cachedSitemap.at < SITEMAP_TTL_MS) return this.cachedSitemap.value;
+    const value = this.sitemap();
+    this.cachedSitemap = { at: now, value };
+    value.catch(() => {
+      if (this.cachedSitemap?.value === value) this.cachedSitemap = undefined;
+    });
+    return value;
+  }
+
+  /**
+   * What a search engine needs to know about the catalogue: each listed series and the chapters of it that are published,
+   * oldest first. It feeds the sitemap (so every chapter page can be found and indexed) and the chapter links a work's page
+   * carries for crawlers. Unpublished chapters never appear.
+   */
+  async sitemap() {
+    const [series, chapters] = await Promise.all([this.repo.listSitemapSeries(), this.repo.listSitemapChapters()]);
+    const bySeries = new Map<string, { number: number; at: string }[]>();
+    for (const chapter of chapters) {
+      const list = bySeries.get(chapter.seriesId) ?? [];
+      list.push({ number: chapter.number, at: (chapter.publishedAt ?? chapter.createdAt).toISOString() });
+      bySeries.set(chapter.seriesId, list);
+    }
+    return {
+      series: series.map((s) => ({
+        slug: s.slug,
+        updatedAt: s.updatedAt.toISOString(),
+        chapters: (bySeries.get(s.id) ?? []).sort((a, b) => a.number - b.number),
+      })),
+    };
   }
 
   async bootstrap() {

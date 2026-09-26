@@ -72,3 +72,27 @@ export async function loadCatalog(): Promise<Catalog> {
   const seed = await loadCatalogSeed();
   return seed ? seedToCatalog(seed) : mockCatalog();
 }
+
+/** A listed series and its published chapters, as the backend's sitemap index describes them. */
+export interface SitemapSeries {
+  slug: string;
+  updatedAt: string;
+  chapters: { number: number; at: string }[];
+}
+
+/**
+ * Every listed series with the numbers of its published chapters (GET /v1/catalog/sitemap), for the sitemap and the chapter
+ * links a work's page carries for crawlers. Kept by Next for a minute; null when the backend cannot be reached.
+ */
+export const loadSitemapIndex = cache(async (): Promise<SitemapSeries[] | null> => {
+  try {
+    const res = await fetch(`${BACKEND_URL}/v1/catalog/sitemap`, {
+      next: { revalidate: 60 },
+      headers: { "User-Agent": "LunexTeamBFF/1.0 (+server-to-server)" },
+    });
+    if (!res.ok) return null;
+    return ((await res.json()) as { series: SitemapSeries[] }).series;
+  } catch {
+    return null;
+  }
+});

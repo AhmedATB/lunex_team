@@ -23,6 +23,13 @@ export class CatalogController {
     return this.catalog.bootstrapCached();
   }
 
+  /** For the sitemap: every listed series with the numbers of its published chapters. Declared before `series/:slug`. */
+  @Get("sitemap")
+  @HttpCode(HttpStatus.OK)
+  sitemap() {
+    return this.catalog.sitemapCached();
+  }
+
   @Get("series/:slug")
   @HttpCode(HttpStatus.OK)
   series(@Param("slug") slug: string) {

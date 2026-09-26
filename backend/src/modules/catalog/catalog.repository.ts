@@ -29,6 +29,16 @@ export class CatalogRepository {
     return this.prisma.series.findMany({ where: { state: "approved" }, include: WITH_TAGS, orderBy: { updatedAt: "desc" } });
   }
 
+  /** The listed series, only as much as the sitemap needs. */
+  listSitemapSeries() {
+    return this.prisma.series.findMany({ where: { state: "approved" }, select: { id: true, slug: true, updatedAt: true }, orderBy: { updatedAt: "desc" } });
+  }
+
+  /** Every published chapter's number and when it went live, for the sitemap (no pages, no text). */
+  listSitemapChapters() {
+    return this.prisma.chapter.findMany({ where: { isPublished: true }, select: { seriesId: true, number: true, publishedAt: true, createdAt: true } });
+  }
+
   findSeriesBySlug(slug: string) {
     return this.prisma.series.findFirst({ where: { slug, state: "approved" }, include: WITH_TAGS });
   }

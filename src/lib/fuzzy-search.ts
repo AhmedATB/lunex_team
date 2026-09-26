@@ -29,8 +29,28 @@ export function normalizeSearchText(text: string): string {
 /** How many letters a word of this length may be off by: none for very short words, where any change is another word. */
 function allowedErrors(length: number): number {
   if (length <= 3) return 0;
-  if (length <= 7) return 1;
-  return 2;
+  if (length <= 5) return 1;
+  if (length <= 8) return 2;
+  return 3;
+}
+
+/**
+ * One letter for the ones that sound alike or that people type for one another (س ص ث, ز ذ ظ, ت ط, د ض, ك ق), and for the letters
+ * Arabic borrows for foreign sounds (پ ب, چ ج, ڤ ف, گ ك) — so "ثيف" finds "سيف" and "ڤيكتور" finds "فيكتور". Used only to judge
+ * a near match; an exact match still has to be exact.
+ */
+export function soundFold(text: string): string {
+  return text
+    .replace(/[صث]/g, "س")
+    .replace(/[ذظ]/g, "ز")
+    .replace(/ط/g, "ت")
+    .replace(/ض/g, "د")
+    .replace(/ق/g, "ك")
+    .replace(/پ/g, "ب")
+    .replace(/چ/g, "ج")
+    .replace(/ڤ/g, "ف")
+    .replace(/گ/g, "ك")
+    .replace(/[ءؤئ]/g, "");
 }
 
 /** Edit distance where swapping two neighbouring letters ("dragno") counts as one mistake, not two. */
@@ -90,9 +110,14 @@ export function searchTier(query: SearchQuery, fields: readonly (string | null |
   if (query.tokens.every((token) => haystack.includes(token)) || compact.includes(query.compact)) return 2;
 
   const words = texts.flatMap((text) => text.split(" "));
+  const soundWords = words.map(soundFold);
+  const soundHaystack = soundFold(haystack);
   const matches = query.tokens.every((token) => {
     if (haystack.includes(token)) return true;
-    return words.some((word) => closeTo(token, word, allowedErrors(token.length)));
+    const sound = soundFold(token);
+    if (sound.length >= 3 && soundHaystack.includes(sound)) return true;
+    const allowed = allowedErrors(token.length);
+    return words.some((word, i) => closeTo(token, word, allowed) || (sound !== token && closeTo(sound, soundWords[i], allowed)) || closeTo(sound, soundWords[i], allowed));
   });
   return matches ? 1 : 0;
 }

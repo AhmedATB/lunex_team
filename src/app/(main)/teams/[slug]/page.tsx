@@ -41,7 +41,7 @@ export default function TeamDetailPage() {
     document.title = team ? `${team.name} | LUNEX TEAM` : "غير موجود | LUNEX TEAM";
   }, [team]);
 
-  if (!ready) return <ProfileSkeleton />;
+  if (!ready && !team) return <ProfileSkeleton />;
   if (!team) {
     notFound();
   }

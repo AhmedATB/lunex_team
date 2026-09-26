@@ -57,7 +57,7 @@ export default function SeriesDetailPage() {
     document.title = series ? `${series.titleAr} | LUNEX TEAM` : "غير موجود | LUNEX TEAM";
   }, [series]);
 
-  if (!ready) return <SeriesDetailSkeleton />;
+  if (!ready && !series) return <SeriesDetailSkeleton />;
   if (!series) {
     notFound();
   }
@@ -77,24 +77,9 @@ export default function SeriesDetailPage() {
     .sort((a, b) => b.bookmarks - a.bookmarks)
     .slice(0, 6);
 
-  const jsonLd = {
-    "@context": "https://schema.org",
-    "@type": "Book",
-    name: series.titleAr,
-    author: series.author,
-    genre: seriesGenres.map((g) => g.name),
-    image: series.cover,
-    aggregateRating: {
-      "@type": "AggregateRating",
-      ratingValue: series.rating,
-      ratingCount: series.ratingCount,
-    },
-  };
-
   return (
     <div className="pb-10">
       <CatalogAutoRefresh />
-      <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }} />
       <SeriesRemovedGuard seriesId={series.id} />
 
       <div className="relative h-64 w-full overflow-hidden sm:h-80">
