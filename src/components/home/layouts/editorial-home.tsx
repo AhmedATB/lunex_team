@@ -147,9 +147,15 @@ export function EditorialHome(data: HomeLayoutData) {
             href={`/series/${lead.slug}`}
             className="panel panel-hover relative flex flex-1 items-center gap-4 overflow-hidden p-4 sm:gap-6 sm:p-6 lg:flex-[1.7] lg:p-8"
           >
-            {/* the same cover, blurred and dimmed, only as atmosphere behind the real (portrait) one */}
-            <div className="absolute inset-0 scale-125 opacity-45 blur-2xl" aria-hidden>
-              <Image src={lead.cover} alt="" fill sizes="50vw" className="object-cover" priority />
+            {/* Atmosphere behind the real (portrait) cover. On a phone it is a plain glow: a full-width blurred copy of the cover was the
+                page's largest image, cost a second download, and made the phone wait about two seconds to paint it. From `sm` up it is the
+                same cover, blurred and dimmed, loaded lazily — the real cover below is the one that matters for speed. */}
+            <div
+              className="absolute inset-0 bg-[radial-gradient(circle_at_25%_30%,rgb(var(--primary-600)/0.35),transparent_65%)] sm:hidden"
+              aria-hidden
+            />
+            <div className="absolute inset-0 hidden scale-125 opacity-45 blur-2xl sm:block" aria-hidden>
+              <Image src={lead.cover} alt="" fill sizes="50vw" className="object-cover" />
             </div>
             <div className="absolute inset-0 bg-gradient-to-t from-black/85 via-black/45 to-black/25" aria-hidden />
             <div className="relative z-10 aspect-[2/3] w-32 shrink-0 overflow-hidden rounded-xl shadow-2xl shadow-black/60 ring-1 ring-white/20 sm:w-44 lg:w-56">
