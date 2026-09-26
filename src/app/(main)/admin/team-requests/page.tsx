@@ -1,11 +1,10 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import Image from "next/image";
-import { Check, X, MessageSquareWarning, PauseCircle, Archive } from "lucide-react";
+import Link from "next/link";
+import { Check, X, MessageSquareWarning, PauseCircle, Archive, PlayCircle, Loader2 } from "lucide-react";
 import { useCatalog } from "@/components/catalog-provider";
-import { useTeamManagement } from "@/store/team-management";
-import { useSession } from "@/store/session";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -17,78 +16,83 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import { REQUEST_STATUS_LABELS, REQUEST_STATUS_VARIANT, teamRequestApi, type TeamRequest, type TeamRequestStatus } from "@/lib/team-request-api";
 import { TEAM_ROLE_LABELS } from "@/lib/rbac";
+import { CATEGORY_LABELS } from "@/lib/team-labels";
 import { cn, timeAgo } from "@/lib/utils";
-import type { TeamCreationRequest } from "@/lib/types";
+import type { TeamRole } from "@/lib/types";
 
-const STATUS_LABEL: Record<TeamCreationRequest["status"], string> = {
-  pending: "قيد المراجعة",
-  approved: "مقبول",
-  rejected: "مرفوض",
-  needs_modification: "يحتاج تعديلًا",
-  suspended: "معلّق",
-  archived: "مؤرشف",
-};
-
-const STATUS_VARIANT: Record<TeamCreationRequest["status"], "success" | "secondary" | "warning" | "destructive"> = {
-  pending: "warning",
-  approved: "success",
-  rejected: "destructive",
-  needs_modification: "warning",
-  suspended: "secondary",
-  archived: "secondary",
-};
-
+/** Requests to open a team, from the server: every member's, whichever browser it was sent from. */
 export default function AdminTeamRequestsPage() {
   useEffect(() => {
     document.title = "طلبات إنشاء الفرق | LUNEX TEAM";
   }, []);
 
   const db = useCatalog();
-  const currentUserId = useSession((s) => s.currentUserId);
-  const submittedRequests = useTeamManagement((s) => s.submittedRequests);
-  const requestOverrides = useTeamManagement((s) => s.requestOverrides);
-  const reviewRequest = useTeamManagement((s) => s.reviewRequest);
-
-  const [statusFilter, setStatusFilter] = useState<"all" | TeamCreationRequest["status"]>("all");
+  const [statusFilter, setStatusFilter] = useState<"all" | TeamRequestStatus>("all");
+  const [requests, setRequests] = useState<TeamRequest[] | null>(null);
+  const [error, setError] = useState("");
   const [noteDrafts, setNoteDrafts] = useState<Record<string, string>>({});
+  const [busyId, setBusyId] = useState<string | null>(null);
 
-  const allRequests = useMemo(() => {
-    const merged = [...submittedRequests, ...db.teamCreationRequests].map((r) => {
-      const override = requestOverrides[r.id];
-      return override ? { ...r, ...override } : r;
-    });
-    return merged.sort((a, b) => +new Date(b.createdAt) - +new Date(a.createdAt));
-  }, [submittedRequests, db.teamCreationRequests, requestOverrides]);
+  const load = useCallback(async () => {
+    const result = await teamRequestApi.list(statusFilter === "all" ? undefined : statusFilter);
+    if (result.ok) {
+      setRequests(result.body.items);
+      setError("");
+    } else {
+      setError(result.message);
+      setRequests([]);
+    }
+  }, [statusFilter]);
 
-  const filtered = statusFilter === "all" ? allRequests : allRequests.filter((r) => r.status === statusFilter);
+  useEffect(() => {
+    setRequests(null);
+    void load();
+  }, [load]);
 
-  function act(request: TeamCreationRequest, status: TeamCreationRequest["status"]) {
-    if (!currentUserId) return;
-    reviewRequest(request, status, currentUserId, noteDrafts[request.id]);
+  async function act(request: TeamRequest, status: Exclude<TeamRequestStatus, "pending">) {
+    setBusyId(request.id);
+    setError("");
+    const result = await teamRequestApi.review(request.id, status, noteDrafts[request.id]);
+    setBusyId(null);
+    if (!result.ok) {
+      setError(result.message);
+      return;
+    }
+    setNoteDrafts((d) => ({ ...d, [request.id]: "" }));
+    await load();
   }
 
   return (
     <div className="space-y-4">
       <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
         <div>
-          <h1 className="section-title font-display text-2xl font-bold text-white">طلبات إنشاء الفرق ({filtered.length})</h1>
-          <p className="text-sm text-lunex-gray">راجع طلبات إنشاء الفرق الجديدة واتخذ الإجراء المناسب.</p>
+          <h1 className="section-title font-display text-2xl font-bold text-white">طلبات إنشاء الفرق{requests ? ` (${requests.length})` : ""}</h1>
+          <p className="text-sm text-lunex-gray">راجع طلبات إنشاء الفرق الجديدة واتخذ الإجراء المناسب. تصل القرارات إلى أصحاب الطلبات كإشعارات.</p>
         </div>
         <Select value={statusFilter} onValueChange={(v) => setStatusFilter(v as typeof statusFilter)}>
           <SelectTrigger className="w-48"><SelectValue /></SelectTrigger>
           <SelectContent>
             <SelectItem value="all">كل الحالات</SelectItem>
-            {Object.entries(STATUS_LABEL).map(([value, label]) => (
+            {Object.entries(REQUEST_STATUS_LABELS).map(([value, label]) => (
               <SelectItem key={value} value={value}>{label}</SelectItem>
             ))}
           </SelectContent>
         </Select>
       </div>
 
+      {error && <p className="text-sm text-red-400" role="alert">{error}</p>}
+
       <div className="space-y-3">
-        {filtered.map((request) => {
-          const requester = db.users.find((u) => u.id === request.requesterId);
+        {requests === null && (
+          <div className="panel flex items-center justify-center gap-2 p-10 text-lunex-gray">
+            <Loader2 className="h-4 w-4 animate-spin" /> جارٍ التحميل...
+          </div>
+        )}
+        {requests?.map((request) => {
+          const team = request.createdTeamId ? db.teams.find((t) => t.id === request.createdTeamId) : undefined;
+          const busy = busyId === request.id;
           return (
             <Card
               key={request.id}
@@ -106,43 +110,44 @@ export default function AdminTeamRequestsPage() {
                     >
                       {request.logoUrl ? (
                         <Image src={request.logoUrl} alt={request.teamName} fill sizes="48px" className="object-cover" unoptimized />
-                      ) : request.color ? (
+                      ) : (
                         <span className="flex h-full w-full items-center justify-center font-display text-lg font-black text-white">
                           {request.teamName[0]?.toUpperCase()}
                         </span>
-                      ) : (
-                        <Image
-                          src={`https://picsum.photos/seed/${request.logoSeed}/64/64`}
-                          alt={request.teamName}
-                          fill
-                          className="object-cover"
-                        />
                       )}
                     </div>
                     <div>
                       <h3 className="font-display text-lg font-black text-white">{request.teamName}</h3>
-                      {requester && (
-                        <p className="text-xs text-lunex-gray">
-                          مقدَّم من <span className="text-primary-300">{requester.displayName}</span> · {timeAgo(request.createdAt)}
-                        </p>
-                      )}
+                      <p className="text-xs text-lunex-gray">
+                        مقدَّم من{" "}
+                        <Link href={`/profile/${request.requester.username}`} className="text-primary-300 hover:underline">
+                          {request.requester.displayName}
+                        </Link>{" "}
+                        · {timeAgo(request.createdAt)}
+                      </p>
                     </div>
                   </div>
-                  <Badge variant={STATUS_VARIANT[request.status]}>{STATUS_LABEL[request.status]}</Badge>
+                  <Badge variant={REQUEST_STATUS_VARIANT[request.status]}>{REQUEST_STATUS_LABELS[request.status]}</Badge>
                 </div>
 
                 <p className="text-sm text-lunex-gray">{request.description}</p>
                 <p className="text-sm text-lunex-gray"><span className="font-bold text-white">الأهداف:</span> {request.goals}</p>
 
                 <div className="flex flex-wrap gap-4 text-xs text-lunex-gray">
-                  <span><span className="font-bold text-white">التصنيف:</span> {request.category}</span>
+                  <span><span className="font-bold text-white">التصنيف:</span> {CATEGORY_LABELS[request.category as keyof typeof CATEGORY_LABELS] ?? request.category}</span>
                   <span><span className="font-bold text-white">الأعضاء المتوقعون:</span> {request.expectedMembers}</span>
-                  <span><span className="font-bold text-white">الخبرة:</span> {request.previousExperience}</span>
+                  {request.previousExperience && <span><span className="font-bold text-white">الخبرة:</span> {request.previousExperience}</span>}
+                </div>
+
+                <div className="flex flex-wrap gap-x-4 gap-y-1 text-xs">
+                  {request.discordUrl && <a href={request.discordUrl} target="_blank" rel="noopener noreferrer" className="text-primary-300 hover:underline">سيرفر الديسكورد</a>}
+                  {request.portfolioUrl && <a href={request.portfolioUrl} target="_blank" rel="noopener noreferrer" className="text-primary-300 hover:underline">أعمال سابقة</a>}
+                  {request.logoUrl && <a href={request.logoUrl} target="_blank" rel="noopener noreferrer" className="text-primary-300 hover:underline">الشعار المقترح</a>}
                 </div>
 
                 <div className="flex flex-wrap gap-1.5">
                   {request.requiredPositions.map((p) => (
-                    <Badge key={p} variant="secondary" className="text-[10px]">{TEAM_ROLE_LABELS[p]}</Badge>
+                    <Badge key={p} variant="secondary" className="text-[10px]">{TEAM_ROLE_LABELS[p as TeamRole] ?? p}</Badge>
                   ))}
                 </div>
 
@@ -152,33 +157,48 @@ export default function AdminTeamRequestsPage() {
                   </p>
                 )}
 
+                {team && (
+                  <Link href={`/teams/${team.slug}`} className="inline-block text-sm font-medium text-primary-300 hover:underline">
+                    فتح صفحة الفريق
+                  </Link>
+                )}
+
                 {(request.status === "pending" || request.status === "needs_modification") && (
                   <div className="space-y-2 border-t-2 border-white/10 pt-3">
                     <Input
                       value={noteDrafts[request.id] ?? ""}
                       onChange={(e) => setNoteDrafts((d) => ({ ...d, [request.id]: e.target.value }))}
                       placeholder="ملاحظة اختيارية للمتقدم..."
+                      maxLength={600}
                     />
                     <div className="flex flex-wrap gap-2">
-                      <Button size="sm" onClick={() => act(request, "approved")}>
+                      <Button size="sm" onClick={() => act(request, "approved")} disabled={busy}>
                         <Check className="hover-pop h-3.5 w-3.5" /> قبول
                       </Button>
-                      <Button size="sm" variant="destructive" onClick={() => act(request, "rejected")}>
+                      <Button size="sm" variant="destructive" onClick={() => act(request, "rejected")} disabled={busy}>
                         <X className="hover-pop h-3.5 w-3.5" /> رفض
                       </Button>
-                      <Button size="sm" variant="secondary" onClick={() => act(request, "needs_modification")}>
-                        <MessageSquareWarning className="hover-pop h-3.5 w-3.5" /> طلب تعديل
-                      </Button>
+                      {request.status === "pending" && (
+                        <Button size="sm" variant="secondary" onClick={() => act(request, "needs_modification")} disabled={busy}>
+                          <MessageSquareWarning className="hover-pop h-3.5 w-3.5" /> طلب تعديل
+                        </Button>
+                      )}
                     </div>
                   </div>
                 )}
 
-                {request.status === "approved" && (
+                {(request.status === "approved" || request.status === "suspended") && (
                   <div className="flex flex-wrap gap-2 border-t-2 border-white/10 pt-3">
-                    <Button size="sm" variant="secondary" onClick={() => act(request, "suspended")}>
-                      <PauseCircle className="h-3.5 w-3.5" /> تعليق
-                    </Button>
-                    <Button size="sm" variant="secondary" onClick={() => act(request, "archived")}>
+                    {request.status === "approved" ? (
+                      <Button size="sm" variant="secondary" onClick={() => act(request, "suspended")} disabled={busy}>
+                        <PauseCircle className="h-3.5 w-3.5" /> تعليق
+                      </Button>
+                    ) : (
+                      <Button size="sm" variant="secondary" onClick={() => act(request, "approved")} disabled={busy}>
+                        <PlayCircle className="h-3.5 w-3.5" /> إعادة تفعيل
+                      </Button>
+                    )}
+                    <Button size="sm" variant="secondary" onClick={() => act(request, "archived")} disabled={busy}>
                       <Archive className="h-3.5 w-3.5" /> أرشفة
                     </Button>
                   </div>
@@ -187,7 +207,7 @@ export default function AdminTeamRequestsPage() {
             </Card>
           );
         })}
-        {filtered.length === 0 && (
+        {requests?.length === 0 && !error && (
           <div className="panel p-10 text-center text-lunex-gray">لا توجد طلبات بهذه الحالة.</div>
         )}
       </div>

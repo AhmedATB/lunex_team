@@ -32,6 +32,13 @@ const MESSAGES: Record<string, string> = {
   drive_rate_limited: "Google Drive يحدّ الطلبات الآن. حاول بعد دقيقة.",
   drive_auth_failed: "تعذر على الموقع تسجيل الدخول إلى Google Drive.",
   drive_failed: "تعذرت قراءة المجلد من Google Drive.",
+  too_many_open_requests: "لديك طلبان بانتظار القرار. انتظر الرد عليهما أولًا.",
+  too_many_requests: "أرسلت طلبات كثيرة اليوم. حاول غدًا.",
+  team_name_taken: "يوجد فريق بهذا الاسم. اختر اسمًا آخر.",
+  not_awaiting_changes: "لا يمكن تعديل هذا الطلب الآن.",
+  invalid_transition: "لا يمكن نقل الطلب إلى هذه الحالة من حالته الحالية.",
+  request_not_found: "هذا الطلب غير موجود.",
+  invalid_request: "الاسم والوصف والأهداف لا يمكن أن تكون فارغة.",
 };
 
 export function messageFor(body: unknown): string {

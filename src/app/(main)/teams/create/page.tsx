@@ -1,10 +1,12 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
-import { useRouter } from "next/navigation";
+import { Suspense, useEffect, useMemo, useState } from "react";
+import Link from "next/link";
+import { useRouter, useSearchParams } from "next/navigation";
 import Image from "next/image";
 import { CheckCircle2, Send } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
+import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
@@ -17,8 +19,9 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import { useCatalog } from "@/components/catalog-provider";
 import { useSession } from "@/store/session";
-import { useTeamManagement } from "@/store/team-management";
+import { REQUEST_STATUS_LABELS, REQUEST_STATUS_VARIANT, teamRequestApi, type TeamRequest } from "@/lib/team-request-api";
 import { TEAM_ROLE_LABELS } from "@/lib/rbac";
 import { TEAM_COLOR_PALETTE } from "@/lib/team-colors";
 import { CATEGORY_LABELS } from "@/lib/team-labels";
@@ -27,30 +30,69 @@ import type { TeamCategory, TeamRole } from "@/lib/types";
 
 const POSITION_OPTIONS: TeamRole[] = ["translator", "editor", "proofreader", "qc", "publisher"];
 
+const EMPTY_FORM = {
+  teamName: "",
+  description: "",
+  goals: "",
+  discordUrl: "",
+  category: "manhwa" as TeamCategory,
+  expectedMembers: 8,
+  previousExperience: "",
+  portfolioUrl: "",
+  logoUrl: "",
+  color: TEAM_COLOR_PALETTE[0] as string,
+};
+
 export default function CreateTeamPage() {
+  return (
+    <Suspense fallback={null}>
+      <CreateTeamForm />
+    </Suspense>
+  );
+}
+
+/** Asking to open a team. The request goes to the site's team managers; a decision (or a request for changes) comes back as a notification. */
+function CreateTeamForm() {
   useEffect(() => {
     document.title = "طلب إنشاء فريق | LUNEX TEAM";
   }, []);
 
   const router = useRouter();
+  const editId = useSearchParams().get("edit");
+  const db = useCatalog();
   const currentUserId = useSession((s) => s.currentUserId);
-  const submitTeamRequest = useTeamManagement((s) => s.submitTeamRequest);
 
   const [submitted, setSubmitted] = useState(false);
-  const [form, setForm] = useState({
-    teamName: "",
-    description: "",
-    goals: "",
-    discordUrl: "",
-    category: "manhwa" as TeamCategory,
-    expectedMembers: 8,
-    previousExperience: "",
-    portfolioUrl: "",
-    logoUrl: "",
-    color: TEAM_COLOR_PALETTE[0] as string,
-  });
+  const [busy, setBusy] = useState(false);
+  const [form, setForm] = useState(EMPTY_FORM);
   const [positions, setPositions] = useState<TeamRole[]>([]);
   const [error, setError] = useState("");
+  const [mine, setMine] = useState<TeamRequest[] | null>(null);
+  const [prefilled, setPrefilled] = useState(false);
+
+  useEffect(() => {
+    void teamRequestApi.mine().then((r) => setMine(r.ok ? r.body.items : []));
+  }, [submitted]);
+
+  // The request a manager sent back for changes: its fields go into the form.
+  const editing = useMemo(() => (editId && mine ? mine.find((r) => r.id === editId && r.status === "needs_modification") ?? null : null), [editId, mine]);
+  useEffect(() => {
+    if (!editing || prefilled) return;
+    setForm({
+      teamName: editing.teamName,
+      description: editing.description,
+      goals: editing.goals,
+      discordUrl: editing.discordUrl,
+      category: editing.category as TeamCategory,
+      expectedMembers: editing.expectedMembers,
+      previousExperience: editing.previousExperience,
+      portfolioUrl: editing.portfolioUrl ?? "",
+      logoUrl: editing.logoUrl ?? "",
+      color: editing.color ?? TEAM_COLOR_PALETTE[0],
+    });
+    setPositions(editing.requiredPositions as TeamRole[]);
+    setPrefilled(true);
+  }, [editing, prefilled]);
 
   const togglePosition = (role: TeamRole) => {
     setPositions((p) => (p.includes(role) ? p.filter((r) => r !== role) : [...p, role]));
@@ -61,8 +103,9 @@ export default function CreateTeamPage() {
     [form, positions]
   );
 
-  function submit(e: React.FormEvent) {
+  async function submit(e: React.FormEvent) {
     e.preventDefault();
+    if (busy) return;
     if (!currentUserId) {
       setError("يجب تسجيل الدخول لإرسال طلب إنشاء فريق.");
       return;
@@ -72,14 +115,12 @@ export default function CreateTeamPage() {
       return;
     }
     setError("");
-    submitTeamRequest({
-      requesterId: currentUserId,
+    setBusy(true);
+    const input = {
       teamName: form.teamName.trim(),
-      logoSeed: `lunex-new-team-${Date.now()}`,
-      bannerSeed: `lunex-new-team-banner-${Date.now()}`,
       description: form.description.trim(),
       goals: form.goals.trim(),
-      discordUrl: form.discordUrl.trim(),
+      discordUrl: form.discordUrl.trim() || undefined,
       requiredPositions: positions,
       category: form.category,
       expectedMembers: form.expectedMembers,
@@ -87,7 +128,13 @@ export default function CreateTeamPage() {
       portfolioUrl: form.portfolioUrl.trim() || undefined,
       logoUrl: form.logoUrl.trim() || undefined,
       color: form.color,
-    });
+    };
+    const result = editing ? await teamRequestApi.resubmit(editing.id, input) : await teamRequestApi.create(input);
+    setBusy(false);
+    if (!result.ok) {
+      setError(result.message);
+      return;
+    }
     setSubmitted(true);
   }
 
@@ -102,7 +149,7 @@ export default function CreateTeamPage() {
         </div>
         <h1 className="section-title font-display text-2xl font-black text-white">تم إرسال طلبك بنجاح</h1>
         <p className="max-w-md text-sm text-lunex-gray">
-          سيقوم فريق إدارة المنصة بمراجعة طلبك والرد عليه قريبًا. يمكنك متابعة حالة الطلب من لوحة إدارة الطلبات إذا كنت مسؤولًا.
+          سيراجع فريق إدارة المنصة طلبك، وسيصلك إشعار بالقرار أو بما يلزم تعديله.
         </p>
         <Button onClick={() => router.push("/teams")}>العودة إلى الفرق</Button>
       </div>
@@ -112,9 +159,51 @@ export default function CreateTeamPage() {
   return (
     <div className="container max-w-2xl space-y-6 py-8">
       <div>
-        <h1 className="section-title font-display text-2xl font-black text-white sm:text-3xl">طلب إنشاء فريق جديد</h1>
-        <p className="mt-2 text-sm text-lunex-gray">عبّئ النموذج التالي وسيراجع فريق LUNEX طلبك للموافقة عليه.</p>
+        <h1 className="section-title font-display text-2xl font-black text-white sm:text-3xl">
+          {editing ? "تعديل طلب إنشاء الفريق" : "طلب إنشاء فريق جديد"}
+        </h1>
+        <p className="mt-2 text-sm text-lunex-gray">
+          {editing ? "عدّل ما طُلب منك ثم أعد إرسال الطلب." : "عبّئ النموذج التالي وسيراجع فريق LUNEX طلبك للموافقة عليه."}
+        </p>
       </div>
+
+      {editing?.reviewerNote && (
+        <p className="border-s-4 border-amber-400 bg-amber-400/10 p-3 text-sm text-amber-300">ملاحظة المراجع: {editing.reviewerNote}</p>
+      )}
+
+      {mine && mine.length > 0 && (
+        <Card>
+          <CardHeader>
+            <CardTitle>طلباتي</CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-3">
+            {mine.map((request) => {
+              const team = request.createdTeamId ? db.teams.find((t) => t.id === request.createdTeamId) : undefined;
+              return (
+                <div key={request.id} className="space-y-1.5 rounded-xl border border-white/10 p-3">
+                  <div className="flex flex-wrap items-center justify-between gap-2">
+                    <span className="font-display font-bold text-white">{request.teamName}</span>
+                    <Badge variant={REQUEST_STATUS_VARIANT[request.status]}>{REQUEST_STATUS_LABELS[request.status]}</Badge>
+                  </div>
+                  {request.reviewerNote && request.status !== "needs_modification" && (
+                    <p className="text-xs text-lunex-gray">ملاحظة المراجع: {request.reviewerNote}</p>
+                  )}
+                  {request.status === "needs_modification" && request.id !== editing?.id && (
+                    <Button asChild size="sm" variant="secondary">
+                      <Link href={`/teams/create?edit=${request.id}`}>عدّل الطلب</Link>
+                    </Button>
+                  )}
+                  {team && (
+                    <Link href={`/teams/${team.slug}`} className="text-sm font-medium text-primary-300 hover:underline">
+                      فتح صفحة الفريق
+                    </Link>
+                  )}
+                </div>
+              );
+            })}
+          </CardContent>
+        </Card>
+      )}
 
       <Card>
         <CardHeader>
@@ -130,6 +219,7 @@ export default function CreateTeamPage() {
                 value={form.teamName}
                 onChange={(e) => setForm((f) => ({ ...f, teamName: e.target.value }))}
                 placeholder="مثال: Crescent Ink"
+                maxLength={80}
               />
             </div>
 
@@ -152,7 +242,9 @@ export default function CreateTeamPage() {
                     onChange={(e) => setForm((f) => ({ ...f, logoUrl: e.target.value }))}
                     placeholder="رابط صورة الشعار (اختياري)"
                   />
-                  <p className="text-xs text-lunex-gray">إن لم تضع رابطًا، سيظهر شعار بحرف اسم الفريق مع اللون المختار.</p>
+                  <p className="text-xs text-lunex-gray">
+                    يراه المراجع فقط. يبدأ الفريق بشعار حرف اسمه مع اللون المختار، ويضع مديره الشعار الحقيقي بعد الموافقة.
+                  </p>
                 </div>
               </div>
               <div className="flex flex-wrap gap-2 pt-1">
@@ -180,6 +272,7 @@ export default function CreateTeamPage() {
                 value={form.description}
                 onChange={(e) => setForm((f) => ({ ...f, description: e.target.value }))}
                 placeholder="عرّف عن فريقك وما الذي يميزه..."
+                maxLength={2000}
               />
             </div>
 
@@ -191,6 +284,7 @@ export default function CreateTeamPage() {
                 value={form.goals}
                 onChange={(e) => setForm((f) => ({ ...f, goals: e.target.value }))}
                 placeholder="ما الذي يسعى الفريق لتحقيقه؟"
+                maxLength={2000}
               />
             </div>
 
@@ -227,6 +321,7 @@ export default function CreateTeamPage() {
                   </label>
                 ))}
               </div>
+              <p className="text-xs text-lunex-gray">تُفتح هذه الوظائف للتقديم في صفحة فريقك بعد الموافقة.</p>
             </div>
 
             <div className="grid gap-4 sm:grid-cols-2">
@@ -260,13 +355,14 @@ export default function CreateTeamPage() {
                 value={form.previousExperience}
                 onChange={(e) => setForm((f) => ({ ...f, previousExperience: e.target.value }))}
                 placeholder="هل عمل أعضاء الفريق سابقًا في فرق ترجمة أخرى؟"
+                maxLength={1500}
               />
             </div>
 
-            {error && <p className="text-sm text-red-400">{error}</p>}
+            {error && <p className="text-sm text-red-400" role="alert">{error}</p>}
 
-            <Button type="submit" size="lg" className="w-full">
-              <Send className="h-4 w-4" /> إرسال الطلب
+            <Button type="submit" size="lg" className="w-full" disabled={busy}>
+              <Send className="h-4 w-4" /> {editing ? "إعادة إرسال الطلب" : "إرسال الطلب"}
             </Button>
           </form>
         </CardContent>

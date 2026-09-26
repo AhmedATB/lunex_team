@@ -109,6 +109,7 @@ describe("UsersService.exportData", () => {
     coinTransactions: [{ amount: 30, reason: "grant", chapterId: null, note: null, createdAt: new Date("2026-03-04T00:00:00Z") }],
     messages: [{ conversationId: "conv-1", text: "مرحبا", createdAt: new Date("2026-03-05T00:00:00Z") }],
     conversations: [{ joinedAt: new Date("2026-03-05T00:00:00Z"), conversation: { id: "conv-1", title: null, isGroup: false } }],
+    teamRequests: [{ teamName: "Crescent Ink", description: "d", goals: "g", discordUrl: null, requiredPositions: ["translator"], category: "manhwa", expectedMembers: 8, previousExperience: "", portfolioUrl: null, logoUrl: null, status: "pending", reviewerNote: null, createdAt: new Date("2026-03-07T00:00:00Z"), reviewedAt: null }],
     recruitmentApplications: [{ teamId: "t1", preferredRole: "translator", experience: "سنتان", portfolioUrl: null, languages: ["ar"], availability: "مساءً", status: "pending", note: null, createdAt: new Date("2026-03-06T00:00:00Z"), reviewedAt: null }],
   };
 
@@ -136,6 +137,7 @@ describe("UsersService.exportData", () => {
     expect(result.messagesSent).toEqual([expect.objectContaining({ conversationId: "conv-1", text: "مرحبا" })]);
     expect(result.conversations).toEqual([expect.objectContaining({ id: "conv-1", isGroup: false, joinedAt: expect.any(Date) })]);
     expect(result.teamApplications).toEqual([expect.objectContaining({ teamId: "t1", status: "pending" })]);
+    expect(result.teamCreationRequests).toEqual([expect.objectContaining({ teamName: "Crescent Ink", status: "pending" })]);
     // The wallet numbers sit under `wallet`, not loose in the account block.
     expect(result.account).not.toHaveProperty("coins");
   });

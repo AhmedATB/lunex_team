@@ -4,7 +4,6 @@ import { create } from "zustand";
 import { persist } from "zustand/middleware";
 import type {
   Team,
-  TeamCreationRequest,
   CustomRole,
   RecruitmentApplication,
   RecruitmentPosition,
@@ -34,8 +33,6 @@ export function applyTeamOverride(team: Team, overrides: Record<string, Partial<
 }
 
 interface TeamManagementState {
-  submittedRequests: TeamCreationRequest[];
-  requestOverrides: Record<string, { status: TeamCreationRequest["status"]; reviewerNote?: string; reviewedAt: string; createdTeamId?: string }>;
   createdTeams: Team[];
   addedCustomRoles: CustomRole[];
   applicationOverrides: Record<string, RecruitmentApplication["status"]>;
@@ -64,13 +61,6 @@ interface TeamManagementState {
   addedChapters: Chapter[];
   seriesCollaboratorTeamIds: Record<string, string[]>;
 
-  submitTeamRequest: (req: Omit<TeamCreationRequest, "id" | "status" | "createdAt">) => void;
-  reviewRequest: (
-    request: TeamCreationRequest,
-    status: TeamCreationRequest["status"],
-    reviewerId: string,
-    note?: string
-  ) => void;
   reviewApplication: (applicationId: string, teamId: string, status: RecruitmentApplication["status"]) => void;
   submitApplication: (
     application: Pick<RecruitmentApplication, "teamId" | "positionId" | "userId" | "preferredRole" | "experience" | "portfolioUrl" | "languages" | "availability">
@@ -141,8 +131,6 @@ interface TeamManagementState {
 export const useTeamManagement = create<TeamManagementState>()(
   persist(
     (set, get) => ({
-      submittedRequests: [],
-      requestOverrides: {},
       createdTeams: [],
       addedCustomRoles: [],
       applicationOverrides: {},
@@ -170,67 +158,6 @@ export const useTeamManagement = create<TeamManagementState>()(
       removedChapterIds: [],
       addedChapters: [],
       seriesCollaboratorTeamIds: {},
-
-      submitTeamRequest: (req) => {
-        const id = `submitted-request-${Date.now()}`;
-        set((s) => ({
-          submittedRequests: [
-            { ...req, id, status: "pending", createdAt: new Date().toISOString() },
-            ...s.submittedRequests,
-          ],
-        }));
-      },
-
-      reviewRequest: (request, status, reviewerId, note) => {
-        const reviewedAt = new Date().toISOString();
-        let createdTeamId: string | undefined;
-
-        if (status === "approved") {
-          const team: Team = {
-            id: `created-team-${Date.now()}`,
-            slug: slugify(request.teamName),
-            name: request.teamName,
-            logoHue: 270,
-            color: request.color ?? "#A855F7",
-            logoUrl: request.logoUrl,
-            description: request.description,
-            leaderId: request.requesterId,
-            memberIds: [request.requesterId],
-            discordUrl: request.discordUrl,
-            rank: 999,
-            recruiting: true,
-            createdAt: reviewedAt,
-            category: request.category,
-            goals: request.goals,
-            status: "active",
-            lastActivityAt: reviewedAt,
-          };
-          createdTeamId = team.id;
-          set((s) => ({ createdTeams: [...s.createdTeams, team] }));
-        }
-
-        set((s) => ({
-          requestOverrides: {
-            ...s.requestOverrides,
-            [request.id]: { status, reviewerNote: note, reviewedAt, createdTeamId },
-          },
-        }));
-
-        get().logActivity({
-          teamId: createdTeamId ?? "platform",
-          userId: reviewerId,
-          action:
-            status === "approved"
-              ? `وافق على طلب إنشاء فريق "${request.teamName}"`
-              : status === "rejected"
-                ? `رفض طلب إنشاء فريق "${request.teamName}"`
-                : status === "needs_modification"
-                  ? `طلب تعديلات على طلب فريق "${request.teamName}"`
-                  : status === "suspended"
-                    ? `علّق طلب فريق "${request.teamName}"`
-                    : `أرشف طلب فريق "${request.teamName}"`,
-        });
-      },
 
       reviewApplication: (applicationId, teamId, status) => {
         set((s) => ({

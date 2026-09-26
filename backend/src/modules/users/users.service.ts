@@ -314,6 +314,7 @@ export class UsersService {
       messagesSent: data.messages,
       conversations: data.conversations.map((c) => ({ ...c.conversation, joinedAt: c.joinedAt })),
       teamApplications: data.recruitmentApplications,
+      teamCreationRequests: data.teamRequests,
       chapterAccessLog: data.imageAccess,
       accountActivity: data.activity,
     };

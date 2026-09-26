@@ -97,6 +97,7 @@ model User {
   conversations    ConversationMember[]
   sentMessages     Message[]
   applications     RecruitmentApplication[]
+  teamRequests     TeamRequest[]
 
   @@map("users")
 }
@@ -735,4 +736,37 @@ model RecruitmentApplication {
   @@index([teamId, status])
   @@index([userId, createdAt])
   @@map("recruitment_applications")
+}
+
+/// A member's request to open a new team, and the site managers' decision on it. Approving creates the team with the requester as its
+/// leader (`createdTeamId`); suspending or archiving an approved one does the same to its team.
+model TeamRequest {
+  id                 String    @id @default(uuid())
+  requesterId        String
+  requester          User      @relation(fields: [requesterId], references: [id], onDelete: Cascade)
+  teamName           String
+  description        String
+  goals              String
+  discordUrl         String?
+  /// The roles the team wants to recruit for; they become its open positions when the request is approved.
+  requiredPositions  String[]
+  category           String
+  expectedMembers    Int
+  previousExperience String    @default("")
+  portfolioUrl       String?
+  /// Shown to the reviewer only: the site never fetches it (an approved team starts with a coloured letter logo).
+  logoUrl            String?
+  color              String?
+  /// pending | needs_modification | approved | rejected | suspended | archived
+  status             String    @default("pending")
+  reviewerNote       String?
+  reviewedById       String?
+  reviewedAt         DateTime?
+  createdTeamId      String?
+  createdAt          DateTime  @default(now())
+  updatedAt          DateTime  @updatedAt
+
+  @@index([requesterId, createdAt])
+  @@index([status, createdAt])
+  @@map("team_requests")
 }

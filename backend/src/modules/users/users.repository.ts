@@ -143,6 +143,7 @@ export class UsersRepository {
       messages,
       conversations,
       recruitmentApplications,
+      teamRequests,
     ] = await Promise.all([
         this.prisma.user.findUnique({
           where: { id: userId },
@@ -279,6 +280,26 @@ export class UsersRepository {
             reviewedAt: true,
           },
         }),
+        this.prisma.teamRequest.findMany({
+          where: { requesterId: userId },
+          orderBy: { createdAt: "desc" },
+          select: {
+            teamName: true,
+            description: true,
+            goals: true,
+            discordUrl: true,
+            requiredPositions: true,
+            category: true,
+            expectedMembers: true,
+            previousExperience: true,
+            portfolioUrl: true,
+            logoUrl: true,
+            status: true,
+            reviewerNote: true,
+            createdAt: true,
+            reviewedAt: true,
+          },
+        }),
       ]);
 
     return {
@@ -301,6 +322,7 @@ export class UsersRepository {
       messages,
       conversations,
       recruitmentApplications,
+      teamRequests,
     };
   }
 
