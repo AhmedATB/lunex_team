@@ -21,7 +21,9 @@ import { memoryStorage } from "multer";
 import { CurrentUser } from "../../common/decorators/current-user.decorator";
 import { Public } from "../../common/decorators/public.decorator";
 import type { AccessTokenPayload } from "../../common/guards/jwt-auth.guard";
+import { ChapterImportService } from "./chapter-import.service";
 import { ChaptersService } from "./chapters.service";
+import { ImportDriveDto } from "./dto/import-drive.dto";
 import { CreateChapterDto } from "./dto/create-chapter.dto";
 import { UpdateChapterDto } from "./dto/update-chapter.dto";
 import { UploadPageDto } from "./dto/upload-page.dto";
@@ -37,7 +39,10 @@ const MAX_PAGE_UPLOAD_BYTES = 15 * 1024 * 1024;
  */
 @Controller("v1/chapters")
 export class ChaptersController {
-  constructor(private readonly chapters: ChaptersService) {}
+  constructor(
+    private readonly chapters: ChaptersService,
+    private readonly imports: ChapterImportService
+  ) {}
 
   @Post()
   @HttpCode(HttpStatus.CREATED)
@@ -108,6 +113,30 @@ export class ChaptersController {
     @Req() req: Request
   ) {
     return this.chapters.issuePageToken(actor?.sub ?? null, chapterId, Number(pageNumber), req.context);
+  }
+
+  /** Whether Drive import is set up, and the address a private folder must be shared with. */
+  @Get("import/drive/info")
+  driveInfo() {
+    return this.imports.driveInfo();
+  }
+
+  /**
+   * Starts pulling the page images of a Google Drive folder into this chapter. It answers at once (with how many images it
+   * found); the pages are fetched in the background and `GET :id/import/status` reports progress.
+   */
+  @Post(":id/import/drive")
+  @HttpCode(HttpStatus.ACCEPTED)
+  @Throttle({ default: { limit: 10, ttl: 60_000 } })
+  importDrive(@Param("id") chapterId: string, @Body() dto: ImportDriveDto, @CurrentUser() actor: AccessTokenPayload) {
+    return this.imports.startDrive(actor.role, chapterId, dto.link);
+  }
+
+  @Get(":id/import/status")
+  @Throttle({ default: { limit: 120, ttl: 60_000 } })
+  importStatus(@Param("id") chapterId: string, @CurrentUser() actor: AccessTokenPayload) {
+    this.chapters.requirePublisher(actor.role);
+    return this.imports.status(chapterId);
   }
 
   @Post(":id/unlock")

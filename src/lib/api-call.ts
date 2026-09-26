@@ -20,6 +20,18 @@ const MESSAGES: Record<string, string> = {
   unsupported_image_type: "الصورة يجب أن تكون JPEG أو PNG أو WebP أو GIF.",
   invalid_image: "تعذرت قراءة هذا الملف كصورة.",
   chapter_exists: "يوجد فصل بهذا الرقم في هذا العمل.",
+  page_number_taken: "هذه الصفحة موجودة مسبقًا في الفصل.",
+  image_too_large: "أبعاد إحدى الصور أكبر من المسموح.",
+  drive_not_configured: "الرفع من درايف غير مفعّل بعد على الموقع.",
+  invalid_drive_link: "هذا ليس رابط مجلد Google Drive صحيحًا.",
+  drive_folder_not_shared: "المجلد خاص أو غير موجود. اجعله عامًا (أي شخص لديه الرابط) أو شاركه مع حساب الخدمة المذكور.",
+  drive_not_a_folder: "هذا الرابط لملف وليس لمجلد.",
+  no_images: "لا توجد صور داخل المجلد.",
+  too_many_images: "عدد الصور في المجلد أكبر من الحد المسموح للفصل (300).",
+  import_running: "هذا الفصل يُستورد الآن. انتظر حتى ينتهي.",
+  drive_rate_limited: "Google Drive يحدّ الطلبات الآن. حاول بعد دقيقة.",
+  drive_auth_failed: "تعذر على الموقع تسجيل الدخول إلى Google Drive.",
+  drive_failed: "تعذرت قراءة المجلد من Google Drive.",
 };
 
 export function messageFor(body: unknown): string {

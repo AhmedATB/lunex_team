@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { UploadCloud, Trash2, Search, Plus, BookText, ShieldCheck, X, GripVertical } from "lucide-react";
+import { ChapterUploadDialog } from "@/components/admin/chapter-upload-dialog";
 import { useCatalog } from "@/components/catalog-provider";
 import { useSession } from "@/store/session";
 import { useTeamManagement } from "@/store/team-management";
@@ -50,6 +51,7 @@ export default function AdminChaptersPage() {
   const [query, setQuery] = useState("");
   const [dragging, setDragging] = useState(false);
   const [droppedFiles, setDroppedFiles] = useState<File[] | undefined>();
+  const [uploadOpen, setUploadOpen] = useState(false);
   const [selected, setSelected] = useState<Set<string>>(new Set());
   const [realChapters, setRealChapters] = useState<RealChapter[]>([]);
   const db = useCatalog();
@@ -145,30 +147,44 @@ export default function AdminChaptersPage() {
             onDrop={(e) => {
               e.preventDefault();
               setDragging(false);
-              const files = Array.from(e.dataTransfer.files).filter((f) => f.type.startsWith("image/"));
-              if (files.length) setDroppedFiles(files.sort((a, b) => a.name.localeCompare(b.name)));
+              // pictures, or one ZIP of them: the upload window opens with them ready
+              const files = Array.from(e.dataTransfer.files).filter((f) => f.type.startsWith("image/") || /\.zip$/i.test(f.name));
+              if (files.length) {
+                setDroppedFiles(files.sort((a, b) => a.name.localeCompare(b.name, undefined, { numeric: true })));
+                setUploadOpen(true);
+              }
             }}
             className={`flex flex-col items-center justify-center gap-2 rounded-2xl border-2 border-dashed p-10 text-center transition-colors ${
               dragging ? "border-primary-400 bg-primary-500/10" : "border-white/15 bg-white/[0.02]"
             }`}
           >
             <UploadCloud className="h-10 w-10 text-primary-300" />
-            <p className="text-sm text-white">اسحب وأفلت صور الفصل هنا (001.webp, 002.webp...) لسلاسل المانهوا</p>
-            <p className="text-xs text-lunex-gray">تُحفظ الصور بشكل خاص ومحمي تلقائيًا — أو أنشئ فصلًا نصيًا لسلسلة رواية من الزر أدناه</p>
+            <p className="text-sm text-white">اسحب وأفلت صور الفصل أو ملف ZIP هنا — أو ارفعها من الجهاز أو من مجلد Google Drive</p>
+            <p className="text-xs text-lunex-gray">تُحفظ الصور بشكل خاص ومحمي تلقائيًا — ولسلاسل الروايات زر الفصل النصي أدناه</p>
             {currentUserId && (
-              <div className="flex gap-2 pt-2">
+              <div className="flex flex-wrap justify-center gap-2 pt-2">
+                <Button size="sm" onClick={() => { setDroppedFiles(undefined); setUploadOpen(true); }}>
+                  <Plus className="h-4 w-4" /> فصل جديد (صور / ZIP / درايف)
+                </Button>
                 <CreateChapterDialog
-                  series={[...db.series, ...store.addedSeries].map((s) => ({ id: s.id, titleAr: s.titleAr, teamId: s.teamId, type: s.type }))}
-                  defaultFiles={droppedFiles}
+                  series={[...db.series, ...store.addedSeries].filter((s) => s.type === "novel").map((s) => ({ id: s.id, titleAr: s.titleAr, teamId: s.teamId, type: s.type }))}
                   onCreateNovel={(c) => store.createChapter(c, currentUserId)}
                   onUploaded={loadRealChapters}
-                  trigger={<Button size="sm"><Plus className="h-4 w-4" /> فصل جديد</Button>}
+                  trigger={<Button size="sm" variant="secondary"><BookText className="h-4 w-4" /> فصل رواية</Button>}
                 />
               </div>
             )}
           </div>
         </CardContent>
       </Card>
+
+      <ChapterUploadDialog
+        open={uploadOpen}
+        onClose={() => setUploadOpen(false)}
+        series={db.series.filter((s) => s.type !== "novel").map((s) => ({ id: s.id, titleAr: s.titleAr, teamId: s.teamId, latestChapterNumber: s.latestChapterNumber }))}
+        initialFiles={droppedFiles}
+        onDone={loadRealChapters}
+      />
 
       <div className="flex items-center justify-between">
         <div className="relative w-56">

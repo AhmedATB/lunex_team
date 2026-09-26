@@ -102,7 +102,16 @@ export class ChaptersService {
     if (!file) {
       throw new BadRequestException({ code: "missing_file", message: "No image file was uploaded." });
     }
+    return this.storePage(chapterId, pageNumber, file.buffer);
+  }
 
+  /** The permission check the callers of {@link storePage} that are not a request (the Drive import) make up front. */
+  requirePublisher(role: string) {
+    this.assertCanPublish(role);
+  }
+
+  /** Normalizes the picture and links it as the chapter's page `pageNumber` (the chapter and the caller's right to publish are checked by the caller). */
+  async storePage(chapterId: string, pageNumber: number, bytes: Buffer) {
     const existing = await this.repo.findPage(chapterId, pageNumber);
     if (existing) {
       throw new ConflictException({
@@ -115,7 +124,7 @@ export class ChaptersService {
     let width: number;
     let height: number;
     try {
-      const image = sharp(file.buffer);
+      const image = sharp(bytes);
       const metadata = await image.metadata();
       width = metadata.width ?? 0;
       height = metadata.height ?? 0;
