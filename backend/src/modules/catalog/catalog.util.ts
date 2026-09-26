@@ -82,6 +82,7 @@ export interface SeriesRow {
   bannerAssetId: string | null;
   teamId: string | null;
   isFeatured: boolean;
+  featuredOrder?: number | null;
   isRecommended: boolean;
   viewCount: number;
   createdAt: Date;
@@ -156,6 +157,7 @@ export function toSeriesDto(row: SeriesRow, stats: SeriesStats = EMPTY_STATS) {
     latestChapterNumber: stats.latestChapterNumber,
     updatedAt: updatedAt.toISOString(),
     isFeatured: row.isFeatured,
+    featuredOrder: row.isFeatured ? (row.featuredOrder ?? null) : null,
     isRecommended: row.isRecommended,
   };
 }
@@ -245,6 +247,7 @@ export interface NewsRow {
   content: string;
   coverAssetId: string | null;
   category: string;
+  isPublished: boolean;
   authorId: string | null;
   createdAt: Date;
   updatedAt: Date;
@@ -258,6 +261,7 @@ export function toNewsDto(row: NewsRow) {
     content: fixTanween(row.content),
     cover: imageUrl("news", row.id, row.coverAssetId, row.updatedAt) ?? COVER_PLACEHOLDER,
     category: row.category,
+    isPublished: row.isPublished,
     createdAt: row.createdAt.toISOString(),
     authorId: row.authorId ?? "",
   };

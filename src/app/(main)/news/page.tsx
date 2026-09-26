@@ -1,6 +1,6 @@
 import type { Metadata } from "next";
 import { getNews } from "@/lib/mock/repo";
-import { NewsSection } from "@/components/home/news-section";
+import { NewsFeed } from "@/components/news/news-feed";
 
 export const metadata: Metadata = {
   title: "الأخبار والفعاليات",
@@ -11,7 +11,7 @@ export default async function NewsPage() {
   const news = await getNews(20);
   return (
     <div className="container space-y-6 py-6">
-      <NewsSection news={news} />
+      <NewsFeed news={news} />
     </div>
   );
 }

@@ -151,7 +151,11 @@ export async function getRecommendedSeries(limit = 12): Promise<Series[]> {
 }
 
 export async function getFeaturedSeries(limit = 6): Promise<Series[]> {
-  return (await db()).series.filter((s) => s.isFeatured).sort(byPopularity).slice(0, limit);
+  // The owner pins works in a chosen order (featuredOrder); a pinned work without one goes after them, most popular first.
+  return (await db()).series
+    .filter((s) => s.isFeatured)
+    .sort((a, b) => (a.featuredOrder ?? Number.MAX_SAFE_INTEGER) - (b.featuredOrder ?? Number.MAX_SAFE_INTEGER) || byPopularity(a, b))
+    .slice(0, limit);
 }
 
 export async function getRandomPick(): Promise<Series> {

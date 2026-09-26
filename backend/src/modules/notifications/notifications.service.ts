@@ -85,7 +85,7 @@ export class NotificationsService {
         type: NOTIFICATION_TYPES.news,
         title: fixTanween(newsTitle(news.title)),
         body: fixTanween(news.excerpt.trim().slice(0, 140) || null),
-        link: "/news",
+        link: `/news?post=${newsId}`,
         refId: newsId,
       });
     });

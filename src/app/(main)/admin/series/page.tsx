@@ -1,77 +1,76 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import Image from "next/image";
+import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { Search, MoreVertical, Pencil, Trash2, Plus, ArrowRightLeft } from "lucide-react";
+import { ArrowRightLeft, Loader2, MoreVertical, Pencil, Pin, PinOff, Plus, Search, Trash2 } from "lucide-react";
 import { useCatalog } from "@/components/catalog-provider";
 import { useSession } from "@/store/session";
-import { useTeamManagement } from "@/store/team-management";
-import type { SeriesStatus, SeriesType } from "@/lib/types";
+import { useToast } from "@/store/toast";
+import { can } from "@/lib/rbac";
+import { prepareSearchQuery, rankByTier, searchTier, seriesSearchFields } from "@/lib/fuzzy-search";
+import { seriesApi } from "@/lib/series-api";
+import type { Series, SeriesStatus } from "@/lib/types";
+import { SeriesFormDialog } from "@/components/admin/series-form-dialog";
+import { TransferSeriesDialog } from "@/components/admin/transfer-series-dialog";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { Textarea } from "@/components/ui/textarea";
-import { Label } from "@/components/ui/label";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Card, CardContent } from "@/components/ui/card";
-import {
-  Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
-} from "@/components/ui/select";
-import {
-  Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger,
-} from "@/components/ui/dialog";
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuTrigger,
-} from "@/components/ui/dropdown-menu";
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import { formatNumber } from "@/lib/utils";
-import { can } from "@/lib/rbac";
-import { prepareSearchQuery, searchTier, seriesSearchFields } from "@/lib/fuzzy-search";
-import { TransferSeriesDialog } from "@/components/admin/transfer-series-dialog";
 
-const STATUS_LABEL: Record<SeriesStatus, string> = {
-  ongoing: "مستمر",
-  completed: "مكتمل",
-  hiatus: "متوقف",
-  dropped: "متروك",
-};
+const STATUS_LABEL: Record<SeriesStatus, string> = { ongoing: "مستمر", completed: "مكتمل", hiatus: "متوقف", dropped: "متروك" };
 const STATUS_VARIANT: Record<SeriesStatus, "success" | "secondary" | "warning" | "destructive"> = {
   ongoing: "success",
   completed: "secondary",
   hiatus: "warning",
   dropped: "destructive",
 };
-const SERIES_TYPE_LABELS: Record<SeriesType, string> = { manhwa: "مانهوا", manga: "مانجا", manhua: "مانها", novel: "رواية" };
+const PAGE = 40;
 
+const say = (title: string, description?: string) => useToast.getState().push({ title, description });
+
+/** The catalogue's series, from the server: create, edit (with the cover chosen from the device), move to a team, pin to the home page, delete. */
 export default function AdminSeriesPage() {
   useEffect(() => {
     document.title = "إدارة السلاسل | LUNEX TEAM";
   }, []);
-  const [query, setQuery] = useState("");
-  const [selected, setSelected] = useState<Set<string>>(new Set());
-  const [moving, setMoving] = useState<string[] | null>(null);
+
   const router = useRouter();
   const db = useCatalog();
   const currentUserId = useSession((s) => s.currentUserId);
   const me = db.users.find((u) => u.id === currentUserId);
-  // Moving works between teams changes the site for everyone, so it is only offered for the catalogue's own series and to those who may do it.
-  const canTransfer = !!me && can(me, "manage_series");
-  const catalogueIds = new Set(db.series.map((s) => s.id));
-  const store = useTeamManagement();
-  const teamMap = new Map([...db.teams, ...store.createdTeams].map((t) => [t.id, t]));
+  const canManage = !!me && can(me, "manage_series");
 
-  const removedIds = new Set(store.removedSeriesIds);
-  const allSeries = [...db.series, ...store.addedSeries]
-    .filter((s) => !removedIds.has(s.id))
-    .map((s) => ({ ...s, ...store.seriesInfoOverrides[s.id] }));
+  const [query, setQuery] = useState("");
+  const [shown, setShown] = useState(PAGE);
+  const [selected, setSelected] = useState<Set<string>>(new Set());
+  const [moving, setMoving] = useState<string[] | null>(null);
+  const [editing, setEditing] = useState<Series | null>(null);
+  const [creating, setCreating] = useState(false);
+  const [deleting, setDeleting] = useState<Series | null>(null);
+  const [busy, setBusy] = useState<string | null>(null);
 
-  const prepared = prepareSearchQuery(query);
-  const filtered = allSeries.filter((s) => prepared.tokens.length === 0 || searchTier(prepared, seriesSearchFields(s)) > 0);
-  const shownIds = filtered.slice(0, 40).filter((s) => catalogueIds.has(s.id)).map((s) => s.id);
-  const allShownSelected = shownIds.length > 0 && shownIds.every((id) => selected.has(id));
+  const teamName = useMemo(() => new Map(db.teams.map((t) => [t.id, t.name])), [db.teams]);
+
+  const filtered = useMemo(() => {
+    const prepared = prepareSearchQuery(query);
+    if (prepared.tokens.length === 0) return db.series;
+    return rankByTier(db.series, (s) => searchTier(prepared, seriesSearchFields(s)));
+  }, [db.series, query]);
+  const visible = filtered.slice(0, shown);
+  const visibleIds = visible.map((s) => s.id);
+  const allVisibleSelected = visibleIds.length > 0 && visibleIds.every((id) => selected.has(id));
+
+  /** The pinned works, in the order they appear on the home page. */
+  const pinned = useMemo(
+    () => db.series.filter((s) => s.isFeatured).sort((a, b) => (a.featuredOrder ?? 999) - (b.featuredOrder ?? 999)),
+    [db.series]
+  );
 
   function toggle(id: string) {
     setSelected((current) => {
@@ -82,6 +81,35 @@ export default function AdminSeriesPage() {
     });
   }
 
+  async function togglePin(series: Series) {
+    setBusy(series.id);
+    const ids = series.isFeatured ? pinned.filter((s) => s.id !== series.id).map((s) => s.id) : [...pinned.map((s) => s.id), series.id];
+    const result = await seriesApi.setFeatured(ids);
+    setBusy(null);
+    if (!result.ok) return say("تعذر التثبيت", result.message);
+    say(series.isFeatured ? "أُلغي التثبيت" : "ثُبّت في الصفحة الرئيسية", series.titleAr);
+    router.refresh();
+  }
+
+  async function confirmDelete() {
+    if (!deleting) return;
+    setBusy(deleting.id);
+    const result = await seriesApi.remove(deleting.id);
+    setBusy(null);
+    if (!result.ok) {
+      say("تعذر الحذف", result.message);
+      return;
+    }
+    say("حُذفت السلسلة", deleting.titleAr);
+    setDeleting(null);
+    setSelected((current) => {
+      const next = new Set(current);
+      next.delete(deleting.id);
+      return next;
+    });
+    router.refresh();
+  }
+
   return (
     <div className="space-y-4">
       <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
@@ -89,19 +117,17 @@ export default function AdminSeriesPage() {
         <div className="flex gap-2">
           <div className="relative w-full sm:w-56">
             <Search className="pointer-events-none absolute start-3 top-1/2 h-4 w-4 -translate-y-1/2 text-lunex-gray" />
-            <Input value={query} onChange={(e) => setQuery(e.target.value)} placeholder="ابحث عن سلسلة..." className="ps-9" />
+            <Input value={query} onChange={(e) => { setQuery(e.target.value); setShown(PAGE); }} placeholder="ابحث عن سلسلة..." className="ps-9" />
           </div>
-          {currentUserId && (
-            <CreateSeriesDialog
-              teams={[...db.teams, ...store.createdTeams]}
-              genres={db.genres}
-              onCreate={(s) => store.createSeries(s, currentUserId)}
-            />
+          {canManage && (
+            <Button onClick={() => setCreating(true)}>
+              <Plus className="h-4 w-4" /> سلسلة جديدة
+            </Button>
           )}
         </div>
       </div>
 
-      {canTransfer && selected.size > 0 && (
+      {canManage && selected.size > 0 && (
         <div className="flex flex-wrap items-center gap-2 rounded-xl border border-primary-500/30 bg-primary-500/10 p-3">
           <span className="text-sm text-white">تم تحديد {selected.size} عمل</span>
           <Button size="sm" className="ms-auto" onClick={() => setMoving([...selected])}>
@@ -116,13 +142,9 @@ export default function AdminSeriesPage() {
           <table className="w-full text-sm">
             <thead>
               <tr className="border-b border-white/10 text-xs text-lunex-gray">
-                {canTransfer && (
+                {canManage && (
                   <th className="w-10 p-3">
-                    <Checkbox
-                      aria-label="تحديد كل الأعمال المعروضة"
-                      checked={allShownSelected}
-                      onCheckedChange={() => setSelected(allShownSelected ? new Set() : new Set(shownIds))}
-                    />
+                    <Checkbox aria-label="تحديد كل الأعمال المعروضة" checked={allVisibleSelected} onCheckedChange={() => setSelected(allVisibleSelected ? new Set() : new Set(visibleIds))} />
                   </th>
                 )}
                 <th className="p-3 text-start font-medium">السلسلة</th>
@@ -134,64 +156,71 @@ export default function AdminSeriesPage() {
               </tr>
             </thead>
             <tbody>
-              {filtered.slice(0, 40).map((s) => (
+              {visible.map((s) => (
                 <tr key={s.id} className="border-b border-white/5 last:border-0 hover:bg-white/[0.02]">
-                  {canTransfer && (
+                  {canManage && (
                     <td className="w-10 p-3">
-                      {catalogueIds.has(s.id) && (
-                        <Checkbox aria-label={`تحديد ${s.titleAr}`} checked={selected.has(s.id)} onCheckedChange={() => toggle(s.id)} />
-                      )}
+                      <Checkbox aria-label={`تحديد ${s.titleAr}`} checked={selected.has(s.id)} onCheckedChange={() => toggle(s.id)} />
                     </td>
                   )}
-                  <td className="flex items-center gap-2 p-3">
-                    <div className="relative h-10 w-8 shrink-0 overflow-hidden rounded-md">
-                      <Image src={s.cover} alt={s.titleAr} fill sizes="32px" className="object-cover" unoptimized />
+                  <td className="p-3">
+                    <div className="flex items-center gap-2">
+                      <div className="relative h-10 w-8 shrink-0 overflow-hidden rounded-md">
+                        <Image src={s.cover} alt="" fill sizes="32px" className="object-cover" unoptimized />
+                      </div>
+                      <Link href={`/series/${s.slug}`} className="max-w-[200px] truncate font-medium text-white hover:text-primary-300">{s.titleAr}</Link>
+                      {s.isFeatured && <Badge variant="outline" className="shrink-0 text-[10px]">مثبّت</Badge>}
                     </div>
-                    <p className="max-w-[200px] truncate font-medium text-white">{s.titleAr}</p>
                   </td>
-                  <td className="p-3 text-lunex-gray">{teamMap.get(s.teamId)?.name}</td>
+                  <td className="p-3 text-lunex-gray">{teamName.get(s.teamId) ?? "—"}</td>
                   <td className="p-3"><Badge variant={STATUS_VARIANT[s.status]}>{STATUS_LABEL[s.status]}</Badge></td>
                   <td className="p-3 text-lunex-gray">{s.chapterCount}</td>
                   <td className="p-3 text-lunex-gray">{formatNumber(s.views)}</td>
                   <td className="p-3 text-end">
-                    <DropdownMenu>
-                      <DropdownMenuTrigger asChild>
-                        <button className="rounded-lg p-1.5 text-lunex-gray hover:bg-white/10 hover:text-white">
-                          <MoreVertical className="h-4 w-4" />
-                        </button>
-                      </DropdownMenuTrigger>
-                      <DropdownMenuContent align="end">
-                        {canTransfer && catalogueIds.has(s.id) && (
+                    {canManage && (
+                      <DropdownMenu>
+                        <DropdownMenuTrigger asChild>
+                          <button className="rounded-lg p-1.5 text-lunex-gray hover:bg-white/10 hover:text-white" aria-label={`خيارات ${s.titleAr}`} disabled={busy === s.id}>
+                            {busy === s.id ? <Loader2 className="h-4 w-4 animate-spin" /> : <MoreVertical className="h-4 w-4" />}
+                          </button>
+                        </DropdownMenuTrigger>
+                        <DropdownMenuContent align="end">
+                          <DropdownMenuItem onSelect={() => setEditing(s)}>
+                            <Pencil className="h-4 w-4" /> تعديل
+                          </DropdownMenuItem>
                           <DropdownMenuItem onSelect={() => setMoving([s.id])}>
                             <ArrowRightLeft className="h-4 w-4" /> نقل إلى فريق
                           </DropdownMenuItem>
-                        )}
-                        <EditSeriesMenuDialog
-                          series={s}
-                          onSave={(patch) => currentUserId && store.updateSeriesInfo(s.id, patch, s.teamId, currentUserId)}
-                        />
-                        <DropdownMenuItem
-                          className="text-red-400 focus:bg-red-500/10"
-                          onSelect={() => currentUserId && store.removeSeries(s.id, s.teamId, currentUserId)}
-                        >
-                          <Trash2 className="h-4 w-4" /> حذف
-                        </DropdownMenuItem>
-                      </DropdownMenuContent>
-                    </DropdownMenu>
+                          <DropdownMenuItem onSelect={() => togglePin(s)}>
+                            {s.isFeatured ? <PinOff className="h-4 w-4" /> : <Pin className="h-4 w-4" />} {s.isFeatured ? "إلغاء التثبيت في الرئيسية" : "تثبيت في الرئيسية"}
+                          </DropdownMenuItem>
+                          <DropdownMenuItem className="text-red-400 focus:bg-red-500/10" onSelect={() => setDeleting(s)}>
+                            <Trash2 className="h-4 w-4" /> حذف
+                          </DropdownMenuItem>
+                        </DropdownMenuContent>
+                      </DropdownMenu>
+                    )}
                   </td>
                 </tr>
               ))}
-              {filtered.length === 0 && (
-                <tr><td colSpan={7} className="p-8 text-center text-lunex-gray">لا توجد سلاسل مطابقة.</td></tr>
-              )}
+              {filtered.length === 0 && <tr><td colSpan={7} className="p-8 text-center text-lunex-gray">لا توجد سلاسل مطابقة.</td></tr>}
             </tbody>
           </table>
         </CardContent>
       </Card>
 
+      {filtered.length > shown && (
+        <div className="flex justify-center">
+          <Button variant="secondary" onClick={() => setShown((n) => n + PAGE)}>عرض المزيد ({filtered.length - shown})</Button>
+        </div>
+      )}
+
+      <SeriesFormDialog open={creating} onClose={() => setCreating(false)} canEditorial teams={db.teams} />
+      <SeriesFormDialog open={editing !== null} onClose={() => setEditing(null)} series={editing} canEditorial teams={db.teams} />
+
       <TransferSeriesDialog
         seriesIds={moving}
-        titles={(moving ?? []).map((id) => allSeries.find((s) => s.id === id)?.titleAr ?? "")}
+        titles={(moving ?? []).map((id) => db.series.find((s) => s.id === id)?.titleAr ?? "")}
         teams={db.teams}
         onClose={() => setMoving(null)}
         onDone={() => {
@@ -199,170 +228,23 @@ export default function AdminSeriesPage() {
           router.refresh();
         }}
       />
+
+      <Dialog open={deleting !== null} onOpenChange={(open) => !open && setDeleting(null)}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>حذف «{deleting?.titleAr}»؟</DialogTitle>
+          </DialogHeader>
+          <p className="text-sm text-lunex-gray">
+            يُحذف العمل مع كل فصوله وتعليقاته وتقييماته وتقدّم القرّاء فيه. لا يمكن التراجع عن هذا.
+          </p>
+          <div className="flex gap-2 pt-2">
+            <Button variant="destructive" className="flex-1" onClick={confirmDelete} disabled={busy !== null}>
+              {busy !== null && <Loader2 className="h-4 w-4 animate-spin" />} حذف نهائيًا
+            </Button>
+            <Button variant="secondary" onClick={() => setDeleting(null)}>إلغاء</Button>
+          </div>
+        </DialogContent>
+      </Dialog>
     </div>
-  );
-}
-
-function EditSeriesMenuDialog({
-  series,
-  onSave,
-}: {
-  series: { titleAr: string; synopsis: string; status: SeriesStatus; cover: string; banner: string };
-  onSave: (patch: { titleAr: string; synopsis: string; status: SeriesStatus; cover: string; banner: string }) => void;
-}) {
-  const [open, setOpen] = useState(false);
-  const [titleAr, setTitleAr] = useState(series.titleAr);
-  const [synopsis, setSynopsis] = useState(series.synopsis);
-  const [status, setStatus] = useState<SeriesStatus>(series.status);
-
-  function submit() {
-    if (!titleAr.trim()) return;
-    onSave({ titleAr: titleAr.trim(), synopsis: synopsis.trim(), status, cover: series.cover, banner: series.banner });
-    setOpen(false);
-  }
-
-  return (
-    <Dialog open={open} onOpenChange={setOpen}>
-      <DialogTrigger asChild>
-        <DropdownMenuItem onSelect={(e) => e.preventDefault()}>
-          <Pencil className="h-4 w-4" /> تعديل
-        </DropdownMenuItem>
-      </DialogTrigger>
-      <DialogContent>
-        <DialogHeader><DialogTitle>تعديل السلسلة</DialogTitle></DialogHeader>
-        <div className="space-y-3 pt-2">
-          <div className="space-y-1.5">
-            <Label>اسم السلسلة</Label>
-            <Input value={titleAr} onChange={(e) => setTitleAr(e.target.value)} />
-          </div>
-          <div className="space-y-1.5">
-            <Label>القصة</Label>
-            <Textarea rows={3} value={synopsis} onChange={(e) => setSynopsis(e.target.value)} />
-          </div>
-          <div className="space-y-1.5">
-            <Label>الحالة</Label>
-            <Select value={status} onValueChange={(v) => setStatus(v as SeriesStatus)}>
-              <SelectTrigger><SelectValue /></SelectTrigger>
-              <SelectContent>
-                {Object.entries(STATUS_LABEL).map(([v, l]) => <SelectItem key={v} value={v}>{l}</SelectItem>)}
-              </SelectContent>
-            </Select>
-          </div>
-          <Button onClick={submit} className="w-full">حفظ التغييرات</Button>
-        </div>
-      </DialogContent>
-    </Dialog>
-  );
-}
-
-function CreateSeriesDialog({
-  teams,
-  genres,
-  onCreate,
-}: {
-  teams: { id: string; name: string }[];
-  genres: { id: string; nameAr: string }[];
-  onCreate: (series: {
-    teamId: string; title: string; titleAr: string; synopsis: string; type: SeriesType; status: SeriesStatus;
-    country: "kr" | "jp" | "cn"; author: string; artist: string; year: number; cover: string; banner: string;
-    genreIds: string[]; tags: string[];
-  }) => void;
-}) {
-  const [open, setOpen] = useState(false);
-  const [teamId, setTeamId] = useState(teams[0]?.id ?? "");
-  const [titleAr, setTitleAr] = useState("");
-  const [title, setTitle] = useState("");
-  const [synopsis, setSynopsis] = useState("");
-  const [type, setType] = useState<SeriesType>("manhwa");
-  const [cover, setCover] = useState("");
-  const [genreIds, setGenreIds] = useState<Set<string>>(new Set());
-
-  function toggleGenre(id: string) {
-    setGenreIds((s) => {
-      const next = new Set(s);
-      if (next.has(id)) next.delete(id); else next.add(id);
-      return next;
-    });
-  }
-
-  function submit() {
-    if (!titleAr.trim() || !synopsis.trim() || !teamId) return;
-    const seed = `lunex-series-admin-new-${Date.now()}`;
-    onCreate({
-      teamId,
-      titleAr: titleAr.trim(),
-      title: title.trim() || titleAr.trim(),
-      synopsis: synopsis.trim(),
-      type,
-      status: "ongoing",
-      country: "kr",
-      author: "غير معروف",
-      artist: "غير معروف",
-      year: new Date().getFullYear(),
-      cover: cover.trim() || `https://picsum.photos/seed/${seed}/480/680`,
-      banner: cover.trim() || `https://picsum.photos/seed/${seed}-banner/1200/400`,
-      genreIds: [...genreIds],
-      tags: [],
-    });
-    setTitleAr(""); setTitle(""); setSynopsis(""); setCover(""); setGenreIds(new Set()); setOpen(false);
-  }
-
-  return (
-    <Dialog open={open} onOpenChange={setOpen}>
-      <DialogTrigger asChild>
-        <Button><Plus className="h-4 w-4" /> سلسلة جديدة</Button>
-      </DialogTrigger>
-      <DialogContent className="max-h-[80vh] overflow-y-auto">
-        <DialogHeader><DialogTitle>إضافة سلسلة جديدة</DialogTitle></DialogHeader>
-        <div className="space-y-3 pt-2">
-          <div className="space-y-1.5">
-            <Label>الفريق الناشر</Label>
-            <Select value={teamId} onValueChange={setTeamId}>
-              <SelectTrigger><SelectValue placeholder="اختر فريقًا" /></SelectTrigger>
-              <SelectContent>
-                {teams.map((t) => <SelectItem key={t.id} value={t.id}>{t.name}</SelectItem>)}
-              </SelectContent>
-            </Select>
-          </div>
-          <div className="space-y-1.5">
-            <Label>اسم السلسلة (عربي)</Label>
-            <Input value={titleAr} onChange={(e) => setTitleAr(e.target.value)} placeholder="مثال: عودة قناص العصور" />
-          </div>
-          <div className="space-y-1.5">
-            <Label>اسم السلسلة (إنجليزي)</Label>
-            <Input value={title} onChange={(e) => setTitle(e.target.value)} />
-          </div>
-          <div className="space-y-1.5">
-            <Label>القصة</Label>
-            <Textarea rows={3} value={synopsis} onChange={(e) => setSynopsis(e.target.value)} />
-          </div>
-          <div className="space-y-1.5">
-            <Label>النوع</Label>
-            <Select value={type} onValueChange={(v) => setType(v as SeriesType)}>
-              <SelectTrigger><SelectValue /></SelectTrigger>
-              <SelectContent>
-                {Object.entries(SERIES_TYPE_LABELS).map(([v, l]) => <SelectItem key={v} value={v}>{l}</SelectItem>)}
-              </SelectContent>
-            </Select>
-          </div>
-          <div className="space-y-1.5">
-            <Label>رابط صورة الغلاف (اختياري)</Label>
-            <Input value={cover} onChange={(e) => setCover(e.target.value)} placeholder="https://..." />
-          </div>
-          <div className="space-y-1.5">
-            <Label>التصنيفات</Label>
-            <div className="grid max-h-40 grid-cols-2 gap-1.5 overflow-y-auto sm:grid-cols-3">
-              {genres.map((g) => (
-                <label key={g.id} className="flex items-center gap-2 text-xs text-lunex-gray">
-                  <Checkbox checked={genreIds.has(g.id)} onCheckedChange={() => toggleGenre(g.id)} />
-                  {g.nameAr}
-                </label>
-              ))}
-            </div>
-          </div>
-          <Button onClick={submit} className="w-full">إضافة السلسلة</Button>
-        </div>
-      </DialogContent>
-    </Dialog>
   );
 }

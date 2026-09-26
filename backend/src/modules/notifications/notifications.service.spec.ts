@@ -76,7 +76,7 @@ describe("content notifications", () => {
   it("announces a published news post, never a draft", async () => {
     const { service, repo } = build();
     await service.newsPublished("n1");
-    expect(repo.broadcast).toHaveBeenCalledWith(expect.objectContaining({ type: "news", title: "خبر جديد: تحديث", link: "/news", refId: "n1" }));
+    expect(repo.broadcast).toHaveBeenCalledWith(expect.objectContaining({ type: "news", title: "خبر جديد: تحديث", link: "/news?post=n1", refId: "n1" }));
     repo.broadcast.mockClear();
     repo.findNewsLabel.mockResolvedValue({ title: "مسودة", excerpt: "", isPublished: false });
     await service.newsPublished("n2");

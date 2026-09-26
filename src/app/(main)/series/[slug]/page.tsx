@@ -154,14 +154,7 @@ export default function SeriesDetailPage() {
               </p>
 
               <div className="flex flex-wrap items-center gap-2 pt-2">
-                {!signedIn && (nextUnreadChapter ?? chapters[0]) && (
-                  <Button size="lg" asChild>
-                    <Link href={`/login?next=${encodeURIComponent(`/series/${series.slug}/${(nextUnreadChapter ?? chapters[0]).number}`)}`}>
-                      <BookOpen className="h-4 w-4" /> سجّل الدخول لقراءة الفصول
-                    </Link>
-                  </Button>
-                )}
-                {signedIn && nextUnreadChapter && (
+                {nextUnreadChapter && (
                   <Button size="lg" asChild>
                     <a href={`/series/${series.slug}/${nextUnreadChapter.number}`}>
                       <BookOpen className="h-4 w-4" />
@@ -169,7 +162,7 @@ export default function SeriesDetailPage() {
                     </a>
                   </Button>
                 )}
-                {signedIn && chapters[0] && (
+                {chapters[0] && (
                   <Button size="lg" variant={nextUnreadChapter ? "secondary" : "default"} asChild>
                     <a href={`/series/${series.slug}/${chapters[0].number}`}>
                       أحدث فصل ({chapters[0].number})
@@ -179,7 +172,7 @@ export default function SeriesDetailPage() {
                 {signedIn && <BookmarkButton seriesId={series.id} />}
                 <ShareButton />
               </div>
-              <GuestPrompt text="تتصفح كزائر: القراءة والمفضلة والتعليق والتقييم للأعضاء فقط." className="mt-2 max-w-3xl" />
+              <GuestPrompt text="تتصفح كزائر: تقرأ الفصول المفتوحة، أما الفصول المقفلة والمفضلة والتعليق والتقييم فللأعضاء." className="mt-2 max-w-3xl" />
 
               {team && (
                 <div className="mt-2 flex flex-wrap items-center gap-2">

@@ -367,3 +367,11 @@ export class UpdateNewsDto {
   @IsBoolean()
   isPublished?: boolean;
 }
+
+/** The works pinned to the top of the home page, in order; the first is the lead. An empty list unpins everything. */
+export class SetFeaturedDto {
+  @IsArray()
+  @ArrayMaxSize(12)
+  @IsString({ each: true })
+  seriesIds!: string[];
+}

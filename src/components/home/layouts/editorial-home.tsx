@@ -137,28 +137,34 @@ export function EditorialHome(data: HomeLayoutData) {
   const lead = data.featured[0] ?? data.trending[0];
   const secondary = data.featured.length > 1 ? data.featured.slice(1, 4) : data.trending.slice(1, 4);
   const topTrending = data.trending.slice(0, 6);
-  const [heroUpdate, ...restUpdates] = data.latestChapters.slice(0, 5);
   const picks = data.recommended.slice(0, 3);
 
   return (
     <div className="container space-y-14 py-6">
       {lead && (
-        <div className="flex flex-col gap-4 lg:h-[400px] lg:flex-row">
+        <div className="flex flex-col gap-4 lg:min-h-[400px] lg:flex-row">
           <Link
             href={`/series/${lead.slug}`}
-            className="panel panel-hover relative flex min-h-[320px] flex-1 flex-col justify-end gap-3 overflow-hidden p-6 lg:flex-[1.7] lg:p-8"
+            className="panel panel-hover relative flex flex-1 items-center gap-4 overflow-hidden p-4 sm:gap-6 sm:p-6 lg:flex-[1.7] lg:p-8"
           >
-            <Cover src={lead.cover} alt={lead.titleAr} sizes="(min-width: 1024px) 55vw, 100vw" priority scrim />
-            <span className="relative z-10 w-fit rounded-full bg-lunex-gradient px-3 py-1 text-xs font-bold text-white">
-              حصري LUNEX
-            </span>
-            <h1 className="relative z-10 font-display text-3xl font-black text-white lg:text-4xl">{lead.titleAr}</h1>
-            <p className="relative z-10 line-clamp-2 max-w-xl text-sm text-white/80">{lead.synopsis}</p>
-            <div className="relative z-10 flex items-center gap-3">
-              <span className="inline-flex h-12 items-center justify-center rounded-xl bg-lunex-gradient px-8 text-base font-bold text-white shadow-[0_4px_20px_-2px_rgb(var(--primary-600)/0.55)]">
-                ابدأ القراءة
-              </span>
-              <RatingPill series={lead} className="px-2.5 py-1 text-sm" />
+            {/* the same cover, blurred and dimmed, only as atmosphere behind the real (portrait) one */}
+            <div className="absolute inset-0 scale-125 opacity-45 blur-2xl" aria-hidden>
+              <Image src={lead.cover} alt="" fill sizes="50vw" className="object-cover" priority />
+            </div>
+            <div className="absolute inset-0 bg-gradient-to-t from-black/85 via-black/45 to-black/25" aria-hidden />
+            <div className="relative z-10 aspect-[2/3] w-32 shrink-0 overflow-hidden rounded-xl shadow-2xl shadow-black/60 ring-1 ring-white/20 sm:w-44 lg:w-56">
+              <Image src={lead.cover} alt={lead.titleAr} fill sizes="(min-width: 1024px) 224px, (min-width: 640px) 176px, 128px" priority className="object-cover" />
+            </div>
+            <div className="relative z-10 flex min-w-0 flex-1 flex-col justify-center gap-2.5 sm:gap-3">
+              <span className="w-fit rounded-full bg-lunex-gradient px-3 py-1 text-xs font-bold text-white">حصري LUNEX</span>
+              <h1 className="font-display text-xl font-black leading-snug text-white sm:text-3xl lg:text-4xl">{lead.titleAr}</h1>
+              <p className="line-clamp-3 max-w-xl text-xs text-white/80 sm:text-sm">{lead.synopsis}</p>
+              <div className="flex flex-wrap items-center gap-3 pt-1">
+                <span className="inline-flex h-10 items-center justify-center rounded-xl bg-lunex-gradient px-5 text-sm font-bold text-white shadow-[0_4px_20px_-2px_rgb(var(--primary-600)/0.55)] sm:h-12 sm:px-8 sm:text-base">
+                  ابدأ القراءة
+                </span>
+                <RatingPill series={lead} className="px-2.5 py-1 text-sm" />
+              </div>
             </div>
           </Link>
 
@@ -205,7 +211,7 @@ export function EditorialHome(data: HomeLayoutData) {
       <ResponsiveBanner />
 
       <section className="space-y-4">
-        <SectionHeader title="الأكثر قراءة هذا الأسبوع" href="/search?sort=trending" />
+        <SectionHeader title="الأكثر قراءة هذا الأسبوع" href="/series?sort=trending" />
         <div className="grid gap-3 sm:grid-cols-2">
           {topTrending.map((s, i) => (
             <Link key={s.id} href={`/series/${s.slug}`} className="group flex items-center gap-4">
@@ -227,60 +233,45 @@ export function EditorialHome(data: HomeLayoutData) {
       </section>
 
       <section className="space-y-4">
-        <SectionHeader title="آخر تحديثات الفصول" href="/search?sort=latest" />
-        <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
-          {heroUpdate && (
-            <Link
-              href={`/series/${heroUpdate.series.slug}/${heroUpdate.number}`}
-              className="panel panel-hover relative col-span-2 row-span-2 flex min-h-[220px] flex-col justify-end overflow-hidden p-4 sm:min-h-[280px]"
-            >
-              <Cover src={heroUpdate.series.cover} alt={heroUpdate.series.titleAr} sizes="(min-width: 640px) 50vw, 100vw" scrim />
-              <span className="relative z-10 mb-1 w-fit rounded-full bg-primary-400/30 px-2 py-0.5 text-[11px] font-bold text-white">جديد</span>
-              <span className="relative z-10 font-display text-lg font-bold text-white">{heroUpdate.series.titleAr}</span>
-              <span className="relative z-10 text-xs text-white/70">
-                الفصل {heroUpdate.number}
-                {heroUpdate.moreCount > 0 && ` · و${heroUpdate.moreCount} ${heroUpdate.moreCount === 1 ? "فصل آخر" : "فصول أخرى"}`}
-              </span>
-            </Link>
-          )}
-          {restUpdates.map((c) => (
-            <Link
-              key={c.id}
-              href={`/series/${c.series.slug}/${c.number}`}
-              className="panel panel-hover relative flex min-h-[130px] flex-col justify-end overflow-hidden p-3"
-            >
-              <Cover src={c.series.cover} alt={c.series.titleAr} sizes="(min-width: 640px) 25vw, 50vw" scrim />
-              <span className="relative z-10 line-clamp-1 text-xs font-bold text-white">{c.series.titleAr}</span>
-              <span className="relative z-10 text-[11px] text-white/70">
-                الفصل {c.number}
-                {c.moreCount > 0 && ` +${c.moreCount}`}
-              </span>
+        <SectionHeader title="آخر تحديثات الفصول" href="/series?sort=latest" />
+        <div className="grid grid-cols-3 gap-3 sm:gap-4 lg:grid-cols-6">
+          {data.latestChapters.slice(0, 6).map((c, i) => (
+            <Link key={c.id} href={`/series/${c.series.slug}/${c.number}`} className="group flex flex-col gap-2">
+              <div className="panel panel-hover relative aspect-[3/4] w-full overflow-hidden">
+                <Cover src={c.series.cover} alt={c.series.titleAr} sizes="(min-width: 1024px) 16vw, 33vw" scrim />
+                {i === 0 && <span className="absolute start-2 top-2 z-10 rounded-full bg-primary-400/80 px-2 py-0.5 text-[11px] font-bold text-white">جديد</span>}
+                <span className="absolute inset-x-2 bottom-2 z-10 text-[11px] font-semibold text-white">
+                  الفصل {c.number}
+                  {c.moreCount > 0 && <span className="text-white/70"> · +{c.moreCount}</span>}
+                </span>
+              </div>
+              <span className="line-clamp-2 text-xs font-bold text-white group-hover:text-primary-300 sm:text-sm">{c.series.titleAr}</span>
             </Link>
           ))}
         </div>
       </section>
 
-      <CarouselSection title="الأكثر شعبية" href="/search?sort=popular" series={data.popular} />
+      <CarouselSection title="الأكثر شعبية" href="/series?sort=popular" series={data.popular} />
 
       <div className="grid gap-10 lg:grid-cols-2">
-        <SeriesGridSection title="مستمرة" href="/search?status=ongoing" series={data.ongoing.slice(0, 6)} />
-        <SeriesGridSection title="مكتملة" href="/search?status=completed" series={data.completed.slice(0, 6)} />
+        <SeriesGridSection title="مستمرة" href="/series?status=ongoing" series={data.ongoing.slice(0, 6)} />
+        <SeriesGridSection title="مكتملة" href="/series?status=completed" series={data.completed.slice(0, 6)} />
       </div>
 
-      <SeriesGridSection title="إصدارات جديدة" href="/search?sort=latest" series={data.newReleases.slice(0, 6)} />
+      <SeriesGridSection title="إصدارات جديدة" href="/series?sort=latest" series={data.newReleases.slice(0, 6)} />
 
       {picks.length > 0 && (
         <section className="space-y-4">
-          <SectionHeader title="اختيارات المحررين" href="/search" />
-          <div className="grid gap-4 sm:grid-cols-3">
+          <SectionHeader title="اختيارات المحررين" href="/series" />
+          <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
             {picks.map((s) => (
-              <Link key={s.id} href={`/series/${s.slug}`} className="panel panel-hover group flex flex-col overflow-hidden">
-                <div className="relative aspect-[16/9] w-full overflow-hidden">
-                  <Cover src={s.cover} alt={s.titleAr} sizes="(min-width: 640px) 33vw, 100vw" />
+              <Link key={s.id} href={`/series/${s.slug}`} className="panel panel-hover group flex gap-4 p-3">
+                <div className="relative aspect-[3/4] w-24 shrink-0 overflow-hidden rounded-lg sm:w-28">
+                  <Cover src={s.cover} alt={s.titleAr} sizes="112px" />
                 </div>
-                <div className="flex flex-col gap-2 p-4">
+                <div className="flex min-w-0 flex-col justify-center gap-2">
                   <span className="font-display text-base font-bold text-white group-hover:text-primary-300">{s.titleAr}</span>
-                  <p className="line-clamp-2 text-xs text-lunex-gray">{s.synopsis}</p>
+                  <p className="line-clamp-3 text-xs text-lunex-gray">{s.synopsis}</p>
                 </div>
               </Link>
             ))}
@@ -305,7 +296,7 @@ export function EditorialHome(data: HomeLayoutData) {
 
       <section className="space-y-4">
         <h2 className="section-title font-display text-xl font-bold text-white sm:text-2xl">تصفح حسب التصنيف</h2>
-        <GenreGrid genres={pickEssentialGenres(data.genres, data.seriesMap.values())} showAllHref="/search" />
+        <GenreGrid genres={pickEssentialGenres(data.genres, data.seriesMap.values())} showAllHref="/series" />
       </section>
 
       <NewsGrid news={data.news} />

@@ -92,17 +92,22 @@ export class ChaptersController {
     return this.chapters.uploadPage(actor.role, chapterId, dto.pageNumber, file);
   }
 
-  /** The real caller a reader uses — checks chapter authorization, THEN delegates to ImagesService for the actual token mechanics. */
+  /**
+   * The real caller a reader uses — checks chapter authorization, THEN delegates to ImagesService for the actual token
+   * mechanics. Open to visitors without an account: a chapter that is not locked is readable by anyone (the wallet says so),
+   * a locked one is refused with 403 to anyone who has not opened it.
+   */
+  @Public()
   @Post(":id/pages/:pageNumber/token")
   @HttpCode(HttpStatus.OK)
   @Throttle({ default: { limit: 60, ttl: 60_000 } })
   issuePageToken(
     @Param("id") chapterId: string,
     @Param("pageNumber") pageNumber: string,
-    @CurrentUser() actor: AccessTokenPayload,
+    @CurrentUser() actor: AccessTokenPayload | undefined,
     @Req() req: Request
   ) {
-    return this.chapters.issuePageToken(actor.sub, chapterId, Number(pageNumber), req.context);
+    return this.chapters.issuePageToken(actor?.sub ?? null, chapterId, Number(pageNumber), req.context);
   }
 
   @Post(":id/unlock")

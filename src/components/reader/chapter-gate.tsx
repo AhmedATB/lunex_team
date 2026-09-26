@@ -85,6 +85,32 @@ export function ChapterGate({
   }
   if (opened) return <>{children}</>;
 
+  // A visitor without an account cannot open a locked chapter (that needs reading credits or coins, which are an account's).
+  if (!signedIn) {
+    return (
+      <div className="container flex min-h-[70vh] max-w-lg flex-col items-center justify-center gap-5 py-10 text-center">
+        <Lock className="float-slow h-14 w-14 text-primary-300 drop-shadow-[0_0_18px_rgba(168,85,247,0.6)]" />
+        <div>
+          <h1 className="section-title font-display text-2xl font-black text-white">هذا الفصل مقفل</h1>
+          <p className="mt-2 text-sm text-lunex-gray">
+            الفصل {chapterNumber} من {seriesTitle} من أحدث الفصول. سجّل دخولك لتفتحه بالقراءة أو بالعملات، أو اقرأ الفصول المفتوحة بلا حساب.
+          </p>
+        </div>
+        <div className="flex w-full flex-col gap-2 sm:flex-row sm:justify-center">
+          <Button asChild>
+            <Link href={`/login?next=${encodeURIComponent(`/series/${seriesSlug}/${chapterNumber}`)}`}>تسجيل الدخول</Link>
+          </Button>
+          <Button asChild variant="secondary">
+            <Link href="/register">إنشاء حساب</Link>
+          </Button>
+        </div>
+        <Button variant="ghost" asChild>
+          <Link href={`/series/${seriesSlug}`}>العودة إلى صفحة العمل</Link>
+        </Button>
+      </div>
+    );
+  }
+
   const credits = wallet?.unlockCredits ?? 0;
   const perCredit = wallet?.chaptersPerCredit ?? 10;
   const progressToNext = wallet?.creditProgress ?? 0;

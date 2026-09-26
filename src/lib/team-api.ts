@@ -4,42 +4,9 @@
  * copy kept in the visitor's own browser; these are the ones that change the site for everybody.)
  */
 
-export type ApiResult<T> = { ok: true; body: T } | { ok: false; message: string; status: number };
+import { call, type ApiResult } from "@/lib/api-call";
 
-const MESSAGES: Record<string, string> = {
-  user_not_found: "لا يوجد حساب بهذا الاسم.",
-  team_not_found: "هذا الفريق غير موجود.",
-  series_not_found: "بعض هذه الأعمال لم تعد موجودة.",
-  global_editor_only: "نقل الأعمال بين الفرق للمالك والمحررين فقط.",
-  global_manager_only: "حالة الفريق وقائده يغيّرها مدير الفرق أو المالك فقط.",
-  insufficient_permissions: "لا تملك صلاحية لهذا الإجراء.",
-  account_banned: "هذا الحساب محظور.",
-  tag_exists: "هذا الاسم موجود مسبقًا.",
-};
-
-function messageFor(body: unknown): string {
-  const code = (body as { code?: string } | null)?.code;
-  if (code && MESSAGES[code]) return MESSAGES[code];
-  const message = (body as { message?: string | string[] } | null)?.message;
-  if (Array.isArray(message) && message.length > 0) return `بيانات غير صالحة: ${message[0]}`;
-  return "فشلت العملية.";
-}
-
-async function call<T>(path: string, method: "GET" | "POST" | "PATCH" | "PUT" | "DELETE", body?: unknown): Promise<ApiResult<T>> {
-  try {
-    const res = await fetch(path, {
-      method,
-      cache: "no-store",
-      ...(body === undefined ? {} : { headers: { "Content-Type": "application/json" }, body: JSON.stringify(body) }),
-    });
-    if (res.status === 204) return { ok: true, body: undefined as T };
-    const json = await res.json().catch(() => null);
-    if (!res.ok) return { ok: false, status: res.status, message: messageFor(json) };
-    return { ok: true, body: json as T };
-  } catch {
-    return { ok: false, status: 0, message: "تعذر الاتصال بالخادم." };
-  }
-}
+export type { ApiResult };
 
 export interface TeamPatch {
   name?: string;

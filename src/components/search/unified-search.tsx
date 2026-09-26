@@ -15,6 +15,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { SeriesCard } from "@/components/shared/series-card";
 import { SeriesExplorer } from "@/components/explore/series-explorer";
 import { useSignedInUserId } from "@/components/session-hint";
+import { pickEssentialGenres } from "@/lib/essential-genres";
 import { searchPeople, type Person } from "@/lib/messages-api";
 import { prepareSearchQuery, rankByTier, searchTier, seriesSearchFields } from "@/lib/fuzzy-search";
 
@@ -115,7 +116,33 @@ export function UnifiedSearch({ genres }: { genres: Genre[] }) {
       </div>
 
       {!hasQuery ? (
-        <div className="panel p-10 text-center text-lunex-gray">اكتب كلمة للبحث عن سلاسل، فرق، أو مستخدمين.</div>
+        <div className="space-y-5">
+          <div className="panel p-6 text-center text-lunex-gray">اكتب كلمة للبحث عن سلاسل، فرق، أو مستخدمين.</div>
+          <section className="space-y-3">
+            <h2 className="font-display text-lg font-bold text-white">أو تصفّح</h2>
+            <div className="flex flex-wrap gap-2">
+              {[
+                { href: "/series", label: "كل السلاسل" },
+                { href: "/series?sort=trending", label: "الأكثر قراءة هذا الأسبوع" },
+                { href: "/series?sort=popular", label: "الأكثر شعبية" },
+                { href: "/series?sort=latest", label: "آخر التحديثات" },
+                { href: "/series?status=completed", label: "المكتملة" },
+                { href: "/teams", label: "الفرق" },
+              ].map((l) => (
+                <Link key={l.href} href={l.href} className="rounded-full border border-white/10 px-3.5 py-1.5 text-sm text-lunex-gray transition-colors hover:border-primary-400/40 hover:text-white">
+                  {l.label}
+                </Link>
+              ))}
+            </div>
+            <div className="flex flex-wrap gap-2">
+              {pickEssentialGenres(genres, db.series).map((g) => (
+                <Link key={g.id} href={`/series?genre=${g.slug}`} className="rounded-full bg-primary-500/15 px-3 py-1 text-xs font-medium text-primary-200 transition-colors hover:bg-primary-500/25">
+                  {g.nameAr}
+                </Link>
+              ))}
+            </div>
+          </section>
+        </div>
       ) : (
         <Tabs value={tab} onValueChange={(v) => setTab(v as typeof tab)}>
           <TabsList>

@@ -22,7 +22,7 @@ export function NewsSection({ news }: { news: NewsItem[] }) {
           return (
             <Link
               key={item.id}
-              href="/news"
+              href={`/news?post=${item.id}`}
               className="group panel panel-hover overflow-hidden transition-all hover:-translate-y-1 hover:border-primary-400/40 active:scale-[0.98] active:border-primary-400/40"
             >
               <div className="relative h-40 w-full overflow-hidden">

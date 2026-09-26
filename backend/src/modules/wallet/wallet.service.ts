@@ -58,14 +58,18 @@ export class WalletService {
     };
   }
 
-  /** Is this chapter locked, and may this member read it? The one place both questions are answered (page tokens ask it too). */
-  async access(userId: string, chapterId: string): Promise<AccessDto> {
+  /**
+   * Is this chapter locked, and may this reader read it? The one place both questions are answered (page tokens ask it too).
+   * `userId` is null for a visitor without an account: they can read what is not locked and nothing else.
+   */
+  async access(userId: string | null, chapterId: string): Promise<AccessDto> {
     const chapter = await this.repo.findChapter(chapterId);
     if (!chapter) throw new NotFoundException({ code: "chapter_not_found", message: "Chapter not found." });
 
     const latest = await this.repo.latestPublishedNumber(chapter.seriesId);
     const locked = isLockedByRule(chapter.number, latest, this.config(), chapter.manualLock);
     if (!locked) return { locked: false, canRead: true };
+    if (userId === null) return { locked: true, canRead: false };
 
     const account = await this.repo.findAccount(userId);
     if (account && READ_EVERYTHING_ROLES.has(account.role)) return { locked: true, canRead: true };

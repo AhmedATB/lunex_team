@@ -40,6 +40,16 @@ describe("who may read a chapter", () => {
     expect(repo.findUnlock).not.toHaveBeenCalled();
   });
 
+  it("lets a visitor without an account read a chapter that is not locked, and never a locked one", async () => {
+    const open = build({ chapter: { id: "c5", seriesId: "s1", number: 5, manualLock: null } });
+    expect(await open.service.access(null, "c5")).toEqual({ locked: false, canRead: true });
+    const locked = build();
+    expect(await locked.service.access(null, "c20")).toEqual({ locked: true, canRead: false });
+    // nobody to look up: no account, no unlock, no staff role to consult
+    expect(locked.repo.findAccount).not.toHaveBeenCalled();
+    expect(locked.repo.findUnlock).not.toHaveBeenCalled();
+  });
+
   it("keeps a locked chapter closed until it is opened", async () => {
     expect(await build().service.access("u1", "c20")).toEqual({ locked: true, canRead: false });
     expect(await build({ unlocked: true }).service.access("u1", "c20")).toEqual({ locked: true, canRead: true });

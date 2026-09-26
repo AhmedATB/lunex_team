@@ -67,6 +67,8 @@ function build(roles: Record<string, string>) {
     createSeries: jest.fn(async (_d: unknown) => seriesRow()),
     updateSeries: jest.fn(async (_id: string, _d: unknown, _t?: unknown) => seriesRow()),
     deleteSeriesCascade: jest.fn().mockResolvedValue([]),
+    approvedSeriesIds: jest.fn(async (ids: string[]) => ids.filter((id) => id !== "gone")),
+    setFeatured: jest.fn().mockResolvedValue([]),
     statsFor: jest.fn(async () => new Map()),
     createTeam: jest.fn(async (_d: unknown) => teamRow()),
     updateTeam: jest.fn(async (_id: string, _d: unknown) => teamRow()),
@@ -294,5 +296,32 @@ describe("images", () => {
       service.setSeriesImage("editor", "s1", "cover", { mimetype: "image/png", buffer: Buffer.from("not an image") } as Express.Multer.File, CTX)
     ).rejects.toMatchObject({ response: { code: "invalid_image" } });
     expect(storage.put).not.toHaveBeenCalled();
+  });
+});
+
+describe("pinning works to the home page", () => {
+  it("pins exactly the listed works in that order, for global editors only", async () => {
+    const { service, repo, catalog } = build(roster);
+    await expect(service.setFeatured("owner", { seriesIds: ["b", "a", "b"] }, CTX)).resolves.toEqual({ seriesIds: ["b", "a"] });
+    expect(repo.setFeatured).toHaveBeenCalledWith(["b", "a"]);
+    expect(repo.writeAuditLog).toHaveBeenLastCalledWith(expect.objectContaining({ action: "catalog.featured_set", target: "b,a" }));
+    expect(catalog.invalidate).toHaveBeenCalled();
+    await service.setFeatured("editor", { seriesIds: [] }, CTX);
+    expect(repo.setFeatured).toHaveBeenLastCalledWith([]);
+    for (const who of ["leader", "manager", "reader"]) {
+      await expect(service.setFeatured(who, { seriesIds: ["a"] }, CTX)).rejects.toMatchObject({ response: { code: "global_editor_only" } });
+    }
+  });
+
+  it("refuses a work that is not on the site and changes nothing", async () => {
+    const { service, repo } = build(roster);
+    await expect(service.setFeatured("owner", { seriesIds: ["a", "gone"] }, CTX)).rejects.toMatchObject({ response: { code: "series_not_found" } });
+    expect(repo.setFeatured).not.toHaveBeenCalled();
+  });
+
+  it("forgets a work's place when it is unpinned through a plain update", async () => {
+    const { service, repo } = build(roster);
+    await service.updateSeries("editor", "s1", { isFeatured: false }, CTX);
+    expect(repo.updateSeries).toHaveBeenLastCalledWith("s1", expect.objectContaining({ isFeatured: false, featuredOrder: null }), undefined);
   });
 });

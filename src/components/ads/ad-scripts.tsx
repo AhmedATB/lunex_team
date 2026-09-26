@@ -4,6 +4,7 @@ import { useEffect } from "react";
 import { usePathname } from "next/navigation";
 import { ADS_ENABLED, isAdPage, POPUNDER_SRC, SOCIAL_BAR_SRC } from "@/lib/ads";
 import { reportAd } from "@/lib/ads-status";
+import { installTitleGuard } from "@/lib/title-guard";
 import { AdsDebugPanel } from "@/components/ads/ads-debug";
 
 declare global {
@@ -33,6 +34,9 @@ function add(parent: HTMLElement, src: string, id: string) {
  */
 export function AdScripts() {
   const pathname = usePathname();
+
+  // Ad code must not pass itself off as the site (a tab title like "(1) New Message!"); see lib/title-guard.ts.
+  useEffect(() => installTitleGuard(), []);
 
   useEffect(() => {
     if (ADS_ENABLED && isAdPage(pathname)) {

@@ -14,6 +14,7 @@ import type {
   CreateSeriesDto,
   CreateTagDto,
   CreateTeamDto,
+  SetFeaturedDto,
   TransferSeriesDto,
   UpdateNewsDto,
   UpdateSeriesDto,
@@ -119,6 +120,8 @@ export class CatalogAdminService {
         contentRating: dto.contentRating,
         teamId,
         isFeatured: dto.isFeatured,
+        // Unpinning also forgets the place it held; pinning without one puts it after the others.
+        featuredOrder: dto.isFeatured === false ? null : undefined,
         isRecommended: dto.isRecommended,
         state: dto.state,
       },
@@ -162,6 +165,27 @@ export class CatalogAdminService {
     await this.audit(actor, "catalog.series_transferred", `${team?.id ?? "none"}:${moved.series}`, ctx);
     this.catalog.invalidate();
     return { teamId: team?.id ?? null, ...moved };
+  }
+
+  /**
+   * The owner's choice of what is pinned to the top of the home page: exactly these works, in this order (the first is the
+   * big lead). Everything not listed is unpinned. Global editors only.
+   */
+  async setFeatured(actorId: string, dto: SetFeaturedDto, ctx: RequestContext) {
+    const actor = await this.requireActor(actorId);
+    if (!SERIES_EDITORS.has(actor.role)) {
+      throw new ForbiddenException({ code: "global_editor_only", message: "Only an editor can choose what is pinned to the home page." });
+    }
+    const ids = [...new Set(dto.seriesIds)];
+    const valid = new Set(await this.repo.approvedSeriesIds(ids));
+    const missing = ids.filter((id) => !valid.has(id));
+    if (missing.length > 0) {
+      throw new NotFoundException({ code: "series_not_found", message: `${missing.length} of these series are not on the site.` });
+    }
+    await this.repo.setFeatured(ids);
+    await this.audit(actor, "catalog.featured_set", ids.join(","), ctx);
+    this.catalog.invalidate();
+    return { seriesIds: ids };
   }
 
   async setSeriesImage(actorId: string, id: string, kind: "cover" | "banner", file: Express.Multer.File | undefined, ctx: RequestContext) {
@@ -304,6 +328,13 @@ export class CatalogAdminService {
   }
 
   // ---- news ------------------------------------------------------------------
+
+  /** Every news post, drafts included, newest first — the editors' own list (the site's news page only ever shows published ones). */
+  async listNews(actorId: string) {
+    await this.requireNewsEditor(actorId);
+    const rows = await this.repo.listNews(200, true);
+    return { items: rows.map(toNewsDto) };
+  }
 
   async createNews(actorId: string, dto: CreateNewsDto, ctx: RequestContext) {
     const actor = await this.requireNewsEditor(actorId);

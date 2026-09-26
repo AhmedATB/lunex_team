@@ -292,6 +292,8 @@ export interface Series {
   latestChapterNumber: number;
   updatedAt: string;
   isFeatured: boolean;
+  /** Position among the works pinned to the top of the home page (1 = the lead), when pinned. */
+  featuredOrder?: number | null;
   isRecommended: boolean;
   /** Set for series that come from the real catalogue; the built-in sample data has none. */
   contentRating?: string;
@@ -318,6 +320,8 @@ export interface NewsItem {
   id: string;
   title: string;
   excerpt: string;
+  /** The full text of the post (paragraphs separated by blank lines). */
+  content?: string;
   cover: string;
   category: "announcement" | "event" | "news";
   createdAt: string;

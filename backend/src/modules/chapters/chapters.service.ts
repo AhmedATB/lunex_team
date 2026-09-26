@@ -27,6 +27,9 @@ const CAN_PUBLISH_GLOBAL_ROLES = new Set(["uploader", "editor", "super_administr
 
 const MAX_PAGE_DIMENSION = 6000;
 
+/** What the image log and the token record for a reader without an account (the device and address are logged beside it). */
+const GUEST_READER = "guest";
+
 @Injectable()
 export class ChaptersService {
   constructor(
@@ -133,12 +136,13 @@ export class ChaptersService {
   }
 
   /** May this member read the chapter now? Free, opened with a credit or coins, or staff — decided by the wallet (modules/wallet). */
-  async canAccessChapter(userId: string, chapterId: string): Promise<boolean> {
+  async canAccessChapter(userId: string | null, chapterId: string): Promise<boolean> {
     return (await this.wallet.access(userId, chapterId)).canRead;
   }
 
+  /** `userId` is null for a visitor without an account: pages of a chapter that is not locked are issued to them too, a locked one never is. */
   async issuePageToken(
-    userId: string,
+    userId: string | null,
     chapterId: string,
     pageNumber: number,
     ctx: RequestContext
@@ -152,7 +156,7 @@ export class ChaptersService {
     if (!page) {
       throw new NotFoundException({ code: "page_not_found", message: "Page not found in this chapter." });
     }
-    return this.images.issueToken(page.assetId, userId, ctx);
+    return this.images.issueToken(page.assetId, userId ?? GUEST_READER, ctx);
   }
 
   /** Opens a locked chapter by spending a reading credit or coins (a chapter that needs no payment costs nothing). */

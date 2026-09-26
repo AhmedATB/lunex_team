@@ -6,7 +6,7 @@ import { useRouter, useSearchParams } from "next/navigation";
 import { ArrowRight, LogOut, Loader2, MessageCircle, Plus, Send, UserPlus, Users } from "lucide-react";
 import { useSession } from "@/store/session";
 import { chatApi, conversationName, MESSAGES_CHANGED, type ChatMessage, type Conversation, type Person } from "@/lib/messages-api";
-import { resolveAvatarUrl, cn, timeAgo } from "@/lib/utils";
+import { resolveAvatarUrl, cn } from "@/lib/utils";
 import { useMuteStatus } from "@/lib/use-mute-status";
 import { MuteNotice } from "@/components/moderation/mute-notice";
 import { UserPicker } from "@/components/messages/user-picker";
@@ -46,6 +46,52 @@ function ChatAvatar({ conversation, myId, size }: { conversation: Conversation; 
   return <PersonAvatar person={other} size={size} />;
 }
 
+const RUN_GAP_MS = 5 * 60_000;
+const DAY_MS = 86_400_000;
+const startOfDay = (date: Date) => new Date(date.getFullYear(), date.getMonth(), date.getDate()).getTime();
+const clock = (iso: string) => new Intl.DateTimeFormat("ar", { timeStyle: "short" }).format(new Date(iso));
+
+function dayLabel(iso: string): string {
+  const date = new Date(iso);
+  const days = Math.round((startOfDay(new Date()) - startOfDay(date)) / DAY_MS);
+  if (days <= 0) return "اليوم";
+  if (days === 1) return "أمس";
+  return new Intl.DateTimeFormat("ar", { dateStyle: "medium" }).format(date);
+}
+
+interface Row {
+  message: ChatMessage;
+  mine: boolean;
+  sender: Person | undefined;
+  /** First of a run of messages by the same person (the name of the sender goes above it in a group). */
+  first: boolean;
+  /** Last of the run: the sender's picture and the time go beside and under this one. */
+  last: boolean;
+  /** Set when this message starts a new day. */
+  day: string | null;
+}
+
+/**
+ * Cuts the thread into runs: messages by one person, written close together on the same day, are one run — so three
+ * messages in a row show the person's picture once, not three times.
+ */
+function buildRows(messages: ChatMessage[], myId: string | null, members: Person[]): Row[] {
+  const sameRun = (a: ChatMessage | undefined, b: ChatMessage | undefined) =>
+    !!a && !!b && a.senderId === b.senderId && new Date(a.createdAt).toDateString() === new Date(b.createdAt).toDateString() && Math.abs(+new Date(b.createdAt) - +new Date(a.createdAt)) < RUN_GAP_MS;
+  return messages.map((message, i) => {
+    const prev = messages[i - 1];
+    const next = messages[i + 1];
+    return {
+      message,
+      mine: message.senderId === myId,
+      sender: members.find((p) => p.id === message.senderId),
+      first: !sameRun(prev, message),
+      last: !sameRun(message, next),
+      day: !prev || new Date(prev.createdAt).toDateString() !== new Date(message.createdAt).toDateString() ? dayLabel(message.createdAt) : null,
+    };
+  });
+}
+
 function MessagesPageInner() {
   useEffect(() => {
     document.title = "الرسائل | LUNEX TEAM";
@@ -77,6 +123,7 @@ function MessagesPageInner() {
   const stickToBottom = useRef(true);
 
   const active = useMemo(() => conversations.find((c) => c.id === activeId) ?? null, [conversations, activeId]);
+  const rows = useMemo(() => buildRows(messages, myId, active?.members ?? []), [messages, myId, active]);
 
   const refreshList = useCallback(async () => {
     const result = await chatApi.list();
@@ -200,8 +247,8 @@ function MessagesPageInner() {
   if (!myId) return <div className="container py-16 text-center text-lunex-gray">يجب تسجيل الدخول لعرض رسائلك.</div>;
 
   return (
-    <div className="container py-6">
-      <div className="mb-4 flex items-center justify-between gap-3">
+    <div className="container py-3 lg:py-6">
+      <div className={cn("mb-3 flex items-center justify-between gap-3 lg:mb-4", active && "hidden lg:flex")}>
         <h1 className="section-title font-display text-2xl font-bold text-white">الرسائل</h1>
         <Button size="sm" onClick={() => setNewChatOpen(true)}>
           <Plus className="h-4 w-4" /> محادثة جديدة
@@ -210,7 +257,7 @@ function MessagesPageInner() {
 
       <div className="grid gap-4 lg:grid-cols-[320px_1fr]">
         {/* The list: on a phone it is the whole screen until a chat is opened. */}
-        <div className={cn("panel max-h-[72vh] overflow-y-auto", active && "hidden lg:block")}>
+        <div className={cn("panel h-[calc(100dvh-13rem)] min-h-[16rem] overflow-y-auto lg:h-[72vh]", active && "hidden lg:block")}>
           {!listLoaded ? (
             <div className="flex justify-center p-8 text-lunex-gray"><Loader2 className="h-5 w-5 animate-spin" /></div>
           ) : conversations.length === 0 ? (
@@ -243,7 +290,7 @@ function MessagesPageInner() {
           )}
         </div>
 
-        <div className={cn("panel flex min-h-[60vh] flex-col", !active && "hidden lg:flex")}>
+        <div className={cn("panel flex h-[calc(100dvh-9rem)] min-h-[20rem] flex-col overflow-hidden lg:h-[72vh]", !active && "hidden lg:flex")}>
           {!active ? (
             <div className="flex flex-1 flex-col items-center justify-center gap-2 p-10 text-center text-lunex-gray">
               <MessageCircle className="h-10 w-10" />
@@ -278,7 +325,7 @@ function MessagesPageInner() {
                   const el = e.currentTarget;
                   stickToBottom.current = el.scrollHeight - el.scrollTop - el.clientHeight < 80;
                 }}
-                className="max-h-[52vh] flex-1 space-y-2 overflow-y-auto p-4"
+                className="min-h-0 flex-1 overflow-y-auto overscroll-contain px-3 py-3 sm:px-4"
               >
                 {hasOlder && (
                   <div className="flex justify-center">
@@ -290,23 +337,33 @@ function MessagesPageInner() {
                 ) : messages.length === 0 ? (
                   <p className="py-10 text-center text-sm text-lunex-gray">ابدأ المحادثة بإرسال أول رسالة.</p>
                 ) : (
-                  messages.map((m) => {
-                    const mine = m.senderId === myId;
-                    const sender = active.isGroup && !mine ? active.members.find((p) => p.id === m.senderId) : undefined;
-                    return (
-                      <div key={m.id} className={cn("flex", mine ? "justify-end" : "justify-start")}>
-                        <div className={cn("max-w-[78%] rounded-2xl px-3 py-2 text-sm", mine ? "bg-lunex-gradient text-white" : "bg-white/5 text-lunex-gray")}>
-                          {sender && <p className="mb-0.5 text-[11px] font-semibold text-primary-300">{sender.displayName}</p>}
-                          <p className="whitespace-pre-wrap break-words">{m.text}</p>
-                          <p className="mt-1 text-[10px] opacity-70">{timeAgo(m.createdAt)}</p>
+                  rows.map((row) => (
+                    <div key={row.message.id}>
+                      {row.day && (
+                        <div className="my-3 flex justify-center">
+                          <span className="rounded-full bg-white/5 px-3 py-0.5 text-[11px] text-lunex-gray">{row.day}</span>
+                        </div>
+                      )}
+                      <div className={cn("flex items-end gap-2", row.mine ? "justify-end" : "justify-start", row.first ? "mt-2" : "mt-0.5")}>
+                        {!row.mine && (
+                          <div className="w-7 shrink-0" aria-hidden={!row.last}>
+                            {row.last && row.sender && <PersonAvatar person={row.sender} size={28} />}
+                          </div>
+                        )}
+                        <div className={cn("max-w-[78%] rounded-2xl px-3 py-1.5 text-sm", row.mine ? "bg-lunex-gradient text-white" : "bg-white/5 text-lunex-gray")}>
+                          {row.first && !row.mine && active.isGroup && row.sender && (
+                            <p className="mb-0.5 text-[11px] font-semibold text-primary-300">{row.sender.displayName}</p>
+                          )}
+                          <p className="whitespace-pre-wrap break-words">{row.message.text}</p>
+                          {row.last && <p className="mt-0.5 text-[10px] opacity-70">{clock(row.message.createdAt)}</p>}
                         </div>
                       </div>
-                    );
-                  })
+                    </div>
+                  ))
                 )}
               </div>
 
-              <div className="border-t border-white/10 p-3">
+              <div className="shrink-0 border-t border-white/10 p-2.5 pb-[max(0.625rem,env(safe-area-inset-bottom))] sm:p-3">
                 <MuteNotice className="mb-2" />
                 {error && <p className="mb-2 text-xs text-red-400" role="alert">{error}</p>}
                 <form onSubmit={send} className="flex items-center gap-2">
@@ -314,12 +371,12 @@ function MessagesPageInner() {
                     value={draft}
                     onChange={(e) => setDraft(e.target.value)}
                     placeholder="اكتب رسالتك..."
-                    className="flex-1"
+                    className="h-11 flex-1 text-base"
                     maxLength={2000}
                     disabled={mute.muted}
                     aria-label="نص الرسالة"
                   />
-                  <Button type="submit" size="icon" aria-label="إرسال" disabled={!draft.trim() || sending || mute.muted}>
+                  <Button type="submit" size="icon" className="h-11 w-11 shrink-0" aria-label="إرسال" disabled={!draft.trim() || sending || mute.muted}>
                     {sending ? <Loader2 className="h-4 w-4 animate-spin" /> : <Send className="h-4 w-4" />}
                   </Button>
                 </form>

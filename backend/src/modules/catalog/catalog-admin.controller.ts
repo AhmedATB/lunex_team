@@ -2,6 +2,7 @@ import {
   Body,
   Controller,
   Delete,
+  Get,
   HttpCode,
   HttpStatus,
   Param,
@@ -25,6 +26,7 @@ import {
   CreateSeriesDto,
   CreateTagDto,
   CreateTeamDto,
+  SetFeaturedDto,
   SetMemberDto,
   TransferSeriesDto,
   UpdateNewsDto,
@@ -54,6 +56,13 @@ export class CatalogAdminController {
   @Throttle({ default: { limit: 20, ttl: 60_000 } })
   transferSeries(@Body() dto: TransferSeriesDto, @CurrentUser() actor: AccessTokenPayload, @Req() req: Request) {
     return this.admin.transferSeries(actor.sub, dto, req.context);
+  }
+
+  @Put("featured")
+  @HttpCode(HttpStatus.OK)
+  @Throttle({ default: { limit: 30, ttl: 60_000 } })
+  setFeatured(@Body() dto: SetFeaturedDto, @CurrentUser() actor: AccessTokenPayload, @Req() req: Request) {
+    return this.admin.setFeatured(actor.sub, dto, req.context);
   }
 
   @Patch("series/:id")
@@ -174,6 +183,13 @@ export class CatalogAdminController {
   }
 
   // ---- news ----
+
+  /** The editors' list, drafts included. A different path from the public reads, so it is never cached or shared. */
+  @Get("admin/news")
+  @Throttle({ default: { limit: 60, ttl: 60_000 } })
+  listNews(@CurrentUser() actor: AccessTokenPayload) {
+    return this.admin.listNews(actor.sub);
+  }
 
   @Post("news")
   @HttpCode(HttpStatus.CREATED)

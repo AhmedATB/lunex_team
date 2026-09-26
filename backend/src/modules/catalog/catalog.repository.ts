@@ -138,6 +138,7 @@ export class CatalogRepository {
       contentRating: string;
       teamId: string | null;
       isFeatured: boolean;
+      featuredOrder: number | null;
       isRecommended: boolean;
       state: string;
       coverAssetId: string | null;
@@ -156,6 +157,20 @@ export class CatalogRepository {
 
   deleteSeries(id: string) {
     return this.prisma.series.delete({ where: { id } });
+  }
+
+  /** Pins exactly these approved series to the home page, in this order, and unpins every other. */
+  setFeatured(ids: string[]) {
+    return this.prisma.$transaction([
+      this.prisma.series.updateMany({ where: { isFeatured: true, id: { notIn: ids } }, data: { isFeatured: false, featuredOrder: null } }),
+      ...ids.map((id, index) => this.prisma.series.update({ where: { id }, data: { isFeatured: true, featuredOrder: index + 1 } })),
+    ]);
+  }
+
+  /** Which of these ids are series that exist and are shown on the site. */
+  async approvedSeriesIds(ids: string[]): Promise<string[]> {
+    const rows = await this.prisma.series.findMany({ where: { id: { in: ids }, state: "approved" }, select: { id: true } });
+    return rows.map((r) => r.id);
   }
 
   /** Which of these ids are series that exist. */

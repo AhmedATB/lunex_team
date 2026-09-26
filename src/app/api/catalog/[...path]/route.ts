@@ -53,7 +53,7 @@ async function proxy(req: NextRequest, { params }: Context) {
 
   if (result.status === 204) return new NextResponse(null, { status: 204 });
   // The owner's import/storage tools are account-bound, never shareable.
-  const isPublicRead = req.method === "GET" && path[0] !== "import";
+  const isPublicRead = req.method === "GET" && path[0] !== "import" && path[0] !== "admin";
   return NextResponse.json(result.body, {
     status: result.status,
     headers: { "Cache-Control": isPublicRead ? "public, max-age=15, stale-while-revalidate=60" : "private, no-store" },
