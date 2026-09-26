@@ -73,6 +73,17 @@ export async function loadCatalog(): Promise<Catalog> {
   return seed ? seedToCatalog(seed) : mockCatalog();
 }
 
+/**
+ * The catalogue for a page's head (title, description, whether search engines may index it). Where the site runs for real, an
+ * unreachable backend is an error — the crawler gets a 500 and comes back later — never the built-in sample data, which would
+ * make every real page look like one that does not exist and tell search engines to drop it.
+ */
+export async function loadCatalogForSeo(): Promise<Catalog> {
+  const seed = await loadCatalogSeed();
+  if (!seed && process.env.NODE_ENV === "production") throw new Error("The catalogue could not be loaded.");
+  return seed ? seedToCatalog(seed) : mockCatalog();
+}
+
 /** A listed series and its published chapters, as the backend's sitemap index describes them. */
 export interface SitemapSeries {
   slug: string;

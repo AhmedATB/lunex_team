@@ -1,14 +1,14 @@
 import type { Metadata } from "next";
 import type { ReactNode } from "react";
 import { JsonLd } from "@/components/seo/json-ld";
-import { loadCatalog } from "@/lib/catalog-server";
+import { loadCatalogForSeo } from "@/lib/catalog-server";
 import { SITE_NAME, absoluteUrl, breadcrumbJsonLd, clip, teamJsonLd, teamPath } from "@/lib/seo";
 import { safeDecodeURIComponent } from "@/lib/utils";
 
 type Props = { params: Promise<{ slug: string }> };
 
 async function findTeam(slugParam: string) {
-  const db = await loadCatalog();
+  const db = await loadCatalogForSeo();
   const slug = safeDecodeURIComponent(slugParam);
   return db.teams.find((t) => t.slug === slug);
 }

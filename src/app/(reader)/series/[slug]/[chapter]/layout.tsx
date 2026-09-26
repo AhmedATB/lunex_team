@@ -1,21 +1,24 @@
 import type { Metadata } from "next";
 import type { ReactNode } from "react";
 import { JsonLd } from "@/components/seo/json-ld";
-import { loadCatalog } from "@/lib/catalog-server";
+import { loadCatalogForSeo, loadSitemapIndex } from "@/lib/catalog-server";
 import { SITE_NAME, breadcrumbJsonLd, chapterDescription, chapterJsonLd, chapterPath, coverUrl, displayTitle, seriesPath } from "@/lib/seo";
 import { safeDecodeURIComponent } from "@/lib/utils";
 
 type Props = { params: Promise<{ slug: string; chapter: string }> };
 
 async function find({ slug, chapter }: { slug: string; chapter: string }) {
-  const db = await loadCatalog();
+  const db = await loadCatalogForSeo();
   const wanted = safeDecodeURIComponent(slug);
   const series = db.series.find((s) => s.slug === wanted);
   const number = Number(safeDecodeURIComponent(chapter));
-  // A number the work has not reached (or is not a number) is a chapter that does not exist — or a draft only its team can open —
-  // so it is kept out of search results. Anything up to the latest chapter is left indexable, even when the catalogue is a
-  // moment behind a chapter that was just published.
-  const exists = !!series && Number.isFinite(number) && number > 0 && number <= (series.latestChapterNumber ?? 0);
+  // A chapter that is neither published nor within what the work has reached (or is not a number) does not exist — or is a draft
+  // only its team can open — so it is kept out of search results. Either list saying it exists is enough, and when the chapter
+  // index cannot be read at all nothing is turned away: a page must never lose its place in search because of a hiccup here.
+  const index = await loadSitemapIndex();
+  const published = index?.find((s) => s.slug === series?.slug)?.chapters.some((c) => c.number === number) ?? false;
+  const reached = number > 0 && number <= (series?.latestChapterNumber ?? 0);
+  const exists = !!series && Number.isFinite(number) && number >= 0 && (published || reached || index === null);
   return { series, number, exists };
 }
 

@@ -1,7 +1,7 @@
 import type { Metadata } from "next";
 import type { ReactNode } from "react";
 import { JsonLd } from "@/components/seo/json-ld";
-import { loadCatalog, loadSitemapIndex } from "@/lib/catalog-server";
+import { loadCatalogForSeo, loadSitemapIndex } from "@/lib/catalog-server";
 import { SITE_NAME, breadcrumbJsonLd, chapterPath, coverUrl, displayTitle, seriesDescription, seriesJsonLd, seriesPath } from "@/lib/seo";
 import { safeDecodeURIComponent } from "@/lib/utils";
 
@@ -11,7 +11,7 @@ type Props = { params: Promise<{ slug: string }> };
 const CHAPTER_LINKS = 400;
 
 async function findSeries(slugParam: string) {
-  const db = await loadCatalog();
+  const db = await loadCatalogForSeo();
   const slug = safeDecodeURIComponent(slugParam);
   return { db, series: db.series.find((s) => s.slug === slug) };
 }
