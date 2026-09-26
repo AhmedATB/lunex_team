@@ -1,6 +1,5 @@
 import { HttpException, HttpStatus, Injectable, NotFoundException, UnauthorizedException } from "@nestjs/common";
 import { ConfigService } from "@nestjs/config";
-import sharp from "sharp";
 import { ScrapingVelocityTracker } from "./anti-scraping/scraping-velocity.tracker";
 import { ImageTokenSigner, NonceCache } from "./crypto/image-token.util";
 import { ImagesRepository } from "./images.repository";
@@ -17,8 +16,8 @@ export interface IssuedImageToken {
  * Orchestration only, same shape as AuthService: repository owns Prisma,
  * StorageService owns bytes-on-disk, ImageTokenSigner owns crypto — this
  * class wires the three together into the actual security properties the
- * architecture doc calls for (short-lived, device-bound, single-use, per-
- * session-watermarked access).
+ * architecture doc calls for (short-lived, device-bound, single-use, logged
+ * access). Pages carry no visible watermark — see §11 of the architecture doc.
  */
 @Injectable()
 export class ImagesService {
@@ -102,8 +101,7 @@ export class ImagesService {
     }
 
     const original = await this.storage.get(asset.storageKey);
-    const watermarked = await this.watermark(original, payload.userId, payload.nonce);
-    const bundle = await buildTileBundle(watermarked, asset.width, asset.height);
+    const bundle = await buildTileBundle(original, asset.width, asset.height);
     const encrypted = encryptBundle(bundle, payload.bundleKey);
 
     await this.repo.logAccess({
@@ -117,48 +115,6 @@ export class ImagesService {
     return { buffer: encrypted, contentType: "application/octet-stream" };
   }
 
-  /**
-   * Tiled, semi-transparent overlay carrying the requesting user's id and a
-   * per-token session nonce (never the same value twice — a fresh one is
-   * minted with every issued token, architecture doc §23/§24) rather than
-   * just a timestamp, so two page views by the same user still carry
-   * visibly different marks. Barely noticeable at normal reading size, but
-   * a leaked page still carries enough signal (repeated so cropping can't
-   * remove every copy) to trace the leak back to one specific session. This
-   * is deterrence through traceability, not prevention — the honest framing
-   * for anything that ultimately has to render onto a screen a human can see.
-   */
-  private async watermark(original: Buffer, userId: string, sessionNonce: string): Promise<Buffer> {
-    const image = sharp(original);
-    const metadata = await image.metadata();
-    const width = metadata.width ?? 800;
-    const height = metadata.height ?? 1200;
-    const label = `${userId.slice(0, 8)} · ${sessionNonce.slice(0, 10)}`;
-
-    const svg = this.buildWatermarkSvg(width, height, label);
-    return image
-      .composite([{ input: Buffer.from(svg), blend: "over" }])
-      .png()
-      .toBuffer();
-  }
-
-  private buildWatermarkSvg(width: number, height: number, label: string): string {
-    const tileW = 220;
-    const tileH = 120;
-    const rows = Math.ceil(height / tileH) + 1;
-    const cols = Math.ceil(width / tileW) + 1;
-
-    let texts = "";
-    for (let r = 0; r < rows; r++) {
-      for (let c = 0; c < cols; c++) {
-        const x = c * tileW;
-        const y = r * tileH;
-        texts += `<text x="${x}" y="${y}" transform="rotate(-30 ${x} ${y})" font-size="14" fill="white" fill-opacity="0.14" font-family="monospace">${escapeXml(label)}</text>`;
-      }
-    }
-    return `<svg width="${width}" height="${height}" xmlns="http://www.w3.org/2000/svg">${texts}</svg>`;
-  }
-
   private async reject(assetId: string, userId: string | undefined, ctx: RequestContext, reason: string) {
     await this.repo.logAccess({
       assetId,
@@ -169,21 +125,4 @@ export class ImagesService {
       reason,
     });
   }
-}
-
-function escapeXml(value: string): string {
-  return value.replace(/[<>&'"]/g, (c) => {
-    switch (c) {
-      case "<":
-        return "&lt;";
-      case ">":
-        return "&gt;";
-      case "&":
-        return "&amp;";
-      case "'":
-        return "&apos;";
-      default:
-        return "&quot;";
-    }
-  });
 }

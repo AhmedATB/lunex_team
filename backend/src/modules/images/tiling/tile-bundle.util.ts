@@ -44,7 +44,7 @@ function shuffled<T>(items: T[]): T[] {
 }
 
 /**
- * Slices a full (already-watermarked) page image into the adaptive grid,
+ * Slices a full page image into the adaptive grid,
  * shuffles the send order, and returns one plaintext payload:
  * `[4-byte manifest length][manifest JSON][tile bytes, concatenated in
  * manifest order]`. Tile ids are random and never encode row/col/page —
@@ -68,12 +68,17 @@ export async function buildTileBundle(image: Buffer, width: number, height: numb
     }
   }
 
+  // Decode the page once and cut every tile from the raw pixels. Cutting straight from the stored (WebP) bytes would
+  // decode the whole tall page again for each tile, which took about twice as long.
+  const { data: pixels, info } = await sharp(image).raw().toBuffer({ resolveWithObject: true });
+  const raw = { raw: { width: info.width, height: info.height, channels: info.channels } };
+
   const order = shuffled(cells);
   const manifest: TileManifest = { cols, rows, tiles: [] };
   const tileBuffers: Buffer[] = [];
 
   for (const cell of order) {
-    const tileBuf = await sharp(image)
+    const tileBuf = await sharp(pixels, raw)
       .extract({ left: cell.x, top: cell.y, width: cell.w, height: cell.h })
       .webp({ quality: 90 })
       .toBuffer();
