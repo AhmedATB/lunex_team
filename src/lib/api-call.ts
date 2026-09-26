@@ -34,6 +34,7 @@ const MESSAGES: Record<string, string> = {
   drive_failed: "تعذرت قراءة المجلد من Google Drive.",
   too_many_open_requests: "لديك طلبان بانتظار القرار. انتظر الرد عليهما أولًا.",
   too_many_requests: "أرسلت طلبات كثيرة اليوم. حاول غدًا.",
+  outranked: "رتبتك لا تسمح بهذا التغيير على هذا العضو.",
   team_name_taken: "يوجد فريق بهذا الاسم. اختر اسمًا آخر.",
   not_awaiting_changes: "لا يمكن تعديل هذا الطلب الآن.",
   invalid_transition: "لا يمكن نقل الطلب إلى هذه الحالة من حالته الحالية.",

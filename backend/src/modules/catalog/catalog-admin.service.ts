@@ -7,7 +7,7 @@ import { StorageService } from "../images/storage/storage.interface";
 import { NotificationsService } from "../notifications/notifications.service";
 import { CatalogRepository } from "./catalog.repository";
 import { CatalogService } from "./catalog.service";
-import { EMPTY_STATS, TEAM_LEAD_ROLES, TEAM_MANAGER_ROLES, slugify, toNewsDto, toSeriesDto, toTagDto, toTeamDto, uniqueSlug, type SeriesRow, type TeamRow } from "./catalog.util";
+import { EMPTY_STATS, TEAM_LEAD_ROLES, TEAM_MANAGER_ROLES, slugify, teamRoleRank, toNewsDto, toSeriesDto, toTagDto, toTeamDto, uniqueSlug, type SeriesRow, type TeamRow } from "./catalog.util";
 import type {
   AddMemberDto,
   CreateNewsDto,
@@ -288,7 +288,7 @@ export class CatalogAdminService {
 
   async setMember(actorId: string, teamId: string, userId: string, role: string, ctx: RequestContext): Promise<void> {
     const actor = await this.requireActor(actorId);
-    await this.requireTeamManagement(actor, teamId);
+    await this.requireRankOver(actor, teamId, userId, role);
     if (!(await this.repo.findPeople([userId])).length) {
       throw new NotFoundException({ code: "user_not_found", message: "User not found." });
     }
@@ -302,6 +302,7 @@ export class CatalogAdminService {
     const actor = await this.requireActor(actorId);
     await this.requireTeamManagement(actor, teamId);
     const userId = await this.userIdByUsername(dto.username.trim().replace(/^@/, ""));
+    await this.requireRankOver(actor, teamId, userId, dto.role);
     const team = await this.requireTeam(teamId);
     await this.repo.setMember(teamId, userId, dto.role);
     if (userId !== actor.id) {
@@ -314,7 +315,7 @@ export class CatalogAdminService {
 
   async removeMember(actorId: string, teamId: string, userId: string, ctx: RequestContext): Promise<void> {
     const actor = await this.requireActor(actorId);
-    await this.requireTeamManagement(actor, teamId);
+    await this.requireRankOver(actor, teamId, userId);
     await this.repo.removeMember(teamId, userId);
     await this.audit(actor, "catalog.team_member_removed", `${teamId}:${userId}`, ctx);
     this.catalog.invalidate();
@@ -455,6 +456,26 @@ export class CatalogAdminService {
   }
 
   /** A team manager, or that team's own leader / assistant / administrator. */
+  /**
+   * Changing a member of a team (their role, adding them, removing them) is for someone who stands above them: the site's team
+   * managers over everyone, and inside a team only people ranked higher than the member and than the role being given. So the
+   * leader can make an assistant leader but not another leader, an assistant can make administrators but not assistants, and an
+   * administrator cannot lift themselves or touch another administrator. Nobody changes their own place.
+   */
+  private async requireRankOver(actor: Actor, teamId: string, targetUserId: string, newRole?: string) {
+    const team = await this.requireTeamManagement(actor, teamId);
+    if (TEAM_MANAGERS.has(actor.role)) return team;
+
+    const members = await this.repo.membersOfTeam(teamId);
+    const rankOf = (userId: string) => (team.leaderId === userId ? teamRoleRank("team_leader") : teamRoleRank(members.find((m) => m.userId === userId)?.role ?? "member"));
+    const mine = rankOf(actor.id);
+    const targetRank = members.some((m) => m.userId === targetUserId) || team.leaderId === targetUserId ? rankOf(targetUserId) : 0;
+    if (targetUserId === actor.id || mine <= targetRank || (newRole !== undefined && mine <= teamRoleRank(newRole))) {
+      throw new ForbiddenException({ code: "outranked", message: "You do not rank high enough for this change." });
+    }
+    return team;
+  }
+
   private async requireTeamManagement(actor: Actor, teamId: string) {
     const team = await this.requireTeam(teamId);
     if (!TEAM_MANAGERS.has(actor.role) && !(await this.isTeamLead(actor.id, team.id))) {

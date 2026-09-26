@@ -24,6 +24,8 @@ export interface TeamPatch {
 
 /** Roles a member can be given here. The leader is set through `leaderUsername`, not as a member role. */
 export const MEMBER_ROLES = [
+  "trainee",
+  "member",
   "translator",
   "editor",
   "proofreader",

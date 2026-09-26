@@ -212,6 +212,44 @@ describe("team permissions", () => {
     expect(repo.setMember).toHaveBeenCalledTimes(2);
   });
 
+  it("keeps team members in their place: nobody changes someone at or above their own rank, or gives a rank they lack", async () => {
+    const people = { ...roster, assistant: "reader", admin: "reader", other: "reader", plain: "reader" };
+    const withRoster = () => {
+      const built = build(people);
+      built.repo.membersOfTeam.mockResolvedValue([
+        { userId: "assistant", role: "assistant_leader" },
+        { userId: "other", role: "assistant_leader" },
+        { userId: "admin", role: "team_administrator" },
+        { userId: "plain", role: "translator" },
+      ]);
+      return built;
+    };
+    const outranked = { response: { code: "outranked" } };
+
+    const lead = withRoster();
+    await lead.service.setMember("leader", "t1", "plain", "assistant_leader", CTX); // the leader can make an assistant
+    await expect(lead.service.setMember("leader", "t1", "plain", "team_leader", CTX)).rejects.toMatchObject(outranked); // but not another leader
+    await expect(lead.service.setMember("leader", "t1", "leader", "member", CTX)).rejects.toMatchObject(outranked); // nor change their own place
+
+    const assistant = withRoster();
+    await assistant.service.setMember("assistant", "t1", "plain", "team_administrator", CTX);
+    await assistant.service.setMember("assistant", "t1", "admin", "translator", CTX);
+    await expect(assistant.service.setMember("assistant", "t1", "plain", "assistant_leader", CTX)).rejects.toMatchObject(outranked);
+    await expect(assistant.service.removeMember("assistant", "t1", "other", CTX)).rejects.toMatchObject(outranked); // an equal
+
+    const admin = withRoster();
+    await admin.service.setMember("admin", "t1", "plain", "editor", CTX);
+    await admin.service.removeMember("admin", "t1", "plain", CTX);
+    await expect(admin.service.setMember("admin", "t1", "plain", "team_administrator", CTX)).rejects.toMatchObject(outranked);
+    await expect(admin.service.setMember("admin", "t1", "assistant", "member", CTX)).rejects.toMatchObject(outranked);
+    await expect(admin.service.setMember("admin", "t1", "admin", "assistant_leader", CTX)).rejects.toMatchObject(outranked); // cannot lift themselves
+    await expect(admin.service.addMemberByUsername("admin", "t1", { username: "sara", role: "team_administrator" }, CTX)).rejects.toMatchObject(outranked);
+
+    const manager = withRoster();
+    await manager.service.setMember("manager", "t1", "plain", "team_leader", CTX); // the site's managers stand above every rank
+    await manager.service.removeMember("manager", "t1", "assistant", CTX);
+  });
+
   it("adds an account to a team by username without a recruitment post, for managers and the team's own leader only", async () => {
     const { service, repo, catalog, notifications } = build(roster);
     await expect(service.addMemberByUsername("manager", "t1", { username: "@rahaf", role: "translator" }, CTX)).resolves.toEqual({ userId: "id-rahaf", role: "translator" });

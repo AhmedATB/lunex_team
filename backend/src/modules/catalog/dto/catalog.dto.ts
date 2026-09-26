@@ -286,7 +286,7 @@ export class UpdateTeamDto {
   leaderUsername?: string;
 }
 
-const TEAM_MEMBER_ROLES = ["team_leader", "assistant_leader", "team_administrator", "translator", "editor", "proofreader", "qc", "publisher", "uploader", "recruiter", "reviewer"];
+const TEAM_MEMBER_ROLES = ["team_leader", "assistant_leader", "team_administrator", "trainee", "member", "translator", "editor", "proofreader", "qc", "publisher", "uploader", "recruiter", "reviewer"];
 
 export class SetMemberDto {
   @IsIn(TEAM_MEMBER_ROLES)

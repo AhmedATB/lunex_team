@@ -47,7 +47,7 @@ import { ChaptersOverTimeChart, StatusPieChart } from "@/components/admin/charts
 import { GridPageSkeleton } from "@/components/shared/skeletons";
 import { AddMemberForm } from "@/components/admin/add-member-form";
 import { RecruitmentPanel } from "@/components/teams/recruitment-panel";
-import { teamApi, type TeamPatch } from "@/lib/team-api";
+import { teamApi, type MemberRole, type TeamPatch } from "@/lib/team-api";
 import { useToast } from "@/store/toast";
 
 const PROMOTION_LADDER: TeamRole[] = ["trainee", "member", "team_administrator", "assistant_leader"];
@@ -104,7 +104,11 @@ export default function TeamDashboardPage() {
     return <div className="container py-16 text-center text-lunex-gray">الفريق غير موجود.</div>;
   }
 
-  const { isGlobalAdmin, isLeader, isAssistantLeader } = getTeamAuthRoles(team, currentUser, store.memberRoleOverrides);
+  // A team on the real catalogue keeps its roster and its members' roles on the site, so the browser's own copy of them is ignored;
+  // that copy is for teams that exist only in this browser (and for custom roles, which the site does not keep yet).
+  const isRealTeam = db.teams.some((t) => t.id === team.id);
+
+  const { isGlobalAdmin, isLeader, isAssistantLeader } = getTeamAuthRoles(team, currentUser, isRealTeam ? {} : store.memberRoleOverrides);
   const canAccessDashboard = isLeader || isAssistantLeader || isGlobalAdmin;
 
   // Dashboard access is intentionally narrower than "team member": only the team
@@ -123,14 +127,14 @@ export default function TeamDashboardPage() {
     );
   }
 
-  const removedIds = new Set(store.removedMemberIds[team.id] ?? []);
+  const removedIds = new Set(isRealTeam ? [] : store.removedMemberIds[team.id] ?? []);
   const activeMemberIds = team.memberIds.filter((id) => !removedIds.has(id));
   const members = activeMemberIds
     .map((id) => db.users.find((u) => u.id === id))
     .filter(Boolean)
     .map((u) => {
       const override = store.memberRoleOverrides[u!.id];
-      return { ...u!, teamRole: override?.teamRole ?? u!.teamRole, customRoleId: override?.customRoleId ?? u!.customRoleId };
+      return { ...u!, teamRole: (isRealTeam ? undefined : override?.teamRole) ?? u!.teamRole, customRoleId: override?.customRoleId ?? u!.customRoleId };
     });
 
   const customRoles: CustomRole[] = getEffectiveCustomRoles(
@@ -175,8 +179,6 @@ export default function TeamDashboardPage() {
 
   // A team on the real catalogue saves to the site itself, so every visitor sees the change. The store's browser-only copy
   // is for teams that exist only in this browser, and for the logo link (the site does not keep one yet).
-  const isRealTeam = db.teams.some((t) => t.id === team.id);
-
   async function saveToSite(patch: TeamPatch, clear: (keyof Team)[]): Promise<boolean> {
     const result = await teamApi.update(team!.id, patch);
     if (!result.ok) {
@@ -186,6 +188,33 @@ export default function TeamDashboardPage() {
     store.clearTeamInfoOverride(team!.id, clear);
     router.refresh();
     return true;
+  }
+
+  /** Moves a member up or down. For a team on the site it is saved there (the site checks the rank); otherwise it stays in this browser. */
+  async function changeRole(memberId: string, next: TeamRole, label: string) {
+    if (!isRealTeam) {
+      store.setMemberRole(memberId, team!.id, { teamRole: next }, currentUser!.id, label);
+      return;
+    }
+    const result = await teamApi.setMemberRole(team!.id, memberId, next as MemberRole);
+    if (!result.ok) {
+      useToast.getState().push({ title: "تعذر تغيير الرتبة", description: result.message });
+      return;
+    }
+    router.refresh();
+  }
+
+  async function removeFromTeam(memberId: string) {
+    if (!isRealTeam) {
+      store.removeMember(memberId, team!.id, currentUser!.id);
+      return;
+    }
+    const result = await teamApi.removeMember(team!.id, memberId);
+    if (!result.ok) {
+      useToast.getState().push({ title: "تعذرت إزالة العضو", description: result.message });
+      return;
+    }
+    router.refresh();
   }
 
   async function saveInfo(patch: Partial<Pick<Team, "name" | "description" | "goals" | "discordUrl" | "category" | "recruiting" | "logoUrl" | "color">>): Promise<boolean> {
@@ -374,13 +403,13 @@ export default function TeamDashboardPage() {
                     <div className="flex shrink-0 gap-1">
                       <Button
                         size="icon" variant="ghost" aria-label="ترقية"
-                        onClick={() => store.setMemberRole(m.id, team.id, { teamRole: promote(m.teamRole ?? "member") }, currentUser.id, `رقّى ${m.displayName}`)}
+                        onClick={() => void changeRole(m.id, promote(m.teamRole ?? "member"), `رقّى ${m.displayName}`)}
                       >
                         <ArrowUp className="h-4 w-4" />
                       </Button>
                       <Button
                         size="icon" variant="ghost" aria-label="تنزيل رتبة"
-                        onClick={() => store.setMemberRole(m.id, team.id, { teamRole: demote(m.teamRole ?? "member") }, currentUser.id, `نزّل رتبة ${m.displayName}`)}
+                        onClick={() => void changeRole(m.id, demote(m.teamRole ?? "member"), `نزّل رتبة ${m.displayName}`)}
                       >
                         <ArrowDown className="h-4 w-4" />
                       </Button>
@@ -396,7 +425,7 @@ export default function TeamDashboardPage() {
                       </Select>
                       <Button
                         size="icon" variant="ghost" aria-label="إزالة" className="text-red-400 hover:bg-red-500/10"
-                        onClick={() => store.removeMember(m.id, team.id, currentUser.id)}
+                        onClick={() => void removeFromTeam(m.id)}
                       >
                         <Trash2 className="h-4 w-4" />
                       </Button>

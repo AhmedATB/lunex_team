@@ -13,6 +13,19 @@ export const TEAM_MANAGER_ROLES: ReadonlySet<string> = new Set(["owner", "super_
 /** Roles inside a team that let someone manage it (its leader is always one). */
 export const TEAM_LEAD_ROLES: ReadonlySet<string> = new Set(["team_leader", "assistant_leader", "team_administrator"]);
 
+/** How high a role sits inside a team. Someone may only change, add or remove people below their own rank, and only up to one rank under it. */
+const TEAM_ROLE_RANK: Record<string, number> = {
+  trainee: 0,
+  member: 1,
+  team_administrator: 3,
+  assistant_leader: 4,
+  team_leader: 5,
+};
+/** Production roles (translator, editor ...) and any other unlisted role sit between an ordinary member and an administrator. */
+export const teamRoleRank = (role: string): number => TEAM_ROLE_RANK[role] ?? 2;
+/** The site's team managers stand above every rank inside a team. */
+export const SITE_MANAGER_RANK = 99;
+
 const MAX_SLUG_LENGTH = 80;
 const GENRE_GROUPS = new Set(["genre", "theme"]);
 
