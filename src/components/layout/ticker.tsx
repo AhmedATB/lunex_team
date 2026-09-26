@@ -4,16 +4,17 @@ import { useMemo } from "react";
 import Link from "next/link";
 import { Zap } from "lucide-react";
 import { useCatalog } from "@/components/catalog-provider";
+import { latestPerSeries } from "@/lib/latest-chapters";
 
 export function Ticker() {
   const db = useCatalog();
   const items = useMemo(() => {
     const seriesMap = new Map(db.series.map((s) => [s.id, s]));
-    return [...db.recentChapters]
-      .sort((a, b) => +new Date(b.releasedAt) - +new Date(a.releasedAt))
-      .slice(0, 10)
-      .map((c) => ({ chapter: c, series: seriesMap.get(c.seriesId) }))
-      .filter((i) => i.series);
+    // One entry per work: several chapters released together are one item, not one each.
+    return latestPerSeries(
+      db.recentChapters.filter((c) => seriesMap.has(c.seriesId)),
+      10
+    ).map((c) => ({ chapter: c, series: seriesMap.get(c.seriesId) }));
   }, [db.series, db.recentChapters]);
 
   if (items.length === 0) return null;
@@ -29,6 +30,7 @@ export function Ticker() {
           <Zap className="h-4 w-4 shrink-0 fill-current" />
           <span className="whitespace-nowrap text-sm">
             جديد: {series!.titleAr} — الفصل {chapter.number}
+            {chapter.moreCount > 0 && ` (+${chapter.moreCount})`}
           </span>
         </Link>
       ))}

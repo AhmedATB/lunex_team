@@ -237,7 +237,10 @@ export function EditorialHome(data: HomeLayoutData) {
               <Cover src={heroUpdate.series.cover} alt={heroUpdate.series.titleAr} sizes="(min-width: 640px) 50vw, 100vw" scrim />
               <span className="relative z-10 mb-1 w-fit rounded-full bg-primary-400/30 px-2 py-0.5 text-[11px] font-bold text-white">جديد</span>
               <span className="relative z-10 font-display text-lg font-bold text-white">{heroUpdate.series.titleAr}</span>
-              <span className="relative z-10 text-xs text-white/70">الفصل {heroUpdate.number}</span>
+              <span className="relative z-10 text-xs text-white/70">
+                الفصل {heroUpdate.number}
+                {heroUpdate.moreCount > 0 && ` · و${heroUpdate.moreCount} ${heroUpdate.moreCount === 1 ? "فصل آخر" : "فصول أخرى"}`}
+              </span>
             </Link>
           )}
           {restUpdates.map((c) => (
@@ -248,7 +251,10 @@ export function EditorialHome(data: HomeLayoutData) {
             >
               <Cover src={c.series.cover} alt={c.series.titleAr} sizes="(min-width: 640px) 25vw, 50vw" scrim />
               <span className="relative z-10 line-clamp-1 text-xs font-bold text-white">{c.series.titleAr}</span>
-              <span className="relative z-10 text-[11px] text-white/70">الفصل {c.number}</span>
+              <span className="relative z-10 text-[11px] text-white/70">
+                الفصل {c.number}
+                {c.moreCount > 0 && ` +${c.moreCount}`}
+              </span>
             </Link>
           ))}
         </div>

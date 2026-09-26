@@ -1,6 +1,7 @@
 import { loadCatalog } from "../catalog-server";
 import { byFollowers, byPopularity, byThisWeek, byTopRated, byViews } from "../ranking";
 import { prepareSearchQuery, searchTier, seriesSearchFields } from "../fuzzy-search";
+import { latestPerSeries } from "../latest-chapters";
 import type { Series, Chapter, Genre, Team, User, Comment, NewsItem } from "../types";
 
 /**
@@ -109,14 +110,14 @@ export async function getChapter(seriesId: string, number: number): Promise<Chap
   return (await db()).chapters.find((c) => c.seriesId === seriesId && c.number === number);
 }
 
-export async function getLatestChapters(limit = 18): Promise<(Chapter & { series: Series })[]> {
+/** The newest chapter of each of the most recently updated series — one entry per work, however many chapters it just released. */
+export async function getLatestChapters(limit = 18): Promise<(Chapter & { series: Series; moreCount: number })[]> {
   const { recentChapters, series } = await db();
   const seriesMap = new Map(series.map((s) => [s.id, s]));
-  return [...recentChapters]
-    .sort((a, b) => +new Date(b.releasedAt) - +new Date(a.releasedAt))
-    .slice(0, limit)
-    .map((c) => ({ ...c, series: seriesMap.get(c.seriesId)! }))
-    .filter((c) => c.series);
+  return latestPerSeries(
+    recentChapters.filter((c) => seriesMap.has(c.seriesId)),
+    limit
+  ).map((c) => ({ ...c, series: seriesMap.get(c.seriesId)! }));
 }
 
 export async function getTrendingSeries(limit = 10): Promise<Series[]> {
