@@ -8,6 +8,7 @@ import {
 } from "@/lib/session-cookies";
 import { isPublicPath, SITE_REQUIRES_LOGIN } from "@/lib/access-policy";
 import { redirectTo } from "@/lib/request-origin";
+import { SITE_URL } from "@/lib/site";
 import { backendIdentity } from "@/lib/client-ip";
 
 const REFRESH_MARGIN_MS = 30_000; // refresh proactively, not just after the token has already died
@@ -42,6 +43,13 @@ function turnAway(request: NextRequest) {
 }
 
 export async function middleware(request: NextRequest) {
+  // One address for the site: `www.` goes to the bare domain. Sessions and the sign-in providers' return address belong to
+  // one host, so a visitor who arrived on `www.` would otherwise sign in and come back to a different site's cookies.
+  const requestedHost = (request.headers.get("x-forwarded-host") ?? request.headers.get("host") ?? "").split(":")[0].toLowerCase();
+  if (requestedHost === `www.${new URL(SITE_URL).hostname}`) {
+    return NextResponse.redirect(new URL(request.nextUrl.pathname + request.nextUrl.search, SITE_URL), 308);
+  }
+
   const mustSignIn = SITE_REQUIRES_LOGIN && !isPublicPath(request.nextUrl.pathname);
 
   const refreshToken = request.cookies.get(REFRESH_TOKEN_COOKIE)?.value;
