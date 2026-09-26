@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { AdUnit } from "@/components/ads/ad-unit";
 import { useParams, notFound } from "next/navigation";
 import Link from "next/link";
 import { Star, Eye, Bookmark, Heart, BookOpen, Calendar, User as UserIcon } from "lucide-react";
@@ -216,6 +217,8 @@ export default function SeriesDetailPage() {
 
           <FadeIn className="space-y-4">
             <RatingWidget seriesId={series.id} rating={series.rating} ratingCount={series.ratingCount} />
+
+            <AdUnit unit="banner300" />
 
             <div className="panel panel-hover p-4">
               <h3 className="section-title mb-4 font-display text-sm font-bold text-white">معلومات إضافية</h3>
