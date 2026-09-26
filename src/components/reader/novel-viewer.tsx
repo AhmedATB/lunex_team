@@ -7,6 +7,7 @@ import { useNovelReaderSettings, useReadingProgress } from "@/store/reader-setti
 import { useReaderChrome } from "@/store/reader-chrome";
 import type { Chapter } from "@/lib/types";
 import { cn } from "@/lib/utils";
+import { chapterLabel } from "@/lib/chapter-label";
 
 const THEME_CLASSES: Record<string, string> = {
   sepia: "bg-[#f4ecd8] text-[#3b2f22]",
@@ -134,7 +135,7 @@ export function NovelViewer({
       </div>
 
       <div ref={containerRef} dir="rtl" className="mx-auto max-w-[70ch] px-6 pb-28 pt-12" onClick={toggleToolbar}>
-        <h1 className="mb-8 text-center font-display text-2xl font-bold">{chapter.title}</h1>
+        <h1 className="mb-8 text-center font-display text-2xl font-bold">{chapterLabel(chapter)}</h1>
 
         <div
           className="space-y-6"

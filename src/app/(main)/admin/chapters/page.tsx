@@ -21,6 +21,7 @@ import {
 } from "@/components/ui/dialog";
 import { timeAgo } from "@/lib/utils";
 import type { SeriesType } from "@/lib/types";
+import { chapterLabel } from "@/lib/chapter-label";
 
 interface RealChapter {
   id: string;
@@ -37,6 +38,7 @@ interface Row {
   id: string;
   seriesId: string;
   teamId: string;
+  number: number;
   title: string;
   contentLabel: string;
   isPublished: boolean;
@@ -79,6 +81,7 @@ export default function AdminChaptersPage() {
       id: c.id,
       seriesId: c.seriesId,
       teamId: c.teamId,
+      number: c.number,
       title: c.title,
       contentLabel: c.content ? `${c.content.trim().split(/\s+/).length} كلمة` : `${c.pages} صفحة`,
       isPublished: c.isPublished,
@@ -89,6 +92,7 @@ export default function AdminChaptersPage() {
       id: c.id,
       seriesId: c.seriesId,
       teamId: c.teamId,
+      number: c.number,
       title: c.title,
       contentLabel: `${c.pages.length} صفحة`,
       isPublished: c.isPublished,
@@ -210,7 +214,7 @@ export default function AdminChaptersPage() {
                   <Checkbox className="mt-1" aria-label="تحديد الفصل" checked={selected.has(r.id)} onCheckedChange={() => toggle(r.id)} />
                   <div className="min-w-0 flex-1 space-y-1.5">
                     <p className="line-clamp-1 font-bold text-white">{seriesMap.get(r.seriesId)?.titleAr}</p>
-                    <p className="text-sm text-lunex-gray">{r.title}</p>
+                    <p className="text-sm text-lunex-gray">{chapterLabel(r)}</p>
                     <div className="flex flex-wrap items-center gap-x-2 gap-y-1.5 text-xs text-lunex-gray">
                       {r.isReal ? (
                         <button type="button" className="-my-1.5 py-1.5" onClick={() => togglePublish(r.id, !r.isPublished)} aria-label="تبديل حالة النشر">
@@ -253,7 +257,7 @@ export default function AdminChaptersPage() {
                   <td className="max-w-[200px] truncate p-3 font-medium text-white">
                     {seriesMap.get(r.seriesId)?.titleAr}
                   </td>
-                  <td className="p-3 text-lunex-gray">{r.title}</td>
+                  <td className="p-3 text-lunex-gray">{chapterLabel(r)}</td>
                   <td className="p-3 text-lunex-gray">
                     <span className="flex items-center gap-1.5">
                       {r.contentLabel.includes("كلمة") ? <BookText className="h-3.5 w-3.5" /> : null}

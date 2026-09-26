@@ -23,6 +23,7 @@ import { useNovelReaderSettings, type NovelReadingTheme } from "@/store/reader-s
 import { useReaderChrome } from "@/store/reader-chrome";
 import type { Chapter } from "@/lib/types";
 import { cn } from "@/lib/utils";
+import { chapterLabel } from "@/lib/chapter-label";
 
 const THEME_OPTIONS: { value: NovelReadingTheme; label: string; swatch: string }[] = [
   { value: "sepia", label: "ورقي", swatch: "bg-[#f4ecd8]" },
@@ -81,7 +82,7 @@ export function NovelToolbar({
           <SelectTrigger className="w-36"><SelectValue /></SelectTrigger>
           <SelectContent className="max-h-72">
             {chapters.map((c) => (
-              <SelectItem key={c.id} value={String(c.number)}>{c.title}</SelectItem>
+              <SelectItem key={c.id} value={String(c.number)}>{chapterLabel(c)}</SelectItem>
             ))}
           </SelectContent>
         </Select>

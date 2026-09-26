@@ -33,6 +33,7 @@ import { useReaderSettings, type ReaderMode, type ReaderFit } from "@/store/read
 import { useReaderChrome } from "@/store/reader-chrome";
 import type { Chapter } from "@/lib/types";
 import { cn } from "@/lib/utils";
+import { chapterLabel } from "@/lib/chapter-label";
 
 const MODE_ICON: Record<ReaderMode, typeof Rows3> = {
   vertical: Rows3,
@@ -93,7 +94,7 @@ export function ReaderToolbar({
           <SelectTrigger className="w-36"><SelectValue /></SelectTrigger>
           <SelectContent className="max-h-72">
             {chapters.map((c) => (
-              <SelectItem key={c.id} value={String(c.number)}>{c.title}</SelectItem>
+              <SelectItem key={c.id} value={String(c.number)}>{chapterLabel(c)}</SelectItem>
             ))}
           </SelectContent>
         </Select>

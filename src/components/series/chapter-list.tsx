@@ -19,6 +19,7 @@ import { getTeamAuthRoles, getEffectiveCustomRoles } from "@/lib/team-auth";
 import { canInTeam } from "@/lib/rbac";
 import { useCatalog } from "@/components/catalog-provider";
 import { ChapterAdminMenu } from "@/components/series/chapter-admin-menu";
+import { chapterLabel } from "@/lib/chapter-label";
 
 export function ChapterList({ seriesSlug, chapters, teamId }: { seriesSlug: string; chapters: Chapter[]; teamId: string }) {
   const [query, setQuery] = useState("");
@@ -84,7 +85,7 @@ export function ChapterList({ seriesSlug, chapters, teamId }: { seriesSlug: stri
   }
 
   const list = useMemo(() => {
-    let items = effectiveChapters.filter((c) => c.number.toString().includes(query) || c.title.includes(query));
+    let items = effectiveChapters.filter((c) => c.number.toString().includes(query) || chapterLabel(c).includes(query));
     items = [...items].sort((a, b) => (asc ? a.number - b.number : b.number - a.number));
     return items;
   }, [effectiveChapters, query, asc]);
@@ -118,14 +119,14 @@ export function ChapterList({ seriesSlug, chapters, teamId }: { seriesSlug: stri
               className="group relative flex items-center justify-between gap-3 border-b border-white/5 px-4 py-3 text-sm transition-colors last:border-0 hover:bg-primary-600/10"
             >
               <span className="absolute inset-y-0 start-0 w-0.5 scale-y-0 bg-lunex-gradient transition-transform duration-300 group-hover:scale-y-100" />
-              <Link href={`/series/${seriesSlug}/${c.number}`} className="absolute inset-0" aria-label={c.title} />
+              <Link href={`/series/${seriesSlug}/${c.number}`} className="absolute inset-0" aria-label={chapterLabel(c)} />
               <div className="pointer-events-none min-w-0">
                 <p className="flex items-center gap-1.5 truncate font-medium text-white">
                   {locked && <Lock className="h-3.5 w-3.5 shrink-0 text-amber-300" aria-label="فصل مقفل" />}
                   {lastRead !== undefined && c.number <= lastRead && (
                     <CheckCircle2 className="h-3.5 w-3.5 shrink-0 text-primary-400" aria-label="مقروء" />
                   )}
-                  {c.title}
+                  {chapterLabel(c)}
                   {!c.isPublished && <Badge variant="secondary" className="text-[10px]">مسودة</Badge>}
                   {lastRead === c.number && (
                     <span className="ms-2 rounded-full bg-primary-500/20 px-2 py-0.5 text-[10px] text-primary-300 shadow-[0_0_10px_rgba(168,85,247,0.4)]">
