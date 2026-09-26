@@ -8,7 +8,7 @@ export default function robots(): MetadataRoute.Robots {
         userAgent: "*",
         allow: "/",
         // Pages that need an account (a crawler would only be sent to the sign-in page) and the chapter reader.
-        disallow: ["/admin", "/api", "/messages", "/store", "/profile", "/bookmarks", "/teams/create", "/series/*/*", "/login", "/register", "/forgot-password"],
+        disallow: ["/admin", "/api", "/messages", "/store", "/profile", "/bookmarks", "/teams/create", "/series/*/*", "/login", "/register", "/forgot-password", "/reset-password"],
       },
     ],
     sitemap: `${SITE_URL}/sitemap.xml`,

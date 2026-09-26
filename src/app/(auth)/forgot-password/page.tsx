@@ -2,20 +2,45 @@
 
 import { useState } from "react";
 import Link from "next/link";
-import { Mail, ArrowRight, CheckCircle2 } from "lucide-react";
+import { Mail, ArrowRight, CheckCircle2, Info, Loader2 } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Button } from "@/components/ui/button";
+import { getDeviceFingerprint } from "@/lib/device-fingerprint";
+import { fetchAndSolvePow } from "@/lib/pow-client";
+import { CONTACT_DISCORD_URL } from "@/lib/site";
+
+type Stage = "form" | "sent" | "unavailable";
 
 export default function ForgotPasswordPage() {
   const [email, setEmail] = useState("");
-  const [sent, setSent] = useState(false);
+  const [stage, setStage] = useState<Stage>("form");
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState("");
 
-  function submit(e: React.FormEvent) {
+  async function submit(e: React.FormEvent) {
     e.preventDefault();
-    if (!email) return;
-    setSent(true);
+    if (!email || loading) return;
+    setError("");
+    setLoading(true);
+    try {
+      const powSolution = await fetchAndSolvePow();
+      const res = await fetch("/api/auth/forgot-password", {
+        method: "POST",
+        headers: { "Content-Type": "application/json", "x-device-fingerprint": getDeviceFingerprint(), "x-pow-solution": powSolution },
+        body: JSON.stringify({ email: email.trim() }),
+      });
+      const body = (await res.json().catch(() => null)) as { available?: boolean; message?: string } | null;
+      if (res.status === 429) setError("محاولات كثيرة، انتظر دقيقة ثم حاول مرة أخرى.");
+      else if (res.status === 400) setError("أدخل بريدًا إلكترونيًا صحيحًا.");
+      else if (!res.ok) setError("تعذر الإرسال الآن، حاول مرة أخرى بعد قليل.");
+      else setStage(body?.available === false ? "unavailable" : "sent");
+    } catch {
+      setError("تعذر الاتصال بالخادم، حاول مرة أخرى.");
+    } finally {
+      setLoading(false);
+    }
   }
 
   return (
@@ -23,34 +48,46 @@ export default function ForgotPasswordPage() {
       <CardHeader className="text-center">
         <CardTitle>استعادة كلمة المرور</CardTitle>
         <CardDescription>
-          {sent ? "تحقق من بريدك الإلكتروني" : "أدخل بريدك وسنرسل رابط إعادة التعيين"}
+          {stage === "sent" ? "تحقق من بريدك الإلكتروني" : stage === "unavailable" ? "الاستعادة بالبريد غير متاحة حاليًا" : "أدخل بريد حسابك وسنرسل رابط إعادة التعيين"}
         </CardDescription>
       </CardHeader>
       <CardContent className="space-y-4">
-        {sent ? (
+        {stage === "sent" && (
           <div className="flex flex-col items-center gap-3 py-4 text-center">
             <CheckCircle2 className="h-12 w-12 text-emerald-400" />
             <p className="text-sm text-lunex-gray">
-              أرسلنا رابط استعادة كلمة المرور إلى <span className="text-white">{email}</span>
+              إذا كان <span className="text-white" dir="ltr">{email}</span> مسجلًا لدينا، فقد أرسلنا إليه رابطًا لاختيار كلمة مرور جديدة. الرابط يعمل مرة واحدة ولمدة ساعة.
+            </p>
+            <p className="text-xs text-lunex-gray">لم يصل شيء؟ راجع مجلد الرسائل غير المرغوبة، أو أعد المحاولة بعد دقيقتين.</p>
+          </div>
+        )}
+
+        {stage === "unavailable" && (
+          <div className="flex flex-col items-center gap-3 py-4 text-center">
+            <Info className="h-12 w-12 text-amber-400" />
+            <p className="text-sm text-lunex-gray">لم يُفعَّل إرسال البريد الإلكتروني على الموقع بعد، لذلك لا نستطيع إرسال رابط الاستعادة.</p>
+            <p className="text-sm text-lunex-gray">
+              تواصل معنا على{" "}
+              <a href={CONTACT_DISCORD_URL} target="_blank" rel="noopener noreferrer" className="text-primary-300 hover:text-primary-200">
+                Discord
+              </a>{" "}
+              وسنساعدك في استعادة حسابك.
             </p>
           </div>
-        ) : (
+        )}
+
+        {stage === "form" && (
           <form onSubmit={submit} className="space-y-4">
             <div className="space-y-1.5">
               <Label htmlFor="email">البريد الإلكتروني</Label>
               <div className="relative">
                 <Mail className="pointer-events-none absolute start-3 top-1/2 h-4 w-4 -translate-y-1/2 text-lunex-gray" />
-                <Input
-                  id="email"
-                  type="email"
-                  value={email}
-                  onChange={(e) => setEmail(e.target.value)}
-                  placeholder="you@example.com"
-                  className="ps-9"
-                />
+                <Input id="email" type="email" value={email} onChange={(e) => setEmail(e.target.value)} placeholder="you@example.com" className="ps-9" autoComplete="email" />
               </div>
             </div>
-            <Button type="submit" className="w-full" disabled={!email}>
+            {error && <p className="text-sm text-red-400">{error}</p>}
+            <Button type="submit" className="w-full" disabled={!email || loading}>
+              {loading && <Loader2 className="h-4 w-4 animate-spin" />}
               إرسال رابط الاستعادة
             </Button>
           </form>

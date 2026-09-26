@@ -8,6 +8,7 @@ import type { AccessTokenPayload } from "../../common/guards/jwt-auth.guard";
 import { AuthService } from "./auth.service";
 import { ChangePasswordDto } from "./dto/change-password.dto";
 import { LoginDto } from "./dto/login.dto";
+import { ForgotPasswordDto, ResetPasswordDto } from "./dto/password-reset.dto";
 import { RefreshDto } from "./dto/refresh.dto";
 import { RegisterDto } from "./dto/register.dto";
 import { UsernameAvailabilityDto } from "./dto/username-availability.dto";
@@ -65,6 +66,25 @@ export class AuthController {
   @HttpCode(HttpStatus.OK)
   me(@CurrentUser() user: AccessTokenPayload) {
     return this.auth.me(user.sub);
+  }
+
+  /** Always answers the same for any address (see AuthService.requestPasswordReset); proof of work + a tight limit keep it from being used to flood inboxes. */
+  @Public()
+  @RequirePow()
+  @Post("forgot-password")
+  @HttpCode(HttpStatus.OK)
+  @Throttle({ default: { limit: 5, ttl: 60_000 } })
+  forgotPassword(@Body() dto: ForgotPasswordDto, @Req() req: Request) {
+    return this.auth.requestPasswordReset(dto.email, req.context);
+  }
+
+  /** The one-time token from the mailed link is the credential; the new password is only accepted with it. */
+  @Public()
+  @Post("reset-password")
+  @HttpCode(HttpStatus.NO_CONTENT)
+  @Throttle({ default: { limit: 10, ttl: 60_000 } })
+  async resetPassword(@Body() dto: ResetPasswordDto, @Req() req: Request) {
+    await this.auth.resetPassword(dto.token, dto.password, req.context);
   }
 
   /** No @Public() — must already be logged in with a valid access token, and still has to supply the current password (see AuthService.changePassword). */

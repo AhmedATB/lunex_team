@@ -37,6 +37,38 @@ export class AuthRepository {
     return this.prisma.user.update({ where: { id }, data: { passwordHash } });
   }
 
+  /** The newest reset link asked for by this account (used or not) — the mail cooldown reads it. */
+  latestPasswordReset(userId: string) {
+    return this.prisma.passwordReset.findFirst({ where: { userId }, orderBy: { createdAt: "desc" }, select: { createdAt: true } });
+  }
+
+  /** One live link per account: a new request replaces the older ones. Expired rows from anybody are swept along the way. */
+  async replacePasswordReset(userId: string, tokenHash: string, expiresAt: Date) {
+    const longGone = new Date(Date.now() - 24 * 60 * 60 * 1000);
+    await this.prisma.$transaction([
+      this.prisma.passwordReset.deleteMany({ where: { OR: [{ userId }, { expiresAt: { lt: longGone } }] } }),
+      this.prisma.passwordReset.create({ data: { userId, tokenHash, expiresAt } }),
+    ]);
+  }
+
+  findPasswordReset(tokenHash: string) {
+    return this.prisma.passwordReset.findUnique({ where: { tokenHash } });
+  }
+
+  /** Marks the link used, once: false if somebody else got there first (two tabs, a replayed request). */
+  async claimPasswordReset(id: string): Promise<boolean> {
+    const { count } = await this.prisma.passwordReset.updateMany({ where: { id, usedAt: null }, data: { usedAt: new Date() } });
+    return count === 1;
+  }
+
+  deletePasswordResetByHash(tokenHash: string) {
+    return this.prisma.passwordReset.deleteMany({ where: { tokenHash } });
+  }
+
+  deletePasswordResetsForUser(userId: string) {
+    return this.prisma.passwordReset.deleteMany({ where: { userId } });
+  }
+
   /** `isNew` lets the caller notify the user on a genuinely new device, without a second query — `upsert` alone doesn't say which branch it took. */
   async upsertDevice(userId: string, fingerprintHash: string) {
     const existing = await this.prisma.device.findUnique({

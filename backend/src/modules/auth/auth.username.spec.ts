@@ -3,6 +3,7 @@ import type { ConfigService } from "@nestjs/config";
 import type { JwtService } from "@nestjs/jwt";
 import { Prisma } from "@prisma/client";
 import type { RequestContext } from "../../common/middleware/request-context.middleware";
+import type { MailService } from "../mail/mail.service";
 import type { NotificationsService } from "../notifications/notifications.service";
 import { AuthService } from "./auth.service";
 import type { AuthRepository } from "./auth.repository";
@@ -23,7 +24,8 @@ function build(existing: { username: string; email: string }[] = []) {
     repo as unknown as AuthRepository,
     {} as JwtService,
     { getOrThrow: () => "pepper" } as unknown as ConfigService,
-    {} as NotificationsService
+    {} as NotificationsService,
+    {} as MailService
   );
   // Sessions are not what these tests are about.
   jest.spyOn(service as unknown as { issueSession: () => Promise<unknown> }, "issueSession").mockResolvedValue({ accessToken: "a", refreshToken: "r", expiresIn: 600 });

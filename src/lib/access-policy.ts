@@ -9,7 +9,7 @@
  */
 
 /** Reachable without an account: signing in/up, password reset, and the terms and privacy policy (linked from the sign-up form). */
-export const PUBLIC_PAGES = ["/login", "/register", "/forgot-password", "/terms", "/privacy"] as const;
+export const PUBLIC_PAGES = ["/login", "/register", "/forgot-password", "/reset-password", "/terms", "/privacy"] as const;
 
 /**
  * The pages a follower may open. A series' own page is one segment (`/series/<slug>`); the reader is one deeper

@@ -1,4 +1,4 @@
-import { ConflictException, ForbiddenException, Injectable, UnauthorizedException } from "@nestjs/common";
+import { BadRequestException, ConflictException, ForbiddenException, Injectable, Logger, UnauthorizedException } from "@nestjs/common";
 import { ConfigService } from "@nestjs/config";
 import { JwtService } from "@nestjs/jwt";
 import { Prisma, type User as PrismaUser } from "@prisma/client";
@@ -6,12 +6,16 @@ import { createHmac, randomBytes, randomUUID } from "node:crypto";
 import { AuthRepository } from "./auth.repository";
 import { getDummyHash, hashPassword, verifyPassword } from "./crypto/password.util";
 import type { RequestContext } from "../../common/middleware/request-context.middleware";
+import { MailService } from "../mail/mail.service";
 import { NotificationsService } from "../notifications/notifications.service";
 import { activeMutedUntil, isEffectivelyBanned } from "../moderation/moderation.util";
 import { isReservedDisplayName, isReservedUsername, USERNAME_PATTERN } from "../users/username.util";
+import { PASSWORD_RESET_TTL_MINUTES, passwordResetMail } from "./password-reset.mail";
 
 const ACCESS_TOKEN_TTL = "10m";
 const REFRESH_TOKEN_TTL_MS = 7 * 24 * 60 * 60 * 1000; // 7 days
+/** Asking twice within this window sends one mail: a stuck finger (or someone mail-bombing an inbox) costs nothing. */
+const RESET_MAIL_COOLDOWN_MS = 2 * 60 * 1000;
 
 export interface SessionTokens {
   accessToken: string;
@@ -52,13 +56,15 @@ export interface AuthResponse extends SessionTokens {
  */
 @Injectable()
 export class AuthService {
+  private readonly log = new Logger(AuthService.name);
   private readonly refreshPepper: string;
 
   constructor(
     private readonly repo: AuthRepository,
     private readonly jwt: JwtService,
     private readonly config: ConfigService,
-    private readonly notifications: NotificationsService
+    private readonly notifications: NotificationsService,
+    private readonly mail: MailService
   ) {
     this.refreshPepper = this.config.getOrThrow<string>("JWT_REFRESH_PEPPER");
   }
@@ -250,6 +256,58 @@ export class AuthService {
   }
 
   /**
+   * "I forgot my password": mails a one-hour, one-use link to the address if it belongs to an account that has a password.
+   * The answer is the same whether or not it does (so this cannot be used to find out who is registered) — the only thing it
+   * admits is `available: false` when the site has no mail provider set up yet, so the page can say so instead of promising a
+   * mail that will never come. The mail goes out after the answer, so the response time does not tell the two cases apart either.
+   */
+  async requestPasswordReset(email: string, ctx: RequestContext): Promise<{ available: boolean }> {
+    if (!this.mail.enabled) return { available: false };
+    const user = (await this.repo.findUserByEmail(email)) ?? (email !== email.toLowerCase() ? await this.repo.findUserByEmail(email.toLowerCase()) : null);
+    // An account that signs in only through Discord/Google has no password to reset; a banned one is not helped back in this way.
+    if (!user || !user.passwordHash || isEffectivelyBanned(user)) return { available: true };
+
+    const latest = await this.repo.latestPasswordReset(user.id);
+    if (latest && Date.now() - latest.createdAt.getTime() < RESET_MAIL_COOLDOWN_MS) return { available: true };
+
+    const rawToken = randomBytes(32).toString("base64url");
+    const tokenHash = this.hashResetToken(rawToken);
+    await this.repo.replacePasswordReset(user.id, tokenHash, new Date(Date.now() + PASSWORD_RESET_TTL_MINUTES * 60 * 1000));
+    await this.repo.writeAuditLog({ actorId: user.id, action: "user.password_reset_requested", ip: ctx.ip });
+
+    const base = (this.config.get<string>("FRONTEND_URL") ?? "http://localhost:3000").replace(/\/+$/, "");
+    void this.mail
+      .send(passwordResetMail(user.email, `${base}/reset-password#token=${rawToken}`))
+      .then(async (sent) => {
+        // A mail that did not go out must not leave the person waiting out the cooldown for nothing.
+        if (!sent) await this.repo.deletePasswordResetByHash(tokenHash);
+      })
+      .catch((error) => this.log.warn(`reset mail bookkeeping failed: ${error instanceof Error ? error.message : String(error)}`));
+    return { available: true };
+  }
+
+  /**
+   * Sets the new password from a reset link. The link is spent atomically (a second try with it fails), every other link
+   * of the account is dropped, and every signed-in device is signed out — whoever else might be holding a session (the
+   * reason a person resets a password in the first place) loses it.
+   */
+  async resetPassword(rawToken: string, newPassword: string, ctx: RequestContext): Promise<void> {
+    const invalid = () => new BadRequestException({ code: "reset_link_invalid", message: "This reset link is invalid or has expired." });
+    const row = await this.repo.findPasswordReset(this.hashResetToken(rawToken));
+    if (!row || row.usedAt || row.expiresAt.getTime() < Date.now()) throw invalid();
+    const user = await this.repo.findUserById(row.userId);
+    if (!user) throw invalid();
+
+    const passwordHash = await hashPassword(newPassword);
+    if (!(await this.repo.claimPasswordReset(row.id))) throw invalid();
+    await this.repo.updatePassword(user.id, passwordHash);
+    await this.repo.deletePasswordResetsForUser(user.id);
+    await this.repo.revokeAllSessionsForUser(user.id);
+    await this.repo.writeAuditLog({ actorId: user.id, action: "user.password_reset", ip: ctx.ip });
+    await this.notifications.notify(user.id, "security", "تمت استعادة كلمة المرور", "تم تعيين كلمة مرور جديدة وتسجيل الخروج من كل الأجهزة. إذا لم تكن أنت، تواصل معنا فورًا.");
+  }
+
+  /**
    * Revokes exactly the ONE session this refresh token belongs to — unlike
    * refresh()'s reuse-detection, a normal logout is not an attack signal, so
    * it must not kill the user's other logged-in devices. An unknown/already-
@@ -311,6 +369,11 @@ export class AuthService {
    */
   private hashRefreshToken(raw: string): string {
     return createHmac("sha256", this.refreshPepper).update(raw).digest("hex");
+  }
+
+  /** Same keyed hash as the refresh token, under its own label so a token for one purpose can never be replayed for the other. */
+  private hashResetToken(raw: string): string {
+    return createHmac("sha256", this.refreshPepper).update(`password-reset:${raw}`).digest("hex");
   }
 
   /** Carries the end date of a temporary ban in the message so the sign-in page can show it. */

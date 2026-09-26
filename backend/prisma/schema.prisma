@@ -101,8 +101,25 @@ model User {
   blocksMade       UserBlock[]      @relation("Blocker")
   blocksReceived   UserBlock[]      @relation("Blocked")
   teamActivity     TeamActivity[]   @relation("TeamActivityActor")
+  passwordResets   PasswordReset[]
 
   @@map("users")
+}
+
+/// A "forgot my password" link. Only a keyed hash of the token is kept (the token itself exists only in the email), it works
+/// once and only for an hour, and a newer request replaces the older ones. See AuthService.requestPasswordReset.
+model PasswordReset {
+  id        String    @id @default(uuid())
+  userId    String
+  user      User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  tokenHash String    @unique
+  expiresAt DateTime
+  usedAt    DateTime?
+  createdAt DateTime  @default(now())
+
+  @@index([userId, createdAt])
+  @@index([expiresAt])
+  @@map("password_resets")
 }
 
 /// One row per linked external identity. Deliberately its own table rather
