@@ -5,18 +5,17 @@ import Link from "next/link";
 import Image from "next/image";
 import { useRouter, useSearchParams } from "next/navigation";
 import { Search as SearchIcon, Users, Crown, Trophy, BookOpen, User as UserIcon } from "lucide-react";
-import type { Genre, Team, User } from "@/lib/types";
+import type { Genre, Team } from "@/lib/types";
 import { useCatalog } from "@/components/catalog-provider";
 import type { Catalog } from "@/lib/catalog-types";
 import { useTeamManagement, applyTeamOverride } from "@/store/team-management";
-import { useProfile, effectiveAvatarSeed } from "@/store/profile";
-import { GLOBAL_ROLE_LABELS } from "@/lib/rbac";
 import { resolveAvatarUrl } from "@/lib/utils";
 import { Input } from "@/components/ui/input";
-import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { SeriesCard } from "@/components/shared/series-card";
 import { SeriesExplorer } from "@/components/explore/series-explorer";
+import { useSignedInUserId } from "@/components/session-hint";
+import { searchPeople, type Person } from "@/lib/messages-api";
 import { prepareSearchQuery, rankByTier, searchTier, seriesSearchFields } from "@/lib/fuzzy-search";
 
 const PREVIEW_COUNT = 6;
@@ -42,7 +41,6 @@ export function UnifiedSearch({ genres }: { genres: Genre[] }) {
   const db = useCatalog();
   const createdTeams = useTeamManagement((s) => s.createdTeams);
   const teamInfoOverrides = useTeamManagement((s) => s.teamInfoOverrides);
-  const avatarOverrides = useProfile((s) => s.avatarOverrides);
 
   const allTeams = useMemo(
     () => [...db.teams, ...createdTeams].map((t) => applyTeamOverride(t, teamInfoOverrides)),
@@ -64,11 +62,37 @@ export function UnifiedSearch({ genres }: { genres: Genre[] }) {
     return rankByTier(allTeams, (t) => searchTier(prepared, [t.name, t.description]));
   }, [allTeams, query]);
 
-  const matchedUsers = useMemo(() => {
-    const prepared = prepareSearchQuery(query);
-    if (prepared.tokens.length === 0) return [];
-    return rankByTier(db.users, (u) => searchTier(prepared, [u.username, u.displayName]));
-  }, [db, query]);
+  // Members are found by the server (every account, by name or username); the catalogue only knows people on a team.
+  const signedIn = useSignedInUserId();
+  const [matchedUsers, setMatchedUsers] = useState<Person[]>([]);
+  const [usersState, setUsersState] = useState<"idle" | "loading" | "error" | "signin">("idle");
+  useEffect(() => {
+    const term = q.trim().replace(/^@/, "");
+    if (!term) {
+      setMatchedUsers([]);
+      setUsersState("idle");
+      return;
+    }
+    if (!signedIn) {
+      setMatchedUsers([]);
+      setUsersState("signin");
+      return;
+    }
+    let cancelled = false;
+    setUsersState("loading");
+    const timer = setTimeout(async () => {
+      const result = await searchPeople(term);
+      if (cancelled) return;
+      setMatchedUsers(result.ok ? result.body : []);
+      setUsersState(result.ok ? "idle" : "error");
+    }, 250);
+    return () => {
+      cancelled = true;
+      clearTimeout(timer);
+    };
+  }, [q, signedIn]);
+  const usersEmptyText =
+    usersState === "signin" ? "سجّل الدخول للبحث عن الأعضاء." : usersState === "loading" ? "جارٍ البحث..." : usersState === "error" ? "تعذر البحث عن الأعضاء الآن." : "لا يوجد مستخدمون مطابقون.";
 
   const hasQuery = query.length > 0;
 
@@ -129,11 +153,11 @@ export function UnifiedSearch({ genres }: { genres: Genre[] }) {
 
             <ResultSection title="المستخدمون" icon={UserIcon} count={matchedUsers.length} onSeeAll={() => setTab("users")}>
               {matchedUsers.length === 0 ? (
-                <EmptySection text="لا يوجد مستخدمون مطابقون." />
+                <EmptySection text={usersEmptyText} />
               ) : (
                 <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-3">
                   {matchedUsers.slice(0, PREVIEW_COUNT).map((u) => (
-                    <UserResultRow key={u.id} user={u} avatarOverrides={avatarOverrides} />
+                    <UserResultRow key={u.id} user={u} />
                   ))}
                 </div>
               )}
@@ -156,10 +180,10 @@ export function UnifiedSearch({ genres }: { genres: Genre[] }) {
 
           <TabsContent value="users">
             {matchedUsers.length === 0 ? (
-              <EmptySection text="لا يوجد مستخدمون مطابقون." />
+              <EmptySection text={usersEmptyText} />
             ) : (
               <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-3">
-                {matchedUsers.map((u) => <UserResultRow key={u.id} user={u} avatarOverrides={avatarOverrides} />)}
+                {matchedUsers.map((u) => <UserResultRow key={u.id} user={u} />)}
               </div>
             )}
           </TabsContent>
@@ -228,31 +252,19 @@ function TeamResultCard({ team, db }: { team: Team; db: Catalog }) {
   );
 }
 
-function UserResultRow({
-  user,
-  avatarOverrides,
-}: {
-  user: User;
-  avatarOverrides: Record<string, string>;
-}) {
+function UserResultRow({ user }: { user: Person }) {
   return (
     <Link
       href={`/profile/${user.username}`}
       className="group panel panel-hover flex items-center gap-3 p-3 transition-colors hover:border-primary-400/40"
     >
       <div className="relative h-10 w-10 shrink-0 overflow-hidden rounded-full ring-2 ring-white/10">
-        <Image
-          src={resolveAvatarUrl(user.id, user.avatarVersion, effectiveAvatarSeed(user, avatarOverrides))}
-          alt={user.displayName}
-          fill
-          className="object-cover"
-        />
+        <Image src={resolveAvatarUrl(user.id, user.avatarVersion, user.id)} alt={user.displayName} fill sizes="40px" className="object-cover" unoptimized />
       </div>
       <div className="min-w-0 flex-1">
         <p className="truncate text-sm font-bold text-white group-hover:text-primary-300">{user.displayName}</p>
         <p className="truncate text-xs text-lunex-gray" dir="ltr">@{user.username}</p>
       </div>
-      <Badge variant="outline" className="shrink-0 text-[10px]">{GLOBAL_ROLE_LABELS[user.role]}</Badge>
     </Link>
   );
 }

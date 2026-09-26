@@ -9,7 +9,6 @@ import { useTeamManagement } from "@/store/team-management";
 import { useProfile } from "@/store/profile";
 import { useComments } from "@/store/comments";
 import { useRealUsers, synthesizeProfile } from "@/store/real-users";
-import { useMessages } from "@/store/messages";
 import { useSession } from "@/store/session";
 import { useTheme } from "@/store/theme";
 
@@ -34,7 +33,6 @@ export function StoreHydration({ initialUser }: { initialUser: BackendPublicUser
     useBookmarks.persist.rehydrate();
     useTeamManagement.persist.rehydrate();
     useProfile.persist.rehydrate();
-    useMessages.persist.rehydrate();
     useComments.persist.rehydrate();
     useTheme.persist.rehydrate();
 

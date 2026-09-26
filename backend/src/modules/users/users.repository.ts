@@ -85,6 +85,18 @@ export class UsersRepository {
     return { total, rows };
   }
 
+  /** Accounts whose username or display name contains the text (banned ones never appear), identity fields only. */
+  searchPeople(term: string, take: number) {
+    return this.prisma.user.findMany({
+      where: {
+        isBanned: false,
+        OR: [{ username: { contains: term, mode: "insensitive" } }, { displayName: { contains: term, mode: "insensitive" } }],
+      },
+      select: { id: true, username: true, displayName: true, avatarMimeType: true, updatedAt: true },
+      take,
+    });
+  }
+
   updateProfile(id: string, patch: { username?: string; displayName?: string; bio?: string }) {
     // A new username brings its key along, so the unique index keeps refusing look-alikes.
     const data = patch.username ? { ...patch, usernameKey: usernameKey(patch.username) } : patch;

@@ -23,7 +23,7 @@ import { CurrentUser } from "../../common/decorators/current-user.decorator";
 import { Public } from "../../common/decorators/public.decorator";
 import type { AccessTokenPayload } from "../../common/guards/jwt-auth.guard";
 import { ChangeRoleDto } from "./dto/change-role.dto";
-import { ListUsersQueryDto } from "./dto/list-users.dto";
+import { ListUsersQueryDto, SearchUsersQueryDto } from "./dto/list-users.dto";
 import { DeleteAccountDto } from "./dto/delete-account.dto";
 import { SetBannedDto } from "./dto/set-banned.dto";
 import { UpdateProfileDto } from "./dto/update-profile.dto";
@@ -46,6 +46,14 @@ export class UsersController {
     @Req() req: Request
   ) {
     return this.users.changeRole(actor.sub, id, dto.role, req.context);
+  }
+
+  /** Declared before anything shaped like `:id`. */
+  @Get("search")
+  @HttpCode(HttpStatus.OK)
+  @Throttle({ default: { limit: 90, ttl: 60_000 } })
+  search(@Query() query: SearchUsersQueryDto) {
+    return this.users.search(query.q, query.limit);
   }
 
   @Get()

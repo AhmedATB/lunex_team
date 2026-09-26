@@ -94,6 +94,8 @@ model User {
   commentReports   CommentReport[]
   ledTeams         Team[]            @relation("TeamLeader")
   teamMemberships  TeamMember[]
+  conversations    ConversationMember[]
+  sentMessages     Message[]
 
   @@map("users")
 }
@@ -636,3 +638,51 @@ model SeriesRating {
   @@map("series_ratings")
 }
 
+
+/// A chat between members: two people (a direct chat, one per pair) or a group with a title.
+model Conversation {
+  id            String   @id @default(uuid())
+  /// Set for a group; a chat between two people has none.
+  title         String?
+  isGroup       Boolean  @default(false)
+  /// For a two-person chat: the two ids joined ("<smaller>:<larger>"), so the same pair never ends up with two chats.
+  pairKey       String?  @unique
+  createdById   String?
+  createdAt     DateTime @default(now())
+  /// When the newest message was sent — the list is ordered by it.
+  lastMessageAt DateTime @default(now())
+
+  members  ConversationMember[]
+  messages Message[]
+
+  @@index([lastMessageAt])
+  @@map("conversations")
+}
+
+model ConversationMember {
+  conversationId String
+  conversation   Conversation @relation(fields: [conversationId], references: [id], onDelete: Cascade)
+  userId         String
+  user           User         @relation(fields: [userId], references: [id], onDelete: Cascade)
+  joinedAt       DateTime     @default(now())
+  /// Everything up to this moment has been read by this member; later messages from others are unread.
+  lastReadAt     DateTime     @default(now())
+
+  @@id([conversationId, userId])
+  @@index([userId])
+  @@map("conversation_members")
+}
+
+model Message {
+  id             String       @id @default(uuid())
+  conversationId String
+  conversation   Conversation @relation(fields: [conversationId], references: [id], onDelete: Cascade)
+  /// Null once the sender's account is deleted; the text stays for the others.
+  senderId       String?
+  sender         User?        @relation(fields: [senderId], references: [id], onDelete: SetNull)
+  text           String
+  createdAt      DateTime     @default(now())
+
+  @@index([conversationId, createdAt])
+  @@map("messages")
+}

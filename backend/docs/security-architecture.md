@@ -423,3 +423,15 @@ Until now a member's level was a constant (level 1, 0/100) and achievements live
 **Reading.** `GET /v1/notifications` pages newest-first (`limit`, `before` = the last row's time, `hasMore`); `GET /v1/notifications/unread-count` is the bell's number; `PATCH /read-all` takes an optional category. The bell in the header is a link to `/notifications` with the unread count (asked for on load, each minute while the tab is showing, and when it returns); the page shows the periods *اليوم / أمس / هذا الأسبوع / الأسبوع الماضي / هذا الشهر / أقدم*.
 
 **Not built yet.** Members cannot switch a kind off (there is no preference), and there is no email or push delivery: notifications live in the site only.
+
+## §36 — Messages and finding people (server-side, no longer per browser)
+
+**Before.** Chats were kept in each browser's own storage (`store/messages.ts`): a message written on one device never reached the person it was for. They are now real. Tables `conversations`, `conversation_members`, `messages` (migration `20260930140000_add_messaging`); module `modules/messages`, routes under `/v1/conversations`, all needing a signed-in account.
+
+**Who can see what.** A conversation is visible only to its members. Every route is scoped by the id in the caller's token, never an id in the request, and a conversation the caller is not in answers **404** (its existence is not theirs to learn). A direct chat is one row per pair of people (`pairKey = "<smaller id>:<larger id>"`, unique), so starting a chat with someone you already talk to opens the existing one; a group has 3–20 people, an optional title, and only its creator can add people. Anyone can leave; a conversation with nobody left is deleted.
+
+**Sending.** Text of 1–2000 characters, 30 a minute per account; a banned account is refused and a **muted** (timeout) account cannot send — this closes the gap the old `use-mute-status` comment described ("messages are still device-local"), because the server now enforces it. Unread is computed from the member's `lastReadAt` (everything by others after it); a sender's own message moves their `lastReadAt`. The page polls (list every 10 s, the open chat every 4 s, the header badge every 30 s) — there are no push connections yet.
+
+**Finding people.** `GET /v1/users/search?q=` (any signed-in member) returns up to 30 accounts whose username or display name contains the text — exact matches first, then prefixes — with only what already shows beside every comment (name, username, picture); banned accounts never appear and a leading "@" is ignored. The site search's members tab and the new-chat picker (type a name, pick one person or several) use it. The search used to look only at the people the catalogue knows (those on a team), which is why a copied username found nothing.
+
+**Not built yet.** Message deletion and editing, blocking, attachments, and notifications for messages (the unread number is the only signal).

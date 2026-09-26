@@ -16,6 +16,7 @@ import { ChaptersModule } from "./modules/chapters/chapters.module";
 import { CommentsModule } from "./modules/comments/comments.module";
 import { HealthModule } from "./modules/health/health.module";
 import { ImagesModule } from "./modules/images/images.module";
+import { MessagesModule } from "./modules/messages/messages.module";
 import { ModerationModule } from "./modules/moderation/moderation.module";
 import { NotificationsModule } from "./modules/notifications/notifications.module";
 import { OAuthModule } from "./modules/oauth/oauth.module";
@@ -43,6 +44,7 @@ import { PrismaModule } from "./prisma/prisma.module";
     CommentsModule,
     HealthModule,
     ImagesModule,
+    MessagesModule,
     ModerationModule,
     NotificationsModule,
     OAuthModule,

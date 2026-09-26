@@ -126,6 +126,33 @@ export class UsersService {
     return banned.map((u) => this.toPublic(u));
   }
 
+  /**
+   * Find people by name for the search page and for starting a chat. Anyone signed in may ask; only what already appears
+   * beside every comment comes back (name, username, picture). A typed "@" is ignored; exact and prefix matches come first.
+   */
+  async search(term: string, limit = 20) {
+    const needle = term.trim().replace(/^@/, "").slice(0, 60);
+    if (!needle) return [];
+    const rows = await this.repo.searchPeople(needle, 60);
+    const lower = needle.toLowerCase();
+    const rank = (u: { username: string; displayName: string | null }) => {
+      const name = u.username.toLowerCase();
+      const display = (u.displayName ?? "").toLowerCase();
+      if (name === lower || display === lower) return 0;
+      if (name.startsWith(lower) || display.startsWith(lower)) return 1;
+      return 2;
+    };
+    return rows
+      .sort((a, b) => rank(a) - rank(b) || a.username.localeCompare(b.username))
+      .slice(0, Math.min(Math.max(limit, 1), 30))
+      .map((u) => ({
+        id: u.id,
+        username: u.username,
+        displayName: u.displayName ?? u.username,
+        avatarVersion: u.avatarMimeType ? u.updatedAt.toISOString() : null,
+      }));
+  }
+
   /** Every account, a page at a time, with search and a role filter — the owner's user list (the site's own catalogue only knows people who are on a team). */
   async listAll(actorId: string, query: ListUsersQueryDto) {
     const actor = await this.repo.findById(actorId);

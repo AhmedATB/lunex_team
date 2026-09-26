@@ -4,7 +4,7 @@ import Link from "next/link";
 import Image from "next/image";
 import { useRouter } from "next/navigation";
 import { useEffect, useMemo, useState } from "react";
-import { Search, LogOut, Settings, User as UserIcon, ShieldCheck, Coins, MessageCircle, Palette } from "lucide-react";
+import { Search, LogOut, Settings, User as UserIcon, ShieldCheck, Coins, Palette } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Avatar, AvatarImage, AvatarFallback } from "@/components/ui/avatar";
@@ -19,12 +19,12 @@ import {
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { ThemePicker } from "@/components/settings/theme-picker";
 import { NotificationsBell } from "@/components/layout/notifications-bell";
+import { MessagesLink } from "@/components/layout/messages-link";
 import { useSession } from "@/store/session";
 import { useSignedInUserId } from "@/components/session-hint";
 import { useProfile, effectiveAvatarSeed } from "@/store/profile";
 import { useWallet } from "@/store/wallet";
 import { useProgress } from "@/store/progress";
-import { useMessages } from "@/store/messages";
 import { useNavigation } from "@/store/navigation";
 import { useCatalog } from "@/components/catalog-provider";
 import { GLOBAL_ROLE_LABELS, can } from "@/lib/rbac";
@@ -55,11 +55,6 @@ export function Header() {
   const avatarOverrides = useProfile((s) => s.avatarOverrides);
   const coins = useWallet((s) => s.wallet?.coins ?? 0);
   const progress = useProgress((s) => s.progress);
-  const unreadBy = useMessages((s) => s.unreadBy);
-  const hasUnreadMessages = useMemo(
-    () => (currentUserId ? Object.values(unreadBy).some((ids) => ids.includes(currentUserId)) : false),
-    [unreadBy, currentUserId]
-  );
   function submitSearch(e: React.FormEvent) {
     e.preventDefault();
     const target = `/search${query ? `?q=${encodeURIComponent(query)}` : ""}`;
@@ -129,12 +124,7 @@ export function Header() {
               <Coins className="h-3.5 w-3.5" /> {coins}
             </Link>
 
-            <Button variant="ghost" size="icon" aria-label="الرسائل" className="relative" asChild>
-              <Link href="/messages">
-                <MessageCircle className="h-5 w-5" />
-                {hasUnreadMessages && <span className="absolute end-1.5 top-1.5 h-2 w-2 rounded-full border border-black bg-primary-400" />}
-              </Link>
-            </Button>
+            <MessagesLink />
 
             <NotificationsBell loggedIn />
             </>

@@ -33,3 +33,17 @@ export class ListUsersQueryDto {
   @Max(100)
   pageSize?: number;
 }
+
+/** Query string of GET /v1/users/search: a name or username to look for. */
+export class SearchUsersQueryDto {
+  @IsString()
+  @MaxLength(61)
+  q!: string;
+
+  @IsOptional()
+  @Type(() => Number)
+  @IsInt()
+  @Min(1)
+  @Max(30)
+  limit?: number;
+}
