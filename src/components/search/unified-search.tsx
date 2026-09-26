@@ -17,6 +17,7 @@ import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { SeriesCard } from "@/components/shared/series-card";
 import { SeriesExplorer } from "@/components/explore/series-explorer";
+import { prepareSearchQuery, searchTier, seriesSearchFields } from "@/lib/fuzzy-search";
 
 const PREVIEW_COUNT = 6;
 
@@ -51,10 +52,16 @@ export function UnifiedSearch({ genres }: { genres: Genre[] }) {
   const query = q.trim().toLowerCase();
 
   const matchedSeries = useMemo(() => {
-    if (!query) return [];
-    return db.series.filter(
-      (s) => s.titleAr.toLowerCase().includes(query) || s.title.toLowerCase().includes(query) || s.author.toLowerCase().includes(query)
-    );
+    const prepared = prepareSearchQuery(query);
+    if (prepared.tokens.length === 0) return [];
+    // Forgiving: a typo or another spelling still finds it, and so does an alternative title (lib/fuzzy-search.ts). Exact matches first.
+    return db.series
+      .flatMap((s) => {
+        const tier = searchTier(prepared, seriesSearchFields(s));
+        return tier > 0 ? [{ s, tier }] : [];
+      })
+      .sort((a, b) => b.tier - a.tier)
+      .map(({ s }) => s);
   }, [db, query]);
 
   const matchedTeams = useMemo(() => {

@@ -1,5 +1,6 @@
 import { loadCatalog } from "../catalog-server";
 import { byFollowers, byPopularity, byThisWeek, byTopRated, byViews } from "../ranking";
+import { prepareSearchQuery, searchTier, seriesSearchFields } from "../fuzzy-search";
 import type { Series, Chapter, Genre, Team, User, Comment, NewsItem } from "../types";
 
 /**
@@ -56,10 +57,8 @@ export async function getSeriesList(filters: SeriesFilters = {}): Promise<{ item
   if (filters.type) items = items.filter((s) => s.type === filters.type);
   if (filters.year) items = items.filter((s) => s.year === filters.year);
   if (filters.query) {
-    const q = filters.query.toLowerCase();
-    items = items.filter(
-      (s) => s.titleAr.toLowerCase().includes(q) || s.title.toLowerCase().includes(q)
-    );
+    const q = prepareSearchQuery(filters.query);
+    items = items.filter((s) => searchTier(q, seriesSearchFields(s)) > 0);
   }
 
   switch (filters.sort) {

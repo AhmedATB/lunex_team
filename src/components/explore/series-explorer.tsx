@@ -3,6 +3,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { byFollowers, byPopularity, byThisWeek, byTopRated, byViews } from "@/lib/ranking";
 import { CatalogAutoRefresh } from "@/components/catalog-auto-refresh";
+import { prepareSearchQuery, searchTier, seriesSearchFields } from "@/lib/fuzzy-search";
 import { useSearchParams } from "next/navigation";
 import { Search as SearchIcon, SlidersHorizontal, X } from "lucide-react";
 import type { Genre, Series } from "@/lib/types";
@@ -114,14 +115,15 @@ export function SeriesExplorer({ genres, title }: { genres: Genre[]; title: stri
 
   const filtered = useMemo(() => {
     let items = [...allSeries];
-    if (filters.q) {
-      const q = filters.q.toLowerCase();
-      items = items.filter(
-        (s) =>
-          s.titleAr.toLowerCase().includes(q) ||
-          s.title.toLowerCase().includes(q) ||
-          s.author.toLowerCase().includes(q)
-      );
+    // A typo or a different spelling still finds the series, and so does one of its other names (lib/fuzzy-search.ts).
+    const query = prepareSearchQuery(filters.q);
+    const tiers = new Map<string, number>();
+    if (query.tokens.length > 0) {
+      items = items.filter((s) => {
+        const tier = searchTier(query, seriesSearchFields(s));
+        if (tier > 0) tiers.set(s.id, tier);
+        return tier > 0;
+      });
     }
     if (filters.genre) items = items.filter((s) => s.genreIds.includes(filters.genre!));
     if (filters.status) items = items.filter((s) => s.status === filters.status);
@@ -150,6 +152,8 @@ export function SeriesExplorer({ genres, title }: { genres: Genre[]; title: stri
       default:
         items.sort(byPopularity);
     }
+    // Exact matches first, near ones after; each group keeps the order the visitor chose (the sort is stable).
+    if (tiers.size > 0) items.sort((a, b) => (tiers.get(b.id) ?? 0) - (tiers.get(a.id) ?? 0));
     return items;
   }, [allSeries, filters]);
 
