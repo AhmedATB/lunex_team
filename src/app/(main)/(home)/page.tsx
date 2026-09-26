@@ -17,6 +17,8 @@ import {
 import { loadCatalog } from "@/lib/catalog-server";
 import { EditorialHome } from "@/components/home/layouts/editorial-home";
 import { CatalogAutoRefresh } from "@/components/catalog-auto-refresh";
+import { JsonLd } from "@/components/seo/json-ld";
+import { websiteJsonLd } from "@/lib/seo";
 
 export default async function HomePage() {
   const [
@@ -60,6 +62,9 @@ export default async function HomePage() {
   return (
     <>
       <CatalogAutoRefresh />
+      {websiteJsonLd().map((data) => (
+        <JsonLd key={data["@type"]} data={data} />
+      ))}
       <EditorialHome
       featured={featured}
       latestChapters={latestChapters}

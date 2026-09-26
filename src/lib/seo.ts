@@ -1,4 +1,4 @@
-import { SITE_URL } from "@/lib/site";
+import { CONTACT_DISCORD_URL, SITE_URL } from "@/lib/site";
 import type { Series, SeriesStatus, Team } from "@/lib/types";
 
 /**
@@ -75,6 +75,35 @@ export function chapterDescription(series: Series, number: number): string {
 
 /** The picture a link preview shows for a work (a cover is always the site's own address). */
 export const coverUrl = (series: Pick<Series, "cover">) => absoluteUrl(series.cover);
+
+/**
+ * Who the site is, for a search of its name: the name as people write it (in Latin and in Arabic), its address, its logo, its
+ * official channel, and the search box it offers. Helps a search engine tie "lunex team" and "لونكس" to this site — the
+ * brand name is shared with unrelated things — and choose the name it shows above the result.
+ */
+export function websiteJsonLd() {
+  return [
+    {
+      "@context": "https://schema.org",
+      "@type": "WebSite",
+      name: SITE_NAME,
+      alternateName: ["Lunex Team", "Lunex", "لونكس تيم", "لونكس"],
+      url: `${SITE_URL}/`,
+      inLanguage: "ar",
+      potentialAction: { "@type": "SearchAction", target: `${SITE_URL}/search?q={search_term_string}`, "query-input": "required name=search_term_string" },
+    },
+    {
+      "@context": "https://schema.org",
+      "@type": "Organization",
+      name: SITE_NAME,
+      alternateName: ["Lunex Team", "لونكس تيم"],
+      url: `${SITE_URL}/`,
+      logo: absoluteUrl("/brand/icon-square.png"),
+      description: "منصة عربية لقراءة المانهوا والمانجا والمانها المترجمة، تنشرها فرق ترجمة عربية.",
+      sameAs: [CONTACT_DISCORD_URL],
+    },
+  ];
+}
 
 export function breadcrumbJsonLd(trail: { name: string; path: string }[]) {
   return {
