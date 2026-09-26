@@ -2,6 +2,7 @@
 
 import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { ArrowDownUp, Eye, Search, Lock, CheckCircle2 } from "lucide-react";
 import type { Chapter } from "@/lib/types";
 import { Input } from "@/components/ui/input";
@@ -9,7 +10,9 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { timeAgo, formatNumber } from "@/lib/utils";
 import { useReadingProgress } from "@/store/reader-settings";
-import { useRewards, isChapterLocked } from "@/store/rewards";
+import { isLockedByRule } from "@/lib/chapter-lock";
+import { lockRuleOf, useWallet } from "@/store/wallet";
+import { useToast } from "@/store/toast";
 import { useSession } from "@/store/session";
 import { useTeamManagement, applyTeamOverride } from "@/store/team-management";
 import { getTeamAuthRoles, getEffectiveCustomRoles } from "@/lib/team-auth";
@@ -22,8 +25,11 @@ export function ChapterList({ seriesSlug, chapters, teamId }: { seriesSlug: stri
   const [asc, setAsc] = useState(false);
   const seriesId = chapters[0]?.seriesId;
   const lastRead = useReadingProgress((s) => (seriesId ? s.getProgress(seriesId) : undefined));
-  const lockedChapterCount = useRewards((s) => s.settings.lockedChapterCount);
-  const unlockedChapters = useRewards((s) => s.unlockedChapters);
+  const router = useRouter();
+  // What is locked follows the server's rule and this member's opened chapters (the server refuses the pages itself).
+  const wallet = useWallet((s) => s.wallet);
+  const lockRule = lockRuleOf(wallet);
+  const openedChapters = new Set(wallet?.unlockedChapterIds ?? []);
 
   const store = useTeamManagement();
   const currentUserId = useSession((s) => s.currentUserId);
@@ -61,6 +67,22 @@ export function ChapterList({ seriesSlug, chapters, teamId }: { seriesSlug: stri
     [effectiveChapters]
   );
 
+  const readsEverything = Boolean(currentUser && ["uploader", "editor", "super_administrator", "owner"].includes(currentUser.role));
+
+  /** Sets (or clears, with undefined) a chapter's lock override on the server, where it actually takes effect. */
+  async function setServerLock(chapterId: string, lock: boolean | undefined) {
+    const res = await fetch(`/api/chapters/${encodeURIComponent(chapterId)}`, {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ manualLock: lock ?? null }),
+    }).catch(() => null);
+    if (res?.ok) {
+      router.refresh();
+    } else {
+      useToast.getState().push({ title: "تعذر تغيير القفل", description: "هذا الإجراء يتطلب صلاحية رفع الفصول أو تحريرها." });
+    }
+  }
+
   const list = useMemo(() => {
     let items = effectiveChapters.filter((c) => c.number.toString().includes(query) || c.title.includes(query));
     items = [...items].sort((a, b) => (asc ? a.number - b.number : b.number - a.number));
@@ -86,9 +108,9 @@ export function ChapterList({ seriesSlug, chapters, teamId }: { seriesSlug: stri
 
       <div className="panel max-h-[560px] overflow-y-auto">
         {list.map((c) => {
-          const manualLock = store.chapterLockOverrides[c.id];
+          const manualLock = c.manualLock ?? undefined;
           const locked = seriesId
-            ? isChapterLocked(c.number, latestNumber, lockedChapterCount, unlockedChapters, seriesId, manualLock)
+            ? isLockedByRule(c.number, latestNumber, lockRule, manualLock) && !openedChapters.has(c.id) && !readsEverything
             : false;
           return (
             <div
@@ -123,7 +145,7 @@ export function ChapterList({ seriesSlug, chapters, teamId }: { seriesSlug: stri
                     isPublished={c.isPublished}
                     manualLock={manualLock}
                     onSave={(patch) => store.updateChapter(c.id, patch, teamId, currentUser!.id)}
-                    onSetLock={(lock) => store.setChapterLock(c.id, lock, teamId, currentUser!.id)}
+                    onSetLock={(lock) => void setServerLock(c.id, lock)}
                     onDelete={() => store.removeChapter(c.id, teamId, currentUser!.id)}
                   />
                 )}

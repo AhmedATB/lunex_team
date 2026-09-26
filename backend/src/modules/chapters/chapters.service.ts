@@ -4,6 +4,8 @@ import sharp from "sharp";
 import { ImagesService, type IssuedImageToken } from "../images/images.service";
 import { StorageService } from "../images/storage/storage.interface";
 import type { RequestContext } from "../../common/middleware/request-context.middleware";
+import { WalletService } from "../wallet/wallet.service";
+import type { UnlockMethod } from "../wallet/wallet.repository";
 import { ChaptersRepository } from "./chapters.repository";
 
 /**
@@ -22,9 +24,6 @@ import { ChaptersRepository } from "./chapters.repository";
  */
 const CAN_PUBLISH_GLOBAL_ROLES = new Set(["uploader", "editor", "super_administrator", "owner"]);
 
-/** Same sliding-window default as the frontend's DEFAULT_MONETIZATION_SETTINGS.lockedChapterCount — the newest N chapters of a series are locked, everything older is free. */
-const FREE_CHAPTER_WINDOW = 3;
-
 const MAX_PAGE_DIMENSION = 6000;
 
 @Injectable()
@@ -32,7 +31,8 @@ export class ChaptersService {
   constructor(
     private readonly repo: ChaptersRepository,
     private readonly storage: StorageService,
-    private readonly images: ImagesService
+    private readonly images: ImagesService,
+    private readonly wallet: WalletService
   ) {}
 
   private assertCanPublish(role: string) {
@@ -68,7 +68,7 @@ export class ChaptersService {
     return this.repo.listRecent(50);
   }
 
-  async update(role: string, id: string, patch: { isPublished?: boolean }) {
+  async update(role: string, id: string, patch: { isPublished?: boolean; manualLock?: boolean | null }) {
     this.assertCanPublish(role);
     await this.get(id);
     return this.repo.update(id, patch);
@@ -127,20 +127,9 @@ export class ChaptersService {
     return this.repo.createPage({ chapterId, pageNumber, assetId: asset.id });
   }
 
-  /**
-   * The real authorization gate issueToken() needed but never had: is this
-   * chapter within the free sliding window, or has this user actually
-   * unlocked it (a real ChapterUnlock row, not the client-only
-   * unlockedChapters localStorage flag this replaces).
-   */
+  /** May this member read the chapter now? Free, opened with a credit or coins, or staff — decided by the wallet (modules/wallet). */
   async canAccessChapter(userId: string, chapterId: string): Promise<boolean> {
-    const chapter = await this.get(chapterId);
-    if (chapter.manualLock === false) return true;
-    if (chapter.manualLock !== true) {
-      const latest = await this.repo.findLatestPublishedNumber(chapter.seriesId);
-      if (chapter.number <= latest - FREE_CHAPTER_WINDOW) return true;
-    }
-    return Boolean(await this.repo.findUnlock(userId, chapterId));
+    return (await this.wallet.access(userId, chapterId)).canRead;
   }
 
   async issuePageToken(
@@ -161,19 +150,8 @@ export class ChaptersService {
     return this.images.issueToken(page.assetId, userId, ctx);
   }
 
-  /**
-   * Deliberately unconditional — coins/ads-credits/daily-reward are still a
-   * client-only economy (useRewards, not migrated here), so this endpoint
-   * trusts the client's claim that it satisfied one of those the same way
-   * the rest of that system already does today. The scope of this task is
-   * anti-scraping/piracy protection for chapter images, not hardening the
-   * virtual-currency economy against a user unlocking chapters for
-   * themselves — a real payments backend is a separate piece of work.
-   */
-  async unlock(userId: string, chapterId: string) {
-    await this.get(chapterId);
-    const existing = await this.repo.findUnlock(userId, chapterId);
-    if (existing) return existing;
-    return this.repo.createUnlock(userId, chapterId);
+  /** Opens a locked chapter by spending a reading credit or coins (a chapter that needs no payment costs nothing). */
+  unlock(userId: string, chapterId: string, method: UnlockMethod) {
+    return this.wallet.unlockChapter(userId, chapterId, method);
   }
 }

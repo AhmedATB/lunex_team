@@ -22,8 +22,6 @@ export class ProfilesRepository {
         historyVisibility: true,
         favoritesVisibility: true,
         xp: true,
-        xpDay: true,
-        xpDayGain: true,
         chaptersRead: true,
         streakDays: true,
         bestStreak: true,

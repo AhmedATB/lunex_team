@@ -4,7 +4,7 @@ import { ProgressService } from "./progress.service";
 import type { ProgressState } from "./progress.util";
 
 const NOW = new Date("2026-09-26T10:00:00.000Z");
-const fresh: ProgressState = { xp: 0, xpDay: null, xpDayGain: 0, chaptersRead: 0, streakDays: 0, bestStreak: 0, streakLastDay: null };
+const fresh: ProgressState = { xp: 0, xpDay: null, xpDayGain: 0, chaptersRead: 0, streakDays: 0, bestStreak: 0, streakLastDay: null, unlockCredits: 0, creditProgress: 0 };
 
 /** An in-memory stand-in for the repository: one account whose numbers change through `transact`, like the real row. */
 function build(opts: { view?: Date | null; forward?: boolean; state?: ProgressState; comments?: number; commentsToday?: number } = {}) {

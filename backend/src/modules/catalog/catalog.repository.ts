@@ -375,8 +375,8 @@ export class CatalogRepository {
   /** Imported chapters start unpublished and are published only once every page is stored, so a half-copied chapter is never readable. */
   createImportedChapter(data: { seriesId: string; teamId: string; number: number; title: string; legacyId: string }) {
     return this.prisma.chapter.create({
-      // manualLock false: the old site had no locked chapters, so none of these start locked either.
-      data: { ...data, isPublished: false, manualLock: false },
+      // No manual override: an imported chapter follows the automatic rule (the newest few of a series are locked) like any other.
+      data: { ...data, isPublished: false },
       select: { id: true },
     });
   }

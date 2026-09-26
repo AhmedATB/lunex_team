@@ -260,6 +260,8 @@ export interface Chapter {
   views: number;
   isPublished: boolean;
   scheduledFor?: string;
+  /** Staff override of the lock: true = always locked, false = always open, null/absent = automatic (the newest chapters are locked). */
+  manualLock?: boolean | null;
   teamId: string;
 }
 

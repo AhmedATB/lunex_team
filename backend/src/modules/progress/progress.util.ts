@@ -75,6 +75,10 @@ export interface ProgressState {
   streakDays: number;
   bestStreak: number;
   streakLastDay: string | null;
+  /** Unlock credits earned by reading and not yet spent (spending them is the wallet's job). */
+  unlockCredits: number;
+  /** Finished chapters counted toward the next credit. */
+  creditProgress: number;
 }
 
 export type ProgressEvent =
@@ -93,8 +97,11 @@ export interface AwardResult {
   leveledUp: boolean;
 }
 
+/** Finished chapters that earn one unlock credit, unless the caller says otherwise (the wallet configuration does). */
+export const DEFAULT_CHAPTERS_PER_CREDIT = 10;
+
 /** Applies one event to the account's progress. Pure: the caller stores `next`. */
-export function applyEvent(state: ProgressState, event: ProgressEvent, today: string): AwardResult {
+export function applyEvent(state: ProgressState, event: ProgressEvent, today: string, chaptersPerCredit: number = DEFAULT_CHAPTERS_PER_CREDIT): AwardResult {
   const next: ProgressState = { ...state };
   let gross = 0;
   let newStreakDay = false;
@@ -110,6 +117,12 @@ export function applyEvent(state: ProgressState, event: ProgressEvent, today: st
     if (event.forward) {
       next.chaptersRead = state.chaptersRead + 1;
       gross += XP_RULES.chapter;
+      // Reading is also how a locked chapter is earned: every so many finished chapters is one free unlock.
+      next.creditProgress = state.creditProgress + 1;
+      if (next.creditProgress >= chaptersPerCredit) {
+        next.creditProgress -= chaptersPerCredit;
+        next.unlockCredits = state.unlockCredits + 1;
+      }
     }
   } else if (event.type === "comment") {
     if (event.earnsXp) gross += XP_RULES.comment;

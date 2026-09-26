@@ -21,7 +21,7 @@ import { ThemePicker } from "@/components/settings/theme-picker";
 import { NotificationsBell } from "@/components/layout/notifications-bell";
 import { useSession } from "@/store/session";
 import { useProfile, effectiveAvatarSeed } from "@/store/profile";
-import { useRewards } from "@/store/rewards";
+import { useWallet } from "@/store/wallet";
 import { useProgress } from "@/store/progress";
 import { useMessages } from "@/store/messages";
 import { useNavigation } from "@/store/navigation";
@@ -51,7 +51,7 @@ export function Header() {
     [db, currentUserId]
   );
   const avatarOverrides = useProfile((s) => s.avatarOverrides);
-  const coins = useRewards((s) => s.coins);
+  const coins = useWallet((s) => s.wallet?.coins ?? 0);
   const progress = useProgress((s) => s.progress);
   const unreadBy = useMessages((s) => s.unreadBy);
   const hasUnreadMessages = useMemo(

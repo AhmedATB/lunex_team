@@ -1,67 +1,104 @@
 "use client";
 
 import { useEffect, useState, type ReactNode } from "react";
-import { ADS_ENABLED, SMARTLINK_URL, SPONSORED_LINK_REL } from "@/lib/ads";
 import Link from "next/link";
-import { Lock, PlayCircle, Coins, Gift, Ticket, Sparkles, Plus } from "lucide-react";
-import { useRewards, chapterKey, isChapterLocked } from "@/store/rewards";
-import { useTeamManagement } from "@/store/team-management";
+import { BookOpenCheck, Coins, Loader2, Lock } from "lucide-react";
+import { isLockedByRule } from "@/lib/chapter-lock";
+import { useSession } from "@/store/session";
+import { lockRuleOf, useWallet } from "@/store/wallet";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Progress } from "@/components/ui/progress";
-import {
-  Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger,
-} from "@/components/ui/dialog";
 
-const COIN_PACKS = [
-  { coins: 100, price: "$0.99" },
-  { coins: 550, price: "$4.99" },
-  { coins: 1200, price: "$9.99" },
-];
+/** People who publish and run the site read every chapter without unlocking it (the server lets them through too). */
+const READS_EVERYTHING = new Set(["uploader", "editor", "super_administrator", "owner"]);
 
+/** How long to wait for the wallet before offering a retry, instead of an empty page. */
+const WAIT_BEFORE_RETRY_MS = 8000;
+
+const UNLOCK_ERRORS: Record<string, string> = {
+  insufficient_credits: "ما عندك رصيد قراءة بعد. اقرأ المزيد من الفصول لتحصل على فتح مجاني.",
+  insufficient_coins: "رصيدك من العملات لا يكفي لفتح هذا الفصل.",
+  error: "تعذر فتح الفصل، حاول مرة أخرى.",
+};
+
+/**
+ * Stands in front of a chapter. The newest chapters of a series are locked; they open with a reading credit (earned by
+ * finishing chapters) or with coins. What is shown here follows the server's rule and the server's balances, and the
+ * server refuses the pages itself to anyone who has not opened the chapter — this screen only explains and asks.
+ */
 export function ChapterGate({
-  seriesId,
   seriesSlug,
   seriesTitle,
   chapterId,
   chapterNumber,
   latestChapterNumber,
+  manualLock,
   children,
 }: {
-  seriesId: string;
+  seriesId?: string;
   seriesSlug: string;
   seriesTitle: string;
   chapterId: string;
   chapterNumber: number;
   latestChapterNumber: number;
+  /** A staff override: true = always locked, false = always open, undefined/null = automatic. */
+  manualLock?: boolean | null;
   children: ReactNode;
 }) {
-  const rewards = useRewards();
-  const manualLock = useTeamManagement((s) => s.chapterLockOverrides[chapterId]);
-  const key = chapterKey(seriesId, chapterNumber);
+  const signedIn = useSession((s) => Boolean(s.currentUserId));
+  const role = useSession((s) => s.user?.role);
+  const { wallet, loaded, refresh, unlock } = useWallet();
 
-  // Persisted store rehydrates after mount; wait one tick so a paying user's
-  // unlocked chapter doesn't flash the lock screen on hard reload.
-  const [ready, setReady] = useState(false);
-  useEffect(() => setReady(true), []);
+  const [busy, setBusy] = useState<"credit" | "coins" | null>(null);
+  const [error, setError] = useState("");
+  const [waitedTooLong, setWaitedTooLong] = useState(false);
 
-  const locked = isChapterLocked(
-    chapterNumber,
-    latestChapterNumber,
-    rewards.settings.lockedChapterCount,
-    rewards.unlockedChapters,
-    seriesId,
-    manualLock
-  );
+  useEffect(() => {
+    if (signedIn && !loaded) void refresh();
+  }, [signedIn, loaded, refresh]);
 
-  if (!ready) return null;
-  if (!locked) return <>{children}</>;
+  useEffect(() => {
+    if (loaded || !signedIn) return;
+    const timer = window.setTimeout(() => setWaitedTooLong(true), WAIT_BEFORE_RETRY_MS);
+    return () => window.clearTimeout(timer);
+  }, [loaded, signedIn]);
 
-  const dailyProgress = rewards.dailyReadKeys.length;
-  const dailyTarget = rewards.settings.dailyReadTarget;
-  const dailyRewardAvailable = !rewards.dailyRewardClaimed && dailyProgress >= dailyTarget;
-  const price = rewards.settings.chapterCoinPrice;
+  const staff = role ? READS_EVERYTHING.has(role) : false;
+  const byRule = isLockedByRule(chapterNumber, latestChapterNumber, lockRuleOf(wallet), manualLock);
+  const opened = wallet?.unlockedChapterIds.includes(chapterId) ?? false;
+
+  // A free chapter needs nothing, so it is never held back waiting for the wallet.
+  if (!byRule || staff) return <>{children}</>;
+  if (!loaded && signedIn) {
+    return waitedTooLong ? (
+      <div className="container flex min-h-[50vh] max-w-md flex-col items-center justify-center gap-3 text-center">
+        <p className="text-sm text-lunex-gray">تعذر التحقق من حالة هذا الفصل الآن.</p>
+        <Button onClick={() => void refresh()}>إعادة المحاولة</Button>
+      </div>
+    ) : (
+      <div className="container flex min-h-[50vh] items-center justify-center" role="status" aria-label="جارِ التحميل">
+        <Loader2 className="h-6 w-6 animate-spin text-primary-300" />
+      </div>
+    );
+  }
+  if (opened) return <>{children}</>;
+
+  const credits = wallet?.unlockCredits ?? 0;
+  const perCredit = wallet?.chaptersPerCredit ?? 10;
+  const progressToNext = wallet?.creditProgress ?? 0;
+  const price = wallet?.coinPrice ?? 50;
+  const coins = wallet?.coins ?? 0;
+
+  async function open(method: "credit" | "coins") {
+    if (busy) return;
+    setBusy(method);
+    setError("");
+    const result = await unlock(chapterId, method);
+    if (!result.ok) setError(UNLOCK_ERRORS[result.code]);
+    setBusy(null);
+  }
 
   return (
     <div className="container flex min-h-[70vh] max-w-lg flex-col items-center justify-center gap-5 py-10 text-center">
@@ -74,7 +111,7 @@ export function ChapterGate({
       <div>
         <h1 className="section-title font-display text-2xl font-black text-white">هذا الفصل مقفل</h1>
         <p className="mt-2 text-sm text-lunex-gray">
-          الفصل {chapterNumber} من {seriesTitle} من الفصول الحصرية الجديدة. افتحه بإحدى الطرق التالية:
+          الفصل {chapterNumber} من {seriesTitle} من أحدث الفصول. افتحه بإحدى الطريقتين:
         </p>
       </div>
 
@@ -83,184 +120,50 @@ export function ChapterGate({
           <div className="space-y-2">
             <div className="flex items-center justify-between">
               <span className="flex items-center gap-2 text-sm font-bold text-white">
-                <PlayCircle className="h-4 w-4 text-emerald-400" /> شاهد إعلانات
+                <BookOpenCheck className="h-4 w-4 text-emerald-400" /> بالقراءة
               </span>
-              <Badge variant="secondary">
-                {rewards.adsWatched} / {rewards.settings.adsPerUnlock}
-              </Badge>
+              <Badge variant={credits > 0 ? "success" : "secondary"}>{credits} رصيد</Badge>
             </div>
-            <Progress value={(rewards.adsWatched / rewards.settings.adsPerUnlock) * 100} />
+            <Progress value={(progressToNext / perCredit) * 100} />
             <p className="text-xs text-lunex-gray">
-              شاهد {rewards.settings.adsPerUnlock} إعلانات واحصل على تذكرة فتح فصل مجانية.
+              كل {perCredit} فصول تُنهيها تمنحك فتح فصل مقفل مجاناً. المتبقي للرصيد القادم: {Math.max(0, perCredit - progressToNext)} فصلاً.
             </p>
-            <AdWatchDialog onComplete={() => rewards.watchAd()} />
-          </div>
-
-          <div className="border-t-2 border-white/10 pt-4">
-            <div className="flex items-center justify-between">
-              <span className="flex items-center gap-2 text-sm font-bold text-white">
-                <Ticket className="h-4 w-4 text-amber-300" /> تذاكر الفتح المجانية
-              </span>
-              <Badge variant={rewards.freeUnlockCredits > 0 ? "success" : "secondary"}>
-                {rewards.freeUnlockCredits}
-              </Badge>
-            </div>
-            <Button
-              className="mt-2 w-full"
-              disabled={rewards.freeUnlockCredits < 1}
-              onClick={() => rewards.unlockWithCredit(key)}
-            >
-              <Ticket className="h-4 w-4" /> استخدم تذكرة لفتح الفصل
+            <Button className="w-full" disabled={credits < 1 || busy !== null} onClick={() => void open("credit")}>
+              {busy === "credit" ? <Loader2 className="h-4 w-4 animate-spin" /> : <BookOpenCheck className="h-4 w-4" />}
+              استخدم رصيد القراءة لفتح الفصل
             </Button>
           </div>
 
-          <div className="border-t-2 border-white/10 pt-4">
+          <div className="space-y-2 border-t-2 border-white/10 pt-4">
             <div className="flex items-center justify-between">
               <span className="flex items-center gap-2 text-sm font-bold text-white">
-                <Coins className="h-4 w-4 text-yellow-400" /> الكوينز
+                <Coins className="h-4 w-4 text-yellow-400" /> بالعملات
               </span>
-              <Badge variant="secondary">{rewards.coins} كوين</Badge>
+              <Badge variant="secondary">{coins} عملة</Badge>
             </div>
-            <div className="mt-2 flex gap-2">
-              <Button
-                className="flex-1"
-                variant="secondary"
-                disabled={rewards.coins < price}
-                onClick={() => rewards.unlockWithCoins(key)}
-              >
-                <Coins className="h-4 w-4" /> افتح مقابل {price} كوين
-              </Button>
-              <BuyCoinsDialog onBuy={(amount) => rewards.buyCoins(amount)} />
-            </div>
-          </div>
-
-          <div className="border-t-2 border-white/10 pt-4">
-            <div className="flex items-center justify-between">
-              <span className="flex items-center gap-2 text-sm font-bold text-white">
-                <Gift className="h-4 w-4 text-pink-400" /> مكافأة القراءة اليومية
-              </span>
-              <Badge variant={dailyRewardAvailable ? "success" : "secondary"}>
-                {Math.min(dailyProgress, dailyTarget)} / {dailyTarget}
-              </Badge>
-            </div>
-            <Progress value={(Math.min(dailyProgress, dailyTarget) / dailyTarget) * 100} className="mt-2" />
-            <p className="mt-1 text-xs text-lunex-gray">
-              {rewards.dailyRewardClaimed
-                ? "استلمت مكافأة اليوم — عد غداً لمكافأة جديدة!"
-                : `اقرأ ${dailyTarget} فصلاً اليوم واحصل على فتح فصل من اختيارك هدية.`}
-            </p>
-            {dailyRewardAvailable && (
-              <Button className="mt-2 w-full" onClick={() => rewards.claimDailyReward(key)}>
-                <Sparkles className="h-4 w-4" /> استخدم مكافأة اليوم لفتح هذا الفصل
+            <p className="text-xs text-lunex-gray">سعر فتح الفصل {price} عملة.</p>
+            <Button className="w-full" variant="secondary" disabled={coins < price || busy !== null} onClick={() => void open("coins")}>
+              {busy === "coins" ? <Loader2 className="h-4 w-4 animate-spin" /> : <Coins className="h-4 w-4" />}
+              افتح الفصل بـ {price} عملة
+            </Button>
+            {coins < price && (
+              <Button asChild variant="ghost" className="w-full">
+                <Link href="/store">كيف أحصل على عملات؟</Link>
               </Button>
             )}
           </div>
+
+          {error && (
+            <p className="text-sm text-red-400" role="alert">
+              {error}
+            </p>
+          )}
         </CardContent>
       </Card>
 
       <Button variant="ghost" asChild>
-        <Link href={`/series/${seriesSlug}`}>العودة لصفحة السلسلة</Link>
+        <Link href={`/series/${seriesSlug}`}>العودة إلى صفحة العمل</Link>
       </Button>
     </div>
   );
 }
-
-export function AdWatchDialog({ onComplete }: { onComplete: () => void }) {
-  const [open, setOpen] = useState(false);
-  const [remaining, setRemaining] = useState(5);
-
-  useEffect(() => {
-    if (!open) return;
-    setRemaining(5);
-    const timer = setInterval(() => {
-      setRemaining((r) => {
-        if (r <= 1) {
-          clearInterval(timer);
-          return 0;
-        }
-        return r - 1;
-      });
-    }, 1000);
-    return () => clearInterval(timer);
-  }, [open]);
-
-  function finish() {
-    onComplete();
-    setOpen(false);
-  }
-
-  return (
-    <Dialog open={open} onOpenChange={setOpen}>
-      <DialogTrigger asChild>
-        <Button variant="secondary" className="w-full">
-          <PlayCircle className="h-4 w-4" /> شاهد إعلاناً
-        </Button>
-      </DialogTrigger>
-      <DialogContent>
-        <DialogHeader><DialogTitle>إعلان</DialogTitle></DialogHeader>
-        <div className="flex flex-col items-center gap-4 py-6">
-          {ADS_ENABLED ? (
-            <a
-              href={SMARTLINK_URL}
-              target="_blank"
-              rel={SPONSORED_LINK_REL}
-              className="flex h-40 w-full flex-col items-center justify-center gap-1 rounded-xl border border-white/20 bg-white/5 transition-colors hover:bg-white/10"
-            >
-              <span className="text-sm font-bold text-white">افتح الإعلان</span>
-              <span className="text-xs text-lunex-gray">رابط إعلاني يُفتح في نافذة جديدة</span>
-            </a>
-          ) : (
-            <div className="flex h-40 w-full items-center justify-center rounded-xl border-2 border-dashed border-white/20 bg-white/5">
-              <p className="text-sm text-lunex-gray">مساحة إعلانية تجريبية</p>
-            </div>
-          )}
-          {remaining > 0 ? (
-            <p className="text-sm text-lunex-gray">يمكنك المتابعة بعد {remaining} ثوانٍ...</p>
-          ) : (
-            <Button onClick={finish} className="w-full">
-              <Sparkles className="h-4 w-4" /> استلم المشاهدة
-            </Button>
-          )}
-        </div>
-      </DialogContent>
-    </Dialog>
-  );
-}
-
-export function BuyCoinsDialog({ onBuy }: { onBuy: (amount: number) => void }) {
-  const [open, setOpen] = useState(false);
-
-  function buy(amount: number) {
-    onBuy(amount);
-    setOpen(false);
-  }
-
-  return (
-    <Dialog open={open} onOpenChange={setOpen}>
-      <DialogTrigger asChild>
-        <Button variant="outline" aria-label="شراء كوينز">
-          <Plus className="h-4 w-4" /> شراء
-        </Button>
-      </DialogTrigger>
-      <DialogContent>
-        <DialogHeader><DialogTitle>شراء كوينز</DialogTitle></DialogHeader>
-        <p className="text-xs text-lunex-gray">عملية الشراء تجريبية — لا يوجد دفع حقيقي في هذه النسخة.</p>
-        <div className="grid gap-3 pt-2 sm:grid-cols-3">
-          {COIN_PACKS.map((pack) => (
-            <button
-              key={pack.coins}
-              type="button"
-              onClick={() => buy(pack.coins)}
-              className="panel panel-hover hover-pop flex flex-col items-center gap-1 p-4"
-            >
-              <Coins className="h-6 w-6 text-yellow-400" />
-              <span className="font-display text-lg font-bold text-white">{pack.coins}</span>
-              <span className="text-xs text-lunex-gray">{pack.price}</span>
-            </button>
-          ))}
-        </div>
-      </DialogContent>
-    </Dialog>
-  );
-}
-

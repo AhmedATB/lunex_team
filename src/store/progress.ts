@@ -4,6 +4,7 @@ import { create } from "zustand";
 import { ACHIEVEMENT_INFO } from "@/lib/achievements";
 import { useSession } from "@/store/session";
 import { useToast } from "@/store/toast";
+import { useWallet } from "@/store/wallet";
 
 /** The signed-in reader's progression, as the server reports it (backend modules/progress). Never edited in the browser. */
 export interface Progress {
@@ -86,7 +87,10 @@ export const useProgress = create<ProgressState>((set, get) => {
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({ chapterId }),
         });
-        if (res.ok) take(((await res.json()) as CompleteResponse).progress);
+        if (res.ok) {
+          take(((await res.json()) as CompleteResponse).progress);
+          void useWallet.getState().refresh(); // finished chapters earn unlock credits
+        }
       } catch {
         // the chapter still counts for the view and the history; only the experience is missed
       }

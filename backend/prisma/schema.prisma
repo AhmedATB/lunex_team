@@ -70,12 +70,20 @@ model User {
   streakLastDay DateTime? @db.Date
   achievements  String[]  @default([])
 
+  /// Wallet (modules/wallet). `coins` are bought (an owner grants them after a payment) and spent to open a locked
+  /// chapter; `unlockCredits` are earned by reading (one per `creditProgress` reaching the configured number of finished
+  /// chapters) and spent the same way. Only ever changed on the server, under a row lock.
+  coins          Int @default(0)
+  unlockCredits  Int @default(0)
+  creditProgress Int @default(0)
+
   sessions         Session[]
   devices          Device[]
   loginEvents      LoginEvent[]
   oauthAccounts    OAuthAccount[]
   notifications    Notification[]
   chapterUnlocks   ChapterUnlock[]
+  coinTransactions CoinTransaction[]
   bookmarks        Bookmark[]
   readingProgress  ReadingProgress[]
   chapterViews     ChapterView[]
@@ -256,9 +264,32 @@ model ChapterUnlock {
   chapterId  String
   chapter    Chapter  @relation(fields: [chapterId], references: [id], onDelete: Cascade)
   unlockedAt DateTime @default(now())
+  /// How it was opened: "credit" (earned by reading), "coins" (paid) or "legacy" (opened before there was a wallet).
+  method     String   @default("legacy")
 
   @@unique([userId, chapterId])
   @@map("chapter_unlocks")
+}
+
+/// Every change to a member's coins, so a balance can always be explained: a grant by the owner (positive) or a chapter
+/// bought (negative). Never edited or deleted by the application.
+model CoinTransaction {
+  id        String   @id @default(uuid())
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  /// Signed: + for coins added, − for coins spent.
+  amount    Int
+  /// "grant" | "unlock"
+  reason    String
+  chapterId String?
+  /// The staff account that granted them, for a grant.
+  actorId   String?
+  note      String?
+  createdAt DateTime @default(now())
+
+  @@index([userId, createdAt])
+  @@index([createdAt])
+  @@map("coin_transactions")
 }
 
 /// Leak-tracing ledger: every issued access token AND every actual byte

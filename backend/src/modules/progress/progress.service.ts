@@ -1,5 +1,6 @@
 import { Injectable, Logger, NotFoundException } from "@nestjs/common";
 import { metAchievements, type AchievementValues } from "./achievements.defs";
+import { walletConfig } from "../wallet/wallet.config";
 import { ProgressRepository } from "./progress.repository";
 import {
   applyEvent,
@@ -57,7 +58,10 @@ export interface PublicProgress {
   achievements: string[];
 }
 
-export function publicProgress(row: ProgressState & { achievements: string[] }, today: string): PublicProgress {
+export function publicProgress(
+  row: Pick<ProgressState, "xp" | "streakDays" | "bestStreak" | "streakLastDay" | "chaptersRead"> & { achievements: string[] },
+  today: string
+): PublicProgress {
   return {
     xp: row.xp,
     ...pickLevel(row.xp),
@@ -135,7 +139,7 @@ export class ProgressService {
   private apply(userId: string, event: ProgressEvent, now: Date): Promise<AwardResult | null> {
     const today = dayKey(now);
     return this.repo.transact(userId, (state) => {
-      const result = applyEvent(state, event, today);
+      const result = applyEvent(state, event, today, walletConfig().chaptersPerCredit);
       return { next: result.next, result };
     });
   }

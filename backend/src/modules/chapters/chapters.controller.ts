@@ -25,6 +25,7 @@ import { ChaptersService } from "./chapters.service";
 import { CreateChapterDto } from "./dto/create-chapter.dto";
 import { UpdateChapterDto } from "./dto/update-chapter.dto";
 import { UploadPageDto } from "./dto/upload-page.dto";
+import { UnlockChapterDto } from "../wallet/dto/unlock-chapter.dto";
 
 const MAX_PAGE_UPLOAD_BYTES = 15 * 1024 * 1024;
 
@@ -107,7 +108,7 @@ export class ChaptersController {
   @Post(":id/unlock")
   @HttpCode(HttpStatus.OK)
   @Throttle({ default: { limit: 20, ttl: 60_000 } })
-  unlock(@Param("id") chapterId: string, @CurrentUser() actor: AccessTokenPayload) {
-    return this.chapters.unlock(actor.sub, chapterId);
+  unlock(@Param("id") chapterId: string, @Body() dto: UnlockChapterDto, @CurrentUser() actor: AccessTokenPayload) {
+    return this.chapters.unlock(actor.sub, chapterId, dto.method);
   }
 }

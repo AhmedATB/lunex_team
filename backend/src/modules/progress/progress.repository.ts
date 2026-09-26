@@ -11,6 +11,8 @@ const STATE_SELECT = {
   streakDays: true,
   bestStreak: true,
   streakLastDay: true,
+  unlockCredits: true,
+  creditProgress: true,
 } as const;
 
 type StateRow = Prisma.UserGetPayload<{ select: typeof STATE_SELECT }>;
@@ -27,6 +29,8 @@ export function toState(row: StateRow): ProgressState {
     streakDays: row.streakDays,
     bestStreak: row.bestStreak,
     streakLastDay: dayString(row.streakLastDay),
+    unlockCredits: row.unlockCredits,
+    creditProgress: row.creditProgress,
   };
 }
 
@@ -104,6 +108,8 @@ export class ProgressRepository {
             streakDays: next.streakDays,
             bestStreak: next.bestStreak,
             streakLastDay: dayDate(next.streakLastDay),
+            unlockCredits: next.unlockCredits,
+            creditProgress: next.creditProgress,
           },
         });
         return result;

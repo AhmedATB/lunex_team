@@ -6,7 +6,6 @@ import { usePathname, useRouter } from "next/navigation";
 import { ChevronLeft, ChevronRight, Lock } from "lucide-react";
 import { useReaderSettings, useReadingProgress } from "@/store/reader-settings";
 import { useReaderChrome } from "@/store/reader-chrome";
-import { useRewards, chapterKey } from "@/store/rewards";
 import { useProgress } from "@/store/progress";
 import { ProtectedImage } from "@/components/reader/protected-image";
 import { ProtectedPage } from "@/components/reader/protected-page";
@@ -149,9 +148,7 @@ export function ReaderViewer({
 
   const progress = mode === "vertical" ? scrollProgress : pageCount ? (pageIndex + 1) / pageCount : 0;
 
-  // A chapter only counts toward the daily reading reward once actually FINISHED
-  // (scrolled to the end / reached the last page) — merely opening it is not enough.
-  const recordChapterRead = useRewards((s) => s.recordChapterRead);
+  // A chapter only counts once actually FINISHED (scrolled to the end / reached the last page) — merely opening it is not enough.
   const recordedRef = useRef(false);
   useEffect(() => {
     recordedRef.current = false;
@@ -162,11 +159,10 @@ export function ReaderViewer({
       mode === "vertical" ? scrollProgress >= 0.98 : pageCount > 0 && pageIndex >= pageCount - 1;
     if (finished) {
       recordedRef.current = true;
-      recordChapterRead(chapterKey(seriesId, chapter.number));
-      // Experience is the server's to give: it checks the chapter was opened, for long enough, and is beyond what was finished.
+      // Experience and reading credits are the server's to give: it checks the chapter was opened, for long enough, and is beyond what was finished.
       if (realChapterId) void useProgress.getState().complete(realChapterId);
     }
-  }, [mode, scrollProgress, pageIndex, pageCount, seriesId, chapter.number, recordChapterRead, realChapterId]);
+  }, [mode, scrollProgress, pageIndex, pageCount, realChapterId]);
 
   const fitClass =
     fit === "width" ? "w-full h-auto" : fit === "height" ? "h-[calc(100vh-8rem)] w-auto" : "";

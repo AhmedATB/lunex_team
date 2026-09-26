@@ -41,7 +41,7 @@ export class ChaptersRepository {
     });
   }
 
-  update(id: string, data: { isPublished?: boolean }) {
+  update(id: string, data: { isPublished?: boolean; manualLock?: boolean | null }) {
     return this.prisma.chapter.update({ where: { id }, data });
   }
 
@@ -65,23 +65,5 @@ export class ChaptersRepository {
 
   countPages(chapterId: string) {
     return this.prisma.chapterPage.count({ where: { chapterId } });
-  }
-
-  findUnlock(userId: string, chapterId: string) {
-    return this.prisma.chapterUnlock.findUnique({ where: { userId_chapterId: { userId, chapterId } } });
-  }
-
-  createUnlock(userId: string, chapterId: string) {
-    return this.prisma.chapterUnlock.create({ data: { userId, chapterId } });
-  }
-
-  /** The series' current highest published chapter number — the free-window check needs this to know how far back "free" reaches. */
-  async findLatestPublishedNumber(seriesId: string): Promise<number> {
-    const latest = await this.prisma.chapter.findFirst({
-      where: { seriesId, isPublished: true },
-      orderBy: { number: "desc" },
-      select: { number: true },
-    });
-    return latest?.number ?? 0;
   }
 }

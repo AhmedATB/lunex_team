@@ -87,8 +87,6 @@ export class ProfilesService {
             progress: publicProgress(
               {
                 xp: user.xp,
-                xpDay: user.xpDay ? dayKey(user.xpDay) : null,
-                xpDayGain: user.xpDayGain,
                 chaptersRead: user.chaptersRead,
                 streakDays: user.streakDays,
                 bestStreak: user.bestStreak,

@@ -148,6 +148,7 @@ export default function ReaderPage() {
         chapterId={chapter.id}
         chapterNumber={chapter.number}
         latestChapterNumber={sorted[sorted.length - 1]?.number ?? chapter.number}
+        manualLock={chapter.manualLock}
       >
         {isNovel ? (
           <NovelViewer

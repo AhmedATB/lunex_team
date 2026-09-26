@@ -23,6 +23,7 @@ import { ProfilesModule } from "./modules/profiles/profiles.module";
 import { ProgressModule } from "./modules/progress/progress.module";
 import { RetentionModule } from "./modules/retention/retention.module";
 import { UsersModule } from "./modules/users/users.module";
+import { WalletModule } from "./modules/wallet/wallet.module";
 import { PrismaModule } from "./prisma/prisma.module";
 
 @Module({
@@ -49,6 +50,7 @@ import { PrismaModule } from "./prisma/prisma.module";
     ProgressModule,
     RetentionModule,
     UsersModule,
+    WalletModule,
   ],
   providers: [
     // Global guard order (Nest runs multiple APP_GUARD providers in

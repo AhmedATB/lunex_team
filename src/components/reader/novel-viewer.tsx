@@ -5,7 +5,6 @@ import Link from "next/link";
 import { ChevronRight, ChevronLeft, CheckCircle2 } from "lucide-react";
 import { useNovelReaderSettings, useReadingProgress } from "@/store/reader-settings";
 import { useReaderChrome } from "@/store/reader-chrome";
-import { useRewards, chapterKey } from "@/store/rewards";
 import type { Chapter } from "@/lib/types";
 import { cn } from "@/lib/utils";
 
@@ -70,20 +69,6 @@ export function NovelViewer({
     window.addEventListener("scroll", onScroll, { passive: true });
     return () => window.removeEventListener("scroll", onScroll);
   }, []);
-
-  // A chapter only counts toward the daily reading reward once actually finished (scrolled to the end).
-  const recordChapterRead = useRewards((s) => s.recordChapterRead);
-  const recordedRef = useRef(false);
-  useEffect(() => {
-    recordedRef.current = false;
-  }, [chapter.id]);
-  useEffect(() => {
-    if (recordedRef.current) return;
-    if (scrollProgress >= 0.98) {
-      recordedRef.current = true;
-      recordChapterRead(chapterKey(seriesId, chapter.number));
-    }
-  }, [scrollProgress, seriesId, chapter.number, recordChapterRead]);
 
   const percent = Math.min(100, Math.round(scrollProgress * 100));
   const minutesLeft = Math.max(0, Math.ceil(minutesTotal * (1 - scrollProgress)));

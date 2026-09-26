@@ -3,7 +3,7 @@ import { applyEvent, currentStreak, DAILY_XP_CAP, levelInfo, previousDayKey, xpT
 
 const TODAY = "2026-09-26";
 
-const fresh: ProgressState = { xp: 0, xpDay: null, xpDayGain: 0, chaptersRead: 0, streakDays: 0, bestStreak: 0, streakLastDay: null };
+const fresh: ProgressState = { xp: 0, xpDay: null, xpDayGain: 0, chaptersRead: 0, streakDays: 0, bestStreak: 0, streakLastDay: null, unlockCredits: 0, creditProgress: 0 };
 
 describe("levels", () => {
   it("cost a hundred more each time: 0, 100, 300, 600, 1000 ...", () => {
@@ -81,6 +81,38 @@ describe("finishing a chapter", () => {
     const next = applyEvent({ ...fresh, streakDays: 2, bestStreak: 2, streakLastDay: "2026-08-31" }, { type: "chapter", forward: true }, "2026-09-01");
     expect(next.next).toMatchObject({ streakDays: 3, bestStreak: 3 });
     expect(previousDayKey("2026-03-01")).toBe("2026-02-28");
+  });
+});
+
+describe("unlock credits earned by reading", () => {
+  it("gives one credit for every so many finished chapters, and counts toward the next", () => {
+    let state: ProgressState = { ...fresh };
+    const credits: number[] = [];
+    for (let i = 0; i < 25; i++) {
+      state = applyEvent(state, { type: "chapter", forward: true }, TODAY).next;
+      credits.push(state.unlockCredits);
+    }
+    expect(credits[8]).toBe(0); // 9 chapters
+    expect(credits[9]).toBe(1); // 10th chapter: the first credit
+    expect(credits[19]).toBe(2);
+    expect(state).toMatchObject({ chaptersRead: 25, unlockCredits: 2, creditProgress: 5 });
+  });
+
+  it("counts only chapters beyond what was finished, so re-reading earns no credit", () => {
+    const next = applyEvent({ ...fresh, creditProgress: 4 }, { type: "chapter", forward: false }, TODAY).next;
+    expect(next.creditProgress).toBe(4);
+    expect(next.unlockCredits).toBe(0);
+  });
+
+  it("follows the configured number, not always ten", () => {
+    let state: ProgressState = { ...fresh };
+    for (let i = 0; i < 6; i++) state = applyEvent(state, { type: "chapter", forward: true }, TODAY, 3).next;
+    expect(state).toMatchObject({ unlockCredits: 2, creditProgress: 0 });
+  });
+
+  it("is not touched by comments or ratings", () => {
+    const next = applyEvent({ ...fresh, creditProgress: 4 }, { type: "comment", earnsXp: true }, TODAY).next;
+    expect(next).toMatchObject({ creditProgress: 4, unlockCredits: 0 });
   });
 });
 
