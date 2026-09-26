@@ -9,6 +9,7 @@ import { TEAM_ROLE_LABELS } from "@/lib/rbac";
 import { avatarSrcFor, useProfile } from "@/store/profile";
 import { useToast } from "@/store/toast";
 import { AddMemberForm } from "@/components/admin/add-member-form";
+import { ImagePicker } from "@/components/admin/image-picker";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
@@ -263,6 +264,8 @@ function SettingsPanel({ team, detail, can, onChanged, onDeleted }: { team: Team
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
   const [sureDelete, setSureDelete] = useState(false);
+  /** The logo picked from the device; it goes up with the rest on save. */
+  const [logoFile, setLogoFile] = useState<File | null>(null);
 
   const leaderValue = leader ?? currentLeader;
 
@@ -277,8 +280,19 @@ function SettingsPanel({ team, detail, can, onChanged, onDeleted }: { team: Team
       ...(can.status ? { status } : {}),
       ...(can.status && leader !== null && leader.trim() !== currentLeader ? { leaderUsername: leader.trim().replace(/^@/, "") } : {}),
     });
+    if (!result.ok) {
+      setBusy(false);
+      return setError(result.message);
+    }
+    if (logoFile) {
+      const logo = await teamApi.setLogo(team.id, logoFile);
+      if (!logo.ok) {
+        setBusy(false);
+        return setError(logo.message);
+      }
+      setLogoFile(null);
+    }
     setBusy(false);
-    if (!result.ok) return setError(result.message);
     say("حُفظت إعدادات الفريق");
     setLeader(null);
     onChanged();
@@ -296,6 +310,15 @@ function SettingsPanel({ team, detail, can, onChanged, onDeleted }: { team: Team
 
   return (
     <>
+      <ImagePicker
+        label="شعار الفريق"
+        hint="من جهازك. يُقص إلى مربع ويُحفظ عند الضغط على حفظ."
+        current={team.logoUrl}
+        file={logoFile}
+        onChange={setLogoFile}
+        aspect="aspect-square"
+        className="[&_button:first-of-type]:w-24"
+      />
       <div className="space-y-1.5">
         <Label htmlFor="team-name">اسم الفريق</Label>
         <Input id="team-name" value={name} onChange={(e) => setName(e.target.value)} maxLength={80} />

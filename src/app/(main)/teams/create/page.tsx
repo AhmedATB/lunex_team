@@ -5,6 +5,7 @@ import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import Image from "next/image";
 import { CheckCircle2, Send } from "lucide-react";
+import { ImagePicker } from "@/components/admin/image-picker";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
@@ -39,7 +40,6 @@ const EMPTY_FORM = {
   expectedMembers: 8,
   previousExperience: "",
   portfolioUrl: "",
-  logoUrl: "",
   color: TEAM_COLOR_PALETTE[0] as string,
 };
 
@@ -69,6 +69,9 @@ function CreateTeamForm() {
   const [error, setError] = useState("");
   const [mine, setMine] = useState<TeamRequest[] | null>(null);
   const [prefilled, setPrefilled] = useState(false);
+  /** The logo picked from the device; sent right after the request itself. */
+  const [logoFile, setLogoFile] = useState<File | null>(null);
+  const [logoFailed, setLogoFailed] = useState("");
 
   useEffect(() => {
     void teamRequestApi.mine().then((r) => setMine(r.ok ? r.body.items : []));
@@ -87,7 +90,6 @@ function CreateTeamForm() {
       expectedMembers: editing.expectedMembers,
       previousExperience: editing.previousExperience,
       portfolioUrl: editing.portfolioUrl ?? "",
-      logoUrl: editing.logoUrl ?? "",
       color: editing.color ?? TEAM_COLOR_PALETTE[0],
     });
     setPositions(editing.requiredPositions as TeamRole[]);
@@ -126,15 +128,20 @@ function CreateTeamForm() {
       expectedMembers: form.expectedMembers,
       previousExperience: form.previousExperience.trim(),
       portfolioUrl: form.portfolioUrl.trim() || undefined,
-      logoUrl: form.logoUrl.trim() || undefined,
       color: form.color,
     };
     const result = editing ? await teamRequestApi.resubmit(editing.id, input) : await teamRequestApi.create(input);
-    setBusy(false);
     if (!result.ok) {
+      setBusy(false);
       setError(result.message);
       return;
     }
+    // The request is in. The logo goes up on its own, and a failure there must not look like the request failed.
+    if (logoFile) {
+      const logo = await teamRequestApi.uploadLogo(result.body.id, logoFile);
+      if (!logo.ok) setLogoFailed(logo.message);
+    }
+    setBusy(false);
     setSubmitted(true);
   }
 
@@ -151,6 +158,7 @@ function CreateTeamForm() {
         <p className="max-w-md text-sm text-lunex-gray">
           سيراجع فريق إدارة المنصة طلبك، وسيصلك إشعار بالقرار أو بما يلزم تعديله.
         </p>
+        {logoFailed && <p className="max-w-md text-sm text-amber-400">وصل الطلب لكن تعذر رفع الشعار ({logoFailed}). يضع مدير الفريق الشعار من لوحة الفريق بعد الموافقة.</p>}
         <Button onClick={() => router.push("/teams")}>العودة إلى الفرق</Button>
       </div>
     );
@@ -223,30 +231,16 @@ function CreateTeamForm() {
               />
             </div>
 
-            <div className="space-y-1.5">
-              <Label>شعار الفريق</Label>
-              <div className="flex flex-wrap items-center gap-4">
-                <div
-                  className="art-glow shine relative flex h-16 w-16 shrink-0 items-center justify-center overflow-hidden rounded-2xl font-display text-2xl font-black text-white"
-                  style={{ background: `linear-gradient(135deg, ${form.color}, #C084FC)` }}
-                >
-                  {form.logoUrl.trim() ? (
-                    <Image src={form.logoUrl.trim()} alt="معاينة الشعار" fill sizes="64px" className="object-cover" unoptimized />
-                  ) : (
-                    (form.teamName.trim()[0] ?? "L").toUpperCase()
-                  )}
-                </div>
-                <div className="min-w-[220px] flex-1 space-y-1.5">
-                  <Input
-                    value={form.logoUrl}
-                    onChange={(e) => setForm((f) => ({ ...f, logoUrl: e.target.value }))}
-                    placeholder="رابط صورة الشعار (اختياري)"
-                  />
-                  <p className="text-xs text-lunex-gray">
-                    يراه المراجع فقط. يبدأ الفريق بشعار حرف اسمه مع اللون المختار، ويضع مديره الشعار الحقيقي بعد الموافقة.
-                  </p>
-                </div>
-              </div>
+            <div className="space-y-2">
+              <ImagePicker
+                label="شعار الفريق"
+                hint="اختياري، من جهازك (PNG أو JPG أو WebP). يُقص إلى مربع ويصبح شعار الفريق بعد الموافقة؛ بدونه يظهر حرف اسم الفريق بلون من الألوان أدناه."
+                current={editing?.logoUrl}
+                file={logoFile}
+                onChange={setLogoFile}
+                aspect="aspect-square"
+                className="[&_button:first-of-type]:w-24"
+              />
               <div className="flex flex-wrap gap-2 pt-1">
                 {TEAM_COLOR_PALETTE.map((c) => (
                   <button

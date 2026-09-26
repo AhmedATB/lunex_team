@@ -1,4 +1,4 @@
-import { call } from "@/lib/api-call";
+import { call, callForm } from "@/lib/api-call";
 
 export type TeamRequestStatus = "pending" | "needs_modification" | "approved" | "rejected" | "suspended" | "archived";
 
@@ -53,7 +53,6 @@ export interface TeamRequestInput {
   expectedMembers: number;
   previousExperience?: string;
   portfolioUrl?: string;
-  logoUrl?: string;
   color?: string;
 }
 
@@ -68,6 +67,15 @@ export const teamRequestApi = {
 
   /** The changes a manager asked for; the request goes back to waiting. */
   resubmit: (id: string, input: TeamRequestInput) => call<TeamRequest>(`/api/team-requests/${encodeURIComponent(id)}`, "PUT", input),
+
+  /** The team's logo, chosen from the device (never a link): the server crops it to a square and keeps it with the request. */
+  uploadLogo: (id: string, file: File) => {
+    const form = new FormData();
+    form.append("file", file);
+    return callForm<TeamRequest>(`/api/team-requests/${encodeURIComponent(id)}/logo`, form);
+  },
+
+  removeLogo: (id: string) => call<TeamRequest>(`/api/team-requests/${encodeURIComponent(id)}/logo`, "DELETE"),
 
   review: (id: string, status: Exclude<TeamRequestStatus, "pending">, note?: string) =>
     call<TeamRequest>(`/api/team-requests/${encodeURIComponent(id)}/review`, "PATCH", { status, ...(note?.trim() ? { note: note.trim() } : {}) }),

@@ -314,7 +314,8 @@ export class UsersService {
       messagesSent: data.messages,
       conversations: data.conversations.map((c) => ({ ...c.conversation, joinedAt: c.joinedAt })),
       teamApplications: data.recruitmentApplications,
-      teamCreationRequests: data.teamRequests,
+      // the logo the person chose from their device travels with the request, as a picture they can open
+      teamCreationRequests: data.teamRequests.map(({ logo, ...request }) => ({ ...request, logo: logo ? `data:${logo.mimeType};base64,${Buffer.from(logo.data).toString("base64")}` : null })),
       blockedAccounts: data.blocks.map((b) => ({ username: b.blocked.username, blockedAt: b.createdAt })),
       chapterAccessLog: data.imageAccess,
       accountActivity: data.activity,

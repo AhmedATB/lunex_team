@@ -2,6 +2,8 @@ import { Injectable } from "@nestjs/common";
 import { PrismaService } from "../../prisma/prisma.service";
 
 const REQUESTER = { id: true, username: true, displayName: true } as const;
+/** What every read of a request brings with it; the logo only as "is there one, and since when" (the bytes are read on their own). */
+const INCLUDE = { requester: { select: REQUESTER }, logo: { select: { updatedAt: true } } } as const;
 
 export interface NewTeamRequest {
   requesterId: string;
@@ -14,7 +16,6 @@ export interface NewTeamRequest {
   expectedMembers: number;
   previousExperience: string;
   portfolioUrl: string | null;
-  logoUrl: string | null;
   color: string | null;
 }
 
@@ -32,11 +33,11 @@ export class TeamRequestsRepository {
   }
 
   findById(id: string) {
-    return this.prisma.teamRequest.findUnique({ where: { id }, include: { requester: { select: REQUESTER } } });
+    return this.prisma.teamRequest.findUnique({ where: { id }, include: INCLUDE });
   }
 
   listMine(userId: string) {
-    return this.prisma.teamRequest.findMany({ where: { requesterId: userId }, orderBy: { createdAt: "desc" }, take: 50, include: { requester: { select: REQUESTER } } });
+    return this.prisma.teamRequest.findMany({ where: { requesterId: userId }, orderBy: { createdAt: "desc" }, take: 50, include: INCLUDE });
   }
 
   listAll(status: string | undefined) {
@@ -44,7 +45,7 @@ export class TeamRequestsRepository {
       where: status ? { status } : {},
       orderBy: { createdAt: "desc" },
       take: 200,
-      include: { requester: { select: REQUESTER } },
+      include: INCLUDE,
     });
   }
 
@@ -62,7 +63,7 @@ export class TeamRequestsRepository {
   }
 
   create(data: NewTeamRequest) {
-    return this.prisma.teamRequest.create({ data, include: { requester: { select: REQUESTER } } });
+    return this.prisma.teamRequest.create({ data, include: INCLUDE });
   }
 
   /** The requester's edits after being asked to change it: back to waiting for a decision. */
@@ -70,7 +71,7 @@ export class TeamRequestsRepository {
     return this.prisma.teamRequest.update({
       where: { id },
       data: { ...data, status: "pending", reviewerNote: null, reviewedById: null, reviewedAt: null },
-      include: { requester: { select: REQUESTER } },
+      include: INCLUDE,
     });
   }
 
@@ -78,8 +79,20 @@ export class TeamRequestsRepository {
     return this.prisma.teamRequest.update({
       where: { id },
       data: { status: data.status, reviewerNote: data.note, reviewedById: data.reviewedById, reviewedAt: new Date(), createdTeamId: data.createdTeamId },
-      include: { requester: { select: REQUESTER } },
+      include: INCLUDE,
     });
+  }
+
+  setLogo(requestId: string, data: Buffer, mimeType: string) {
+    return this.prisma.teamRequestLogo.upsert({ where: { requestId }, create: { requestId, data, mimeType }, update: { data, mimeType } });
+  }
+
+  removeLogo(requestId: string) {
+    return this.prisma.teamRequestLogo.deleteMany({ where: { requestId } });
+  }
+
+  findLogo(requestId: string) {
+    return this.prisma.teamRequestLogo.findUnique({ where: { requestId } });
   }
 
   /** An approved team starts recruiting for the roles its request asked for. */

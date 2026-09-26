@@ -1,5 +1,6 @@
 import { Module } from "@nestjs/common";
 import { CatalogModule } from "../catalog/catalog.module";
+import { ImagesModule } from "../images/images.module";
 import { NotificationsModule } from "../notifications/notifications.module";
 import { TeamActivityModule } from "../team-activity/team-activity.module";
 import { TeamRequestsController } from "./team-requests.controller";
@@ -7,7 +8,7 @@ import { TeamRequestsRepository } from "./team-requests.repository";
 import { TeamRequestsService } from "./team-requests.service";
 
 @Module({
-  imports: [CatalogModule, NotificationsModule, TeamActivityModule],
+  imports: [CatalogModule, ImagesModule, NotificationsModule, TeamActivityModule],
   controllers: [TeamRequestsController],
   providers: [TeamRequestsService, TeamRequestsRepository],
 })

@@ -56,11 +56,6 @@ export class TeamRequestDto {
   portfolioUrl?: string;
 
   @IsOptional()
-  @IsUrl(URL_OPTIONS)
-  @MaxLength(300)
-  logoUrl?: string;
-
-  @IsOptional()
   @Matches(/^#[0-9a-fA-F]{6}$/)
   color?: string;
 }

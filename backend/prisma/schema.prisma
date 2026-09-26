@@ -782,8 +782,6 @@ model TeamRequest {
   expectedMembers    Int
   previousExperience String    @default("")
   portfolioUrl       String?
-  /// Shown to the reviewer only: the site never fetches it (an approved team starts with a coloured letter logo).
-  logoUrl            String?
   color              String?
   /// pending | needs_modification | approved | rejected | suspended | archived
   status             String    @default("pending")
@@ -793,10 +791,24 @@ model TeamRequest {
   createdTeamId      String?
   createdAt          DateTime  @default(now())
   updatedAt          DateTime  @updatedAt
+  /// The logo the requester chose from their device (never a link).
+  logo               TeamRequestLogo?
 
   @@index([requesterId, createdAt])
   @@index([status, createdAt])
   @@map("team_requests")
+}
+
+/// The team logo a requester picked from their device, re-encoded as a small WebP. Its own table so that lists of requests never
+/// carry the bytes; it goes when the request goes, and an approval copies it to the new team's logo.
+model TeamRequestLogo {
+  requestId String      @id
+  request   TeamRequest @relation(fields: [requestId], references: [id], onDelete: Cascade)
+  data      Bytes
+  mimeType  String
+  updatedAt DateTime    @updatedAt
+
+  @@map("team_request_logos")
 }
 
 /// One member's block of another. While it stands the two cannot start a direct chat or write in the one they share (the same

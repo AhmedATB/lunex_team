@@ -294,7 +294,7 @@ export class UsersRepository {
             expectedMembers: true,
             previousExperience: true,
             portfolioUrl: true,
-            logoUrl: true,
+            logo: { select: { data: true, mimeType: true } },
             status: true,
             reviewerNote: true,
             createdAt: true,

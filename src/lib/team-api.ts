@@ -4,7 +4,7 @@
  * copy kept in the visitor's own browser; these are the ones that change the site for everybody.)
  */
 
-import { call, type ApiResult } from "@/lib/api-call";
+import { call, callForm, type ApiResult } from "@/lib/api-call";
 
 export type { ApiResult };
 
@@ -64,6 +64,13 @@ export const teamApi = {
   update: (teamId: string, patch: TeamPatch) => call<unknown>(`/api/catalog/teams/${enc(teamId)}`, "PATCH", patch),
 
   remove: (teamId: string) => call<void>(`/api/catalog/teams/${enc(teamId)}`, "DELETE"),
+
+  /** The team's logo, chosen from the device: the server crops it to a square and turns it into WebP. */
+  setLogo: (teamId: string, file: File) => {
+    const form = new FormData();
+    form.append("file", file);
+    return callForm<unknown>(`/api/catalog/teams/${enc(teamId)}/logo`, form);
+  },
 
   /** Adds an account by username, with no recruitment post; a member already on the team just gets the new role. */
   addMember: (teamId: string, username: string, role: MemberRole) => call<{ userId: string }>(`/api/catalog/teams/${enc(teamId)}/members`, "POST", { username, role }),

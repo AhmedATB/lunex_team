@@ -142,7 +142,6 @@ export default function AdminTeamRequestsPage() {
                 <div className="flex flex-wrap gap-x-4 gap-y-1 text-xs">
                   {request.discordUrl && <a href={request.discordUrl} target="_blank" rel="noopener noreferrer" className="text-primary-300 hover:underline">سيرفر الديسكورد</a>}
                   {request.portfolioUrl && <a href={request.portfolioUrl} target="_blank" rel="noopener noreferrer" className="text-primary-300 hover:underline">أعمال سابقة</a>}
-                  {request.logoUrl && <a href={request.logoUrl} target="_blank" rel="noopener noreferrer" className="text-primary-300 hover:underline">الشعار المقترح</a>}
                 </div>
 
                 <div className="flex flex-wrap gap-1.5">
