@@ -17,7 +17,7 @@ import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { SeriesCard } from "@/components/shared/series-card";
 import { SeriesExplorer } from "@/components/explore/series-explorer";
-import { prepareSearchQuery, searchTier, seriesSearchFields } from "@/lib/fuzzy-search";
+import { prepareSearchQuery, rankByTier, searchTier, seriesSearchFields } from "@/lib/fuzzy-search";
 
 const PREVIEW_COUNT = 6;
 
@@ -55,25 +55,19 @@ export function UnifiedSearch({ genres }: { genres: Genre[] }) {
     const prepared = prepareSearchQuery(query);
     if (prepared.tokens.length === 0) return [];
     // Forgiving: a typo or another spelling still finds it, and so does an alternative title (lib/fuzzy-search.ts). Exact matches first.
-    return db.series
-      .flatMap((s) => {
-        const tier = searchTier(prepared, seriesSearchFields(s));
-        return tier > 0 ? [{ s, tier }] : [];
-      })
-      .sort((a, b) => b.tier - a.tier)
-      .map(({ s }) => s);
+    return rankByTier(db.series, (s) => searchTier(prepared, seriesSearchFields(s)));
   }, [db, query]);
 
   const matchedTeams = useMemo(() => {
-    if (!query) return [];
-    return allTeams.filter((t) => t.name.toLowerCase().includes(query) || t.description.toLowerCase().includes(query));
+    const prepared = prepareSearchQuery(query);
+    if (prepared.tokens.length === 0) return [];
+    return rankByTier(allTeams, (t) => searchTier(prepared, [t.name, t.description]));
   }, [allTeams, query]);
 
   const matchedUsers = useMemo(() => {
-    if (!query) return [];
-    return db.users.filter(
-      (u) => u.username.toLowerCase().includes(query) || u.displayName.toLowerCase().includes(query)
-    );
+    const prepared = prepareSearchQuery(query);
+    if (prepared.tokens.length === 0) return [];
+    return rankByTier(db.users, (u) => searchTier(prepared, [u.username, u.displayName]));
   }, [db, query]);
 
   const hasQuery = query.length > 0;

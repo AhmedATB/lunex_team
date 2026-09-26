@@ -1,5 +1,6 @@
 import {
   ArrayMaxSize,
+  ArrayMinSize,
   IsArray,
   IsBoolean,
   IsIn,
@@ -285,9 +286,35 @@ export class UpdateTeamDto {
   leaderUsername?: string;
 }
 
+const TEAM_MEMBER_ROLES = ["team_leader", "assistant_leader", "team_administrator", "translator", "editor", "proofreader", "qc", "publisher", "uploader", "recruiter", "reviewer"];
+
 export class SetMemberDto {
-  @IsIn(["team_leader", "assistant_leader", "team_administrator", "translator", "editor", "proofreader", "qc", "publisher", "uploader", "recruiter", "reviewer"])
+  @IsIn(TEAM_MEMBER_ROLES)
   role!: string;
+}
+
+/** Adds an account to a team straight away, without a recruitment post: the account is named by its username. */
+export class AddMemberDto {
+  @IsString()
+  @MinLength(1)
+  @MaxLength(41) // a leading "@" is allowed and dropped
+  username!: string;
+
+  @IsIn(TEAM_MEMBER_ROLES)
+  role!: string;
+}
+
+/** Moves series to a team, or off every team when `teamId` is empty. */
+export class TransferSeriesDto {
+  @IsArray()
+  @ArrayMinSize(1)
+  @ArrayMaxSize(500)
+  @IsString({ each: true })
+  seriesIds!: string[];
+
+  @IsString()
+  @MaxLength(100)
+  teamId!: string;
 }
 
 export class CreateNewsDto {

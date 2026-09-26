@@ -158,6 +158,24 @@ export class CatalogRepository {
     return this.prisma.series.delete({ where: { id } });
   }
 
+  /** Which of these ids are series that exist. */
+  async existingSeriesIds(ids: string[]): Promise<string[]> {
+    const rows = await this.prisma.series.findMany({ where: { id: { in: ids } }, select: { id: true } });
+    return rows.map((r) => r.id);
+  }
+
+  /**
+   * Puts the series on a team (or on none) in one transaction. Their chapters record which team published them, so when
+   * the destination is a team the chapters move with the series; a series taken off every team leaves its chapters as they are.
+   */
+  transferSeries(ids: string[], teamId: string | null) {
+    return this.prisma.$transaction(async (tx) => {
+      const moved = await tx.series.updateMany({ where: { id: { in: ids } }, data: { teamId } });
+      const chapters = teamId ? await tx.chapter.updateMany({ where: { seriesId: { in: ids } }, data: { teamId } }) : { count: 0 };
+      return { series: moved.count, chapters: chapters.count };
+    });
+  }
+
   /** Removes a series and everything that only makes sense with it: its chapters (pages cascade), comments, favorites and reading progress. */
   deleteSeriesCascade(id: string) {
     return this.prisma.$transaction([

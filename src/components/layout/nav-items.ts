@@ -14,6 +14,7 @@ import {
   ClipboardList,
   Coins,
   DatabaseZap,
+  UsersRound,
 } from "lucide-react";
 
 export interface NavItem {
@@ -44,6 +45,7 @@ export const BOTTOM_NAV: NavItem[] = [
 export const ADMIN_NAV: NavItem[] = [
   { href: "/admin", label: "نظرة عامة", icon: LayoutDashboard },
   { href: "/admin/users", label: "المستخدمون", icon: Users },
+  { href: "/admin/teams", label: "الفرق", icon: UsersRound },
   { href: "/admin/team-requests", label: "طلبات الفرق", icon: ClipboardList },
   { href: "/admin/series", label: "السلاسل", icon: Layers },
   { href: "/admin/chapters", label: "الفصول", icon: BookOpen },

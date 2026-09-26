@@ -20,11 +20,13 @@ import { CurrentUser } from "../../common/decorators/current-user.decorator";
 import type { AccessTokenPayload } from "../../common/guards/jwt-auth.guard";
 import { CatalogAdminService } from "./catalog-admin.service";
 import {
+  AddMemberDto,
   CreateNewsDto,
   CreateSeriesDto,
   CreateTagDto,
   CreateTeamDto,
   SetMemberDto,
+  TransferSeriesDto,
   UpdateNewsDto,
   UpdateSeriesDto,
   UpdateTeamDto,
@@ -45,6 +47,13 @@ export class CatalogAdminController {
   @Throttle({ default: { limit: 30, ttl: 60_000 } })
   createSeries(@Body() dto: CreateSeriesDto, @CurrentUser() actor: AccessTokenPayload, @Req() req: Request) {
     return this.admin.createSeries(actor.sub, dto, req.context);
+  }
+
+  @Post("series/transfer")
+  @HttpCode(HttpStatus.OK)
+  @Throttle({ default: { limit: 20, ttl: 60_000 } })
+  transferSeries(@Body() dto: TransferSeriesDto, @CurrentUser() actor: AccessTokenPayload, @Req() req: Request) {
+    return this.admin.transferSeries(actor.sub, dto, req.context);
   }
 
   @Patch("series/:id")
@@ -130,6 +139,13 @@ export class CatalogAdminController {
     @Req() req: Request
   ) {
     return this.admin.setTeamLogo(actor.sub, id, file, req.context);
+  }
+
+  @Post("teams/:id/members")
+  @HttpCode(HttpStatus.OK)
+  @Throttle({ default: { limit: 60, ttl: 60_000 } })
+  addMember(@Param("id") id: string, @Body() dto: AddMemberDto, @CurrentUser() actor: AccessTokenPayload, @Req() req: Request) {
+    return this.admin.addMemberByUsername(actor.sub, id, dto, req.context);
   }
 
   @Put("teams/:id/members/:userId")

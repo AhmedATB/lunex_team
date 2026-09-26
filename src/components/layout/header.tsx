@@ -4,7 +4,7 @@ import Link from "next/link";
 import Image from "next/image";
 import { useRouter } from "next/navigation";
 import { useEffect, useMemo, useState } from "react";
-import { Search, Menu, LogOut, Settings, User as UserIcon, ShieldCheck, Coins, MessageCircle, Palette } from "lucide-react";
+import { Search, LogOut, Settings, User as UserIcon, ShieldCheck, Coins, MessageCircle, Palette } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Avatar, AvatarImage, AvatarFallback } from "@/components/ui/avatar";
@@ -201,10 +201,6 @@ export function Header() {
               )}
             </DropdownMenuContent>
           </DropdownMenu>
-
-          <Button variant="ghost" size="icon" className="lg:hidden" aria-label="القائمة">
-            <Menu className="h-5 w-5" />
-          </Button>
         </div>
       </div>
 

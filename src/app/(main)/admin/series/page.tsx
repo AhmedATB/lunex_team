@@ -2,7 +2,8 @@
 
 import { useEffect, useState } from "react";
 import Image from "next/image";
-import { Search, MoreVertical, Pencil, Trash2, Plus } from "lucide-react";
+import { useRouter } from "next/navigation";
+import { Search, MoreVertical, Pencil, Trash2, Plus, ArrowRightLeft } from "lucide-react";
 import { useCatalog } from "@/components/catalog-provider";
 import { useSession } from "@/store/session";
 import { useTeamManagement } from "@/store/team-management";
@@ -27,6 +28,9 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { formatNumber } from "@/lib/utils";
+import { can } from "@/lib/rbac";
+import { prepareSearchQuery, searchTier, seriesSearchFields } from "@/lib/fuzzy-search";
+import { TransferSeriesDialog } from "@/components/admin/transfer-series-dialog";
 
 const STATUS_LABEL: Record<SeriesStatus, string> = {
   ongoing: "مستمر",
@@ -47,8 +51,15 @@ export default function AdminSeriesPage() {
     document.title = "إدارة السلاسل | LUNEX TEAM";
   }, []);
   const [query, setQuery] = useState("");
+  const [selected, setSelected] = useState<Set<string>>(new Set());
+  const [moving, setMoving] = useState<string[] | null>(null);
+  const router = useRouter();
   const db = useCatalog();
   const currentUserId = useSession((s) => s.currentUserId);
+  const me = db.users.find((u) => u.id === currentUserId);
+  // Moving works between teams changes the site for everyone, so it is only offered for the catalogue's own series and to those who may do it.
+  const canTransfer = !!me && can(me, "manage_series");
+  const catalogueIds = new Set(db.series.map((s) => s.id));
   const store = useTeamManagement();
   const teamMap = new Map([...db.teams, ...store.createdTeams].map((t) => [t.id, t]));
 
@@ -57,7 +68,19 @@ export default function AdminSeriesPage() {
     .filter((s) => !removedIds.has(s.id))
     .map((s) => ({ ...s, ...store.seriesInfoOverrides[s.id] }));
 
-  const filtered = allSeries.filter((s) => !query || s.titleAr.includes(query));
+  const prepared = prepareSearchQuery(query);
+  const filtered = allSeries.filter((s) => prepared.tokens.length === 0 || searchTier(prepared, seriesSearchFields(s)) > 0);
+  const shownIds = filtered.slice(0, 40).filter((s) => catalogueIds.has(s.id)).map((s) => s.id);
+  const allShownSelected = shownIds.length > 0 && shownIds.every((id) => selected.has(id));
+
+  function toggle(id: string) {
+    setSelected((current) => {
+      const next = new Set(current);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next;
+    });
+  }
 
   return (
     <div className="space-y-4">
@@ -78,11 +101,30 @@ export default function AdminSeriesPage() {
         </div>
       </div>
 
+      {canTransfer && selected.size > 0 && (
+        <div className="flex flex-wrap items-center gap-2 rounded-xl border border-primary-500/30 bg-primary-500/10 p-3">
+          <span className="text-sm text-white">تم تحديد {selected.size} عمل</span>
+          <Button size="sm" className="ms-auto" onClick={() => setMoving([...selected])}>
+            <ArrowRightLeft className="h-3.5 w-3.5" /> نقل إلى فريق
+          </Button>
+          <Button size="sm" variant="ghost" onClick={() => setSelected(new Set())}>إلغاء التحديد</Button>
+        </div>
+      )}
+
       <Card>
         <CardContent className="overflow-x-auto p-0">
           <table className="w-full text-sm">
             <thead>
               <tr className="border-b border-white/10 text-xs text-lunex-gray">
+                {canTransfer && (
+                  <th className="w-10 p-3">
+                    <Checkbox
+                      aria-label="تحديد كل الأعمال المعروضة"
+                      checked={allShownSelected}
+                      onCheckedChange={() => setSelected(allShownSelected ? new Set() : new Set(shownIds))}
+                    />
+                  </th>
+                )}
                 <th className="p-3 text-start font-medium">السلسلة</th>
                 <th className="p-3 text-start font-medium">الفريق</th>
                 <th className="p-3 text-start font-medium">الحالة</th>
@@ -94,6 +136,13 @@ export default function AdminSeriesPage() {
             <tbody>
               {filtered.slice(0, 40).map((s) => (
                 <tr key={s.id} className="border-b border-white/5 last:border-0 hover:bg-white/[0.02]">
+                  {canTransfer && (
+                    <td className="w-10 p-3">
+                      {catalogueIds.has(s.id) && (
+                        <Checkbox aria-label={`تحديد ${s.titleAr}`} checked={selected.has(s.id)} onCheckedChange={() => toggle(s.id)} />
+                      )}
+                    </td>
+                  )}
                   <td className="flex items-center gap-2 p-3">
                     <div className="relative h-10 w-8 shrink-0 overflow-hidden rounded-md">
                       <Image src={s.cover} alt={s.titleAr} fill sizes="32px" className="object-cover" unoptimized />
@@ -112,6 +161,11 @@ export default function AdminSeriesPage() {
                         </button>
                       </DropdownMenuTrigger>
                       <DropdownMenuContent align="end">
+                        {canTransfer && catalogueIds.has(s.id) && (
+                          <DropdownMenuItem onSelect={() => setMoving([s.id])}>
+                            <ArrowRightLeft className="h-4 w-4" /> نقل إلى فريق
+                          </DropdownMenuItem>
+                        )}
                         <EditSeriesMenuDialog
                           series={s}
                           onSave={(patch) => currentUserId && store.updateSeriesInfo(s.id, patch, s.teamId, currentUserId)}
@@ -128,12 +182,23 @@ export default function AdminSeriesPage() {
                 </tr>
               ))}
               {filtered.length === 0 && (
-                <tr><td colSpan={6} className="p-8 text-center text-lunex-gray">لا توجد سلاسل مطابقة.</td></tr>
+                <tr><td colSpan={7} className="p-8 text-center text-lunex-gray">لا توجد سلاسل مطابقة.</td></tr>
               )}
             </tbody>
           </table>
         </CardContent>
       </Card>
+
+      <TransferSeriesDialog
+        seriesIds={moving}
+        titles={(moving ?? []).map((id) => allSeries.find((s) => s.id === id)?.titleAr ?? "")}
+        teams={db.teams}
+        onClose={() => setMoving(null)}
+        onDone={() => {
+          setSelected(new Set());
+          router.refresh();
+        }}
+      />
     </div>
   );
 }

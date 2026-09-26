@@ -97,6 +97,17 @@ export function searchTier(query: SearchQuery, fields: readonly (string | null |
   return matches ? 1 : 0;
 }
 
+/** The items that match (tier 1 or 2), exact matches first; each group keeps the order the items came in. */
+export function rankByTier<T>(items: readonly T[], tierOf: (item: T) => 0 | 1 | 2): T[] {
+  return items
+    .flatMap((item) => {
+      const tier = tierOf(item);
+      return tier > 0 ? [{ item, tier }] : [];
+    })
+    .sort((a, b) => b.tier - a.tier)
+    .map(({ item }) => item);
+}
+
 /** The texts of a series a visitor may search by: both titles, the other names it is known by, and the author. */
 export function seriesSearchFields(series: Pick<Series, "title" | "titleAr" | "author" | "alternativeTitles">): string[] {
   return [series.title, series.titleAr, ...(series.alternativeTitles ?? []), series.author];

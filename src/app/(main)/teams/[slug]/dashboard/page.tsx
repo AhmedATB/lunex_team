@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { useParams } from "next/navigation";
+import { useParams, useRouter } from "next/navigation";
 import Link from "next/link";
 import Image from "next/image";
 import {
@@ -45,6 +45,9 @@ import {
 } from "@/components/ui/dialog";
 import { ChaptersOverTimeChart, StatusPieChart } from "@/components/admin/charts";
 import { GridPageSkeleton } from "@/components/shared/skeletons";
+import { AddMemberForm } from "@/components/admin/add-member-form";
+import { teamApi, type TeamPatch } from "@/lib/team-api";
+import { useToast } from "@/store/toast";
 
 const PROMOTION_LADDER: TeamRole[] = ["trainee", "member", "team_administrator", "assistant_leader"];
 function promote(role: TeamRole): TeamRole {
@@ -76,6 +79,7 @@ const APPLICATION_STATUS_LABELS: Record<RecruitmentApplication["status"], string
 
 export default function TeamDashboardPage() {
   const params = useParams<{ slug: string }>();
+  const router = useRouter();
   const slug = safeDecodeURIComponent(params.slug);
 
   const db = useCatalog();
@@ -175,6 +179,43 @@ export default function TeamDashboardPage() {
   const canManage = isGlobalAdmin || canInTeam(currentUser, "manage_members", customRoles) || currentUser.id === team.leaderId;
   const canManageRoles = isGlobalAdmin || canInTeam(currentUser, "manage_roles", customRoles) || currentUser.id === team.leaderId;
   const canEditInfo = isGlobalAdmin || canInTeam(currentUser, "edit_team_info", customRoles) || currentUser.id === team.leaderId;
+
+  // A team on the real catalogue saves to the site itself, so every visitor sees the change. The store's browser-only copy
+  // is for teams that exist only in this browser, and for the logo link (the site does not keep one yet).
+  const isRealTeam = db.teams.some((t) => t.id === team.id);
+
+  async function saveToSite(patch: TeamPatch, clear: (keyof Team)[]): Promise<boolean> {
+    const result = await teamApi.update(team!.id, patch);
+    if (!result.ok) {
+      useToast.getState().push({ title: "تعذر الحفظ على الموقع", description: result.message });
+      return false;
+    }
+    store.clearTeamInfoOverride(team!.id, clear);
+    router.refresh();
+    return true;
+  }
+
+  async function saveInfo(patch: Partial<Pick<Team, "name" | "description" | "goals" | "discordUrl" | "category" | "recruiting" | "logoUrl" | "color">>): Promise<boolean> {
+    if (!isRealTeam) {
+      store.updateTeamInfo(team!.id, patch, currentUser!.id);
+      return true;
+    }
+    const { logoUrl, ...rest } = patch;
+    const ok = await saveToSite({ ...rest, discordUrl: rest.discordUrl || null }, ["name", "description", "goals", "discordUrl", "category", "recruiting", "color"]);
+    if (ok) store.updateTeamInfo(team!.id, { logoUrl }, currentUser!.id);
+    return ok;
+  }
+
+  /** The "يستقبل طلبات" badge on the team's page and on the teams list follows whether a position is open. */
+  async function syncRecruiting(on: boolean) {
+    if (!isRealTeam) return;
+    if (await saveToSite({ recruiting: on }, ["recruiting"])) {
+      useToast.getState().push({
+        title: on ? "الفريق يستقبل طلبات الآن" : "أُغلق باب الطلبات",
+        description: on ? "ظهرت الشارة على صفحة الفريق وقائمة الفرق." : "لا توجد وظائف مفتوحة، فأُزيلت الشارة.",
+      });
+    }
+  }
 
   const activityLog = [
     ...db.teamActivityLog.filter((a) => a.teamId === team.id),
@@ -322,6 +363,7 @@ export default function TeamDashboardPage() {
         </TabsContent>
 
         <TabsContent value="members" className="space-y-3">
+          {canManage && isRealTeam && <AddMemberForm teamId={team.id} onAdded={() => router.refresh()} />}
           {members.map((m) => {
             const customRole = customRoles.find((r) => r.id === m.customRoleId);
             const isLeader = m.id === team.leaderId;
@@ -489,7 +531,10 @@ export default function TeamDashboardPage() {
           <Card>
             <CardHeader className="flex-row items-center justify-between">
               <CardTitle>الوظائف المفتوحة</CardTitle>
-              {canManage && <CreateRecruitmentPositionDialog teamId={team.id} onCreate={(p) => store.createRecruitmentPosition(p, currentUser.id)} />}
+              {canManage && <CreateRecruitmentPositionDialog teamId={team.id} onCreate={(p) => {
+                store.createRecruitmentPosition(p, currentUser.id);
+                void syncRecruiting(true);
+              }} />}
             </CardHeader>
             <CardContent className="space-y-2">
               {recruitmentPositions.map((p) => (
@@ -499,7 +544,11 @@ export default function TeamDashboardPage() {
                   {canManage && (
                     <Button
                       size="sm" variant="secondary" className="ms-auto shrink-0"
-                      onClick={() => store.toggleRecruitmentPosition(p.id, team.id, !p.isOpen, currentUser.id)}
+                      onClick={() => {
+                        store.toggleRecruitmentPosition(p.id, team.id, !p.isOpen, currentUser.id);
+                        if (!p.isOpen) void syncRecruiting(true);
+                        else if (!recruitmentPositions.some((o) => o.id !== p.id && o.isOpen)) void syncRecruiting(false);
+                      }}
                     >
                       {p.isOpen ? "إغلاق" : "إعادة فتح"}
                     </Button>
@@ -611,20 +660,24 @@ export default function TeamDashboardPage() {
             {canEditInfo && (
               <TeamInfoSettingsForm
                 team={team}
-                onSave={(patch) => store.updateTeamInfo(team.id, patch, currentUser.id)}
+                onSave={saveInfo}
               />
             )}
             {isGlobalAdmin && (
               <LeaderTransferPanel
                 team={team}
                 members={members}
-                onTransfer={(toUserId, reason) => store.transferLeadership(team.id, team.leaderId, toUserId, currentUser.id, reason)}
+                onTransfer={(toUserId, reason) => {
+                  const username = db.users.find((u) => u.id === toUserId)?.username;
+                  if (isRealTeam && username) void saveToSite({ leaderUsername: username }, ["leaderId"]);
+                  else store.transferLeadership(team.id, team.leaderId, toUserId, currentUser.id, reason);
+                }}
               />
             )}
             {isGlobalAdmin && (
               <TeamStatusPanel
                 team={team}
-                onSetStatus={(status) => store.updateTeamInfo(team.id, { status }, currentUser.id)}
+                onSetStatus={(status) => (isRealTeam ? void saveToSite({ status }, ["status"]) : store.updateTeamInfo(team.id, { status }, currentUser.id))}
               />
             )}
           </TabsContent>
@@ -816,7 +869,7 @@ function TeamInfoSettingsForm({
   onSave,
 }: {
   team: Team;
-  onSave: (patch: Partial<Pick<Team, "name" | "description" | "goals" | "discordUrl" | "category" | "recruiting" | "logoUrl" | "color">>) => void;
+  onSave: (patch: Partial<Pick<Team, "name" | "description" | "goals" | "discordUrl" | "category" | "recruiting" | "logoUrl" | "color">>) => void | Promise<boolean>;
 }) {
   const [form, setForm] = useState({
     name: team.name,
@@ -830,9 +883,9 @@ function TeamInfoSettingsForm({
   });
   const [saved, setSaved] = useState(false);
 
-  function submit(e: React.FormEvent) {
+  async function submit(e: React.FormEvent) {
     e.preventDefault();
-    onSave({
+    const ok = await onSave({
       name: form.name.trim() || team.name,
       description: form.description.trim(),
       goals: form.goals.trim(),
@@ -842,6 +895,7 @@ function TeamInfoSettingsForm({
       logoUrl: form.logoUrl.trim() || undefined,
       color: form.color,
     });
+    if (ok === false) return;
     setSaved(true);
     setTimeout(() => setSaved(false), 2500);
   }

@@ -8,10 +8,12 @@ import { CatalogRepository } from "./catalog.repository";
 import { CatalogService } from "./catalog.service";
 import { EMPTY_STATS, slugify, toNewsDto, toSeriesDto, toTagDto, toTeamDto, uniqueSlug, type SeriesRow, type TeamRow } from "./catalog.util";
 import type {
+  AddMemberDto,
   CreateNewsDto,
   CreateSeriesDto,
   CreateTagDto,
   CreateTeamDto,
+  TransferSeriesDto,
   UpdateNewsDto,
   UpdateSeriesDto,
   UpdateTeamDto,
@@ -136,6 +138,29 @@ export class CatalogAdminService {
     this.catalog.invalidate();
   }
 
+  /**
+   * Moves works to another team (or off every team with an empty `teamId`) — the owner's tool for handing a title to the
+   * group that now carries it. Same rule as changing a single series' team: global editors only. The chapters follow.
+   */
+  async transferSeries(actorId: string, dto: TransferSeriesDto, ctx: RequestContext) {
+    const actor = await this.requireActor(actorId);
+    if (!SERIES_EDITORS.has(actor.role)) {
+      throw new ForbiddenException({ code: "global_editor_only", message: "Only an editor can move series between teams." });
+    }
+    const ids = [...new Set(dto.seriesIds)];
+    const team = dto.teamId ? await this.requireTeam(dto.teamId) : null;
+    const existing = new Set(await this.repo.existingSeriesIds(ids));
+    const missing = ids.filter((id) => !existing.has(id));
+    if (missing.length > 0) {
+      throw new NotFoundException({ code: "series_not_found", message: `${missing.length} of these series no longer exist.` });
+    }
+
+    const moved = await this.repo.transferSeries(ids, team?.id ?? null);
+    await this.audit(actor, "catalog.series_transferred", `${team?.id ?? "none"}:${moved.series}`, ctx);
+    this.catalog.invalidate();
+    return { teamId: team?.id ?? null, ...moved };
+  }
+
   async setSeriesImage(actorId: string, id: string, kind: "cover" | "banner", file: Express.Multer.File | undefined, ctx: RequestContext) {
     const actor = await this.requireActor(actorId);
     const series = await this.requireSeries(id);
@@ -244,6 +269,17 @@ export class CatalogAdminService {
     await this.repo.setMember(teamId, userId, role);
     await this.audit(actor, "catalog.team_member_set", `${teamId}:${userId}:${role}`, ctx);
     this.catalog.invalidate();
+  }
+
+  /** Puts an account on a team by its username, with no recruitment post in between (also changes the role of a member already there). */
+  async addMemberByUsername(actorId: string, teamId: string, dto: AddMemberDto, ctx: RequestContext) {
+    const actor = await this.requireActor(actorId);
+    await this.requireTeamManagement(actor, teamId);
+    const userId = await this.userIdByUsername(dto.username.trim().replace(/^@/, ""));
+    await this.repo.setMember(teamId, userId, dto.role);
+    await this.audit(actor, "catalog.team_member_set", `${teamId}:${userId}:${dto.role}`, ctx);
+    this.catalog.invalidate();
+    return { userId, role: dto.role };
   }
 
   async removeMember(actorId: string, teamId: string, userId: string, ctx: RequestContext): Promise<void> {

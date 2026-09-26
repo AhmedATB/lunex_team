@@ -93,6 +93,8 @@ interface TeamManagementState {
     patch: Partial<Pick<Team, "name" | "description" | "goals" | "discordUrl" | "category" | "recruiting" | "logoUrl" | "color" | "status">>,
     actorId: string
   ) => void;
+  /** Forgets the browser-only copy of some fields of a team, once the site itself holds the real value. */
+  clearTeamInfoOverride: (teamId: string, keys: (keyof Team)[]) => void;
   transferLeadership: (teamId: string, fromUserId: string, toUserId: string, actorId: string, reason: string) => void;
   createDepartment: (dept: Omit<Department, "id">, actorId: string) => void;
   updateDepartment: (
@@ -339,6 +341,14 @@ export const useTeamManagement = create<TeamManagementState>()(
           teamInfoOverrides: { ...s.teamInfoOverrides, [teamId]: { ...s.teamInfoOverrides[teamId], ...patch } },
         }));
         get().logActivity({ teamId, userId: actorId, action: "عدّل معلومات الفريق" });
+      },
+
+      clearTeamInfoOverride: (teamId, keys) => {
+        set((s) => {
+          const next = { ...s.teamInfoOverrides[teamId] };
+          for (const key of keys) delete next[key];
+          return { teamInfoOverrides: { ...s.teamInfoOverrides, [teamId]: next } };
+        });
       },
 
       transferLeadership: (teamId, fromUserId, toUserId, actorId, reason) => {

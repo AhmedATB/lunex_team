@@ -202,6 +202,59 @@ describe("team permissions", () => {
     await expect(service.setMember("member", "t1", "u9", "translator", CTX)).rejects.toBeInstanceOf(ForbiddenException);
     expect(repo.setMember).toHaveBeenCalledTimes(2);
   });
+
+  it("adds an account to a team by username without a recruitment post, for managers and the team's own leader only", async () => {
+    const { service, repo, catalog } = build(roster);
+    await expect(service.addMemberByUsername("manager", "t1", { username: "@rahaf", role: "translator" }, CTX)).resolves.toEqual({ userId: "id-rahaf", role: "translator" });
+    expect(repo.setMember).toHaveBeenLastCalledWith("t1", "id-rahaf", "translator");
+    await service.addMemberByUsername("leader", "t1", { username: " sara ", role: "editor" }, CTX);
+    expect(repo.setMember).toHaveBeenLastCalledWith("t1", "id-sara", "editor");
+    expect(repo.writeAuditLog).toHaveBeenLastCalledWith(expect.objectContaining({ action: "catalog.team_member_set" }));
+    expect(catalog.invalidate).toHaveBeenCalled();
+
+    await expect(service.addMemberByUsername("member", "t1", { username: "rahaf", role: "translator" }, CTX)).rejects.toBeInstanceOf(ForbiddenException);
+    await expect(service.addMemberByUsername("manager", "t1", { username: "ghost", role: "translator" }, CTX)).rejects.toMatchObject({ response: { code: "user_not_found" } });
+  });
+});
+
+describe("moving series between teams", () => {
+  const build2 = () => {
+    const ctx = build(roster);
+    const transfer = jest.fn(async (ids: string[], teamId: string | null) => ({ series: ids.length, chapters: teamId ? 7 : 0 }));
+    const existing = jest.fn(async (ids: string[]) => ids.filter((id) => id !== "gone"));
+    Object.assign(ctx.repo, { transferSeries: transfer, existingSeriesIds: existing });
+    return { ...ctx, transfer, existing };
+  };
+
+  it("moves the series and reports how many series and chapters moved", async () => {
+    const { service, transfer, repo, catalog } = build2();
+    await expect(service.transferSeries("owner", { seriesIds: ["a", "b", "a"], teamId: "t1" }, CTX)).resolves.toEqual({ teamId: "t1", series: 2, chapters: 7 });
+    expect(transfer).toHaveBeenCalledWith(["a", "b"], "t1");
+    expect(repo.writeAuditLog).toHaveBeenLastCalledWith(expect.objectContaining({ actorId: "owner", action: "catalog.series_transferred", target: "t1:2" }));
+    expect(catalog.invalidate).toHaveBeenCalled();
+  });
+
+  it("takes series off every team when the destination is empty", async () => {
+    const { service, transfer } = build2();
+    await expect(service.transferSeries("editor", { seriesIds: ["a"], teamId: "" }, CTX)).resolves.toEqual({ teamId: null, series: 1, chapters: 0 });
+    expect(transfer).toHaveBeenCalledWith(["a"], null);
+  });
+
+  it("is for global editors only", async () => {
+    const { service, transfer } = build2();
+    for (const who of ["leader", "manager", "mod", "reader"]) {
+      await expect(service.transferSeries(who, { seriesIds: ["a"], teamId: "t1" }, CTX)).rejects.toMatchObject({ response: { code: "global_editor_only" } });
+    }
+    expect(transfer).not.toHaveBeenCalled();
+  });
+
+  it("changes nothing when the team or any series does not exist", async () => {
+    const { service, transfer, repo } = build2();
+    await expect(service.transferSeries("owner", { seriesIds: ["a", "gone"], teamId: "t1" }, CTX)).rejects.toMatchObject({ response: { code: "series_not_found" } });
+    repo.findTeamById.mockResolvedValue(null as never);
+    await expect(service.transferSeries("owner", { seriesIds: ["a"], teamId: "nope" }, CTX)).rejects.toMatchObject({ response: { code: "team_not_found" } });
+    expect(transfer).not.toHaveBeenCalled();
+  });
 });
 
 describe("news and tags", () => {

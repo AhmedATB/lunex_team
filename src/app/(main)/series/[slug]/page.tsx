@@ -171,12 +171,22 @@ export default function SeriesDetailPage() {
               </div>
 
               {team && (
-                <Link
-                  href={`/teams/${team.slug}`}
-                  className="panel mt-2 inline-flex items-center gap-2 px-3 py-1.5 text-xs text-lunex-gray transition-colors hover:border-primary-400/40"
-                >
-                  ترجمة فريق <span className="font-semibold text-primary-300">{team.name}</span>
-                </Link>
+                <div className="mt-2 flex flex-wrap items-center gap-2">
+                  <Link
+                    href={`/teams/${team.slug}`}
+                    className="panel inline-flex items-center gap-2 px-3 py-1.5 text-xs text-lunex-gray transition-colors hover:border-primary-400/40"
+                  >
+                    ترجمة فريق <span className="font-semibold text-primary-300">{team.name}</span>
+                  </Link>
+                  {team.recruiting && team.status === "active" && (
+                    <Link
+                      href={`/teams/${team.slug}`}
+                      className="inline-flex items-center rounded-full bg-emerald-500/15 px-2.5 py-1 text-xs font-semibold text-emerald-300 transition-colors hover:bg-emerald-500/25"
+                    >
+                      يستقبل طلبات انضمام
+                    </Link>
+                  )}
+                </div>
               )}
               <SeriesCollaboratorTeams seriesId={series.id} />
 
