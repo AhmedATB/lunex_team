@@ -1,4 +1,4 @@
-import { Body, Controller, Delete, Get, HttpCode, HttpStatus, Param, Post, Query } from "@nestjs/common";
+import { Body, Controller, Delete, Get, HttpCode, HttpStatus, Param, Post, Put, Query } from "@nestjs/common";
 import { Throttle } from "@nestjs/throttler";
 import { CurrentUser } from "../../common/decorators/current-user.decorator";
 import type { AccessTokenPayload } from "../../common/guards/jwt-auth.guard";
@@ -22,6 +22,27 @@ export class MessagesController {
     return this.messages.unreadCount(actor.sub);
   }
 
+  /** The people the caller has blocked. Declared before the `:id` routes so `blocks` is never read as an id. */
+  @Get("blocks")
+  @Throttle({ default: { limit: 60, ttl: 60_000 } })
+  blocked(@CurrentUser() actor: AccessTokenPayload) {
+    return this.messages.blocked(actor.sub);
+  }
+
+  @Put("blocks/:userId")
+  @HttpCode(HttpStatus.NO_CONTENT)
+  @Throttle({ default: { limit: 30, ttl: 60_000 } })
+  block(@Param("userId") userId: string, @CurrentUser() actor: AccessTokenPayload) {
+    return this.messages.block(actor.sub, userId);
+  }
+
+  @Delete("blocks/:userId")
+  @HttpCode(HttpStatus.NO_CONTENT)
+  @Throttle({ default: { limit: 30, ttl: 60_000 } })
+  unblock(@Param("userId") userId: string, @CurrentUser() actor: AccessTokenPayload) {
+    return this.messages.unblock(actor.sub, userId);
+  }
+
   @Post()
   @HttpCode(HttpStatus.OK)
   @Throttle({ default: { limit: 20, ttl: 60_000 } })
@@ -40,6 +61,13 @@ export class MessagesController {
   @Throttle({ default: { limit: 30, ttl: 60_000 } })
   send(@Param("id") id: string, @Body() dto: SendMessageDto, @CurrentUser() actor: AccessTokenPayload) {
     return this.messages.send(actor.sub, id, dto);
+  }
+
+  @Delete(":id/messages/:messageId")
+  @HttpCode(HttpStatus.NO_CONTENT)
+  @Throttle({ default: { limit: 60, ttl: 60_000 } })
+  deleteMessage(@Param("id") id: string, @Param("messageId") messageId: string, @CurrentUser() actor: AccessTokenPayload) {
+    return this.messages.deleteMessage(actor.sub, id, messageId);
   }
 
   @Post(":id/read")

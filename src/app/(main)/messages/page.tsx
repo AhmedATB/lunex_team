@@ -3,9 +3,9 @@
 import { Suspense, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import Image from "next/image";
 import { useRouter, useSearchParams } from "next/navigation";
-import { ArrowRight, LogOut, Loader2, MessageCircle, Plus, Send, UserPlus, Users } from "lucide-react";
+import { ArrowRight, Ban, LogOut, Loader2, MessageCircle, Plus, Send, Trash2, UserCheck, UserPlus, Users } from "lucide-react";
 import { useSession } from "@/store/session";
-import { chatApi, conversationName, MESSAGES_CHANGED, type ChatMessage, type Conversation, type Person } from "@/lib/messages-api";
+import { chatApi, conversationName, MESSAGES_CHANGED, type BlockedPerson, type ChatMessage, type Conversation, type Person } from "@/lib/messages-api";
 import { resolveAvatarUrl, cn } from "@/lib/utils";
 import { useMuteStatus } from "@/lib/use-mute-status";
 import { MuteNotice } from "@/components/moderation/mute-notice";
@@ -118,12 +118,25 @@ function MessagesPageInner() {
   const [error, setError] = useState("");
   const [newChatOpen, setNewChatOpen] = useState(false);
   const [addOpen, setAddOpen] = useState(false);
+  const [blocked, setBlocked] = useState<BlockedPerson[]>([]);
+  const [blockedOpen, setBlockedOpen] = useState(false);
 
   const scroller = useRef<HTMLDivElement>(null);
   const stickToBottom = useRef(true);
 
   const active = useMemo(() => conversations.find((c) => c.id === activeId) ?? null, [conversations, activeId]);
   const rows = useMemo(() => buildRows(messages, myId, active?.members ?? []), [messages, myId, active]);
+  // The other person of a direct chat, and whether the member has blocked them.
+  const peer = active && !active.isGroup ? active.members.find((m) => m.id !== myId) ?? null : null;
+  const peerBlocked = !!peer && blocked.some((b) => b.id === peer.id);
+
+  const refreshBlocked = useCallback(async () => {
+    const result = await chatApi.blocked();
+    if (result.ok) setBlocked(result.body.items);
+  }, []);
+  useEffect(() => {
+    if (myId) void refreshBlocked();
+  }, [myId, refreshBlocked]);
 
   const refreshList = useCallback(async () => {
     const result = await chatApi.list();
@@ -173,9 +186,14 @@ function MessagesPageInner() {
       if (!result.ok) return;
       setMessages((current) => {
         if (initial) return result.body.items;
-        const known = new Set(current.map((m) => m.id));
-        const fresh = result.body.items.filter((m) => !known.has(m.id));
-        return fresh.length ? [...current, ...fresh] : current;
+        // The newest page is the authority for its own time window: a message that is gone from it was deleted, so it goes from the screen too.
+        const items = result.body.items;
+        const ids = new Set(items.map((m) => m.id));
+        const floor = result.body.hasMore ? items[0]?.createdAt : undefined;
+        const kept = current.filter((m) => ids.has(m.id) || (floor !== undefined && m.createdAt < floor));
+        const known = new Set(kept.map((m) => m.id));
+        const fresh = items.filter((m) => !known.has(m.id));
+        return fresh.length || kept.length !== current.length ? [...kept, ...fresh] : current;
       });
       if (initial) setHasOlder(result.body.hasMore);
       if (result.body.items.length > 0) {
@@ -232,6 +250,30 @@ function MessagesPageInner() {
     void refreshList();
   }
 
+  async function removeMessage(message: ChatMessage) {
+    if (!activeId || !window.confirm("حذف هذه الرسالة؟ ستختفي عند كل من في المحادثة.")) return;
+    const result = await chatApi.deleteMessage(activeId, message.id);
+    if (!result.ok) {
+      setError(result.message);
+      return;
+    }
+    setError("");
+    setMessages((current) => current.filter((m) => m.id !== message.id));
+    void refreshList();
+  }
+
+  async function toggleBlock(person: Person) {
+    const blockedNow = blocked.some((b) => b.id === person.id);
+    if (!blockedNow && !window.confirm(`حظر ${person.displayName}؟ لن يستطيع أحدكما مراسلة الآخر حتى تلغي الحظر.`)) return;
+    const result = blockedNow ? await chatApi.unblock(person.id) : await chatApi.block(person.id);
+    if (!result.ok) {
+      setError(result.message);
+      return;
+    }
+    setError("");
+    await refreshBlocked();
+  }
+
   async function leave() {
     if (!activeId) return;
     const result = await chatApi.leave(activeId);
@@ -250,9 +292,16 @@ function MessagesPageInner() {
     <div className="container py-3 lg:py-6">
       <div className={cn("mb-3 flex items-center justify-between gap-3 lg:mb-4", active && "hidden lg:flex")}>
         <h1 className="section-title font-display text-2xl font-bold text-white">الرسائل</h1>
-        <Button size="sm" onClick={() => setNewChatOpen(true)}>
-          <Plus className="h-4 w-4" /> محادثة جديدة
-        </Button>
+        <div className="flex items-center gap-2">
+          {blocked.length > 0 && (
+            <Button size="sm" variant="ghost" onClick={() => setBlockedOpen(true)}>
+              <Ban className="h-4 w-4" /> المحظورون ({blocked.length})
+            </Button>
+          )}
+          <Button size="sm" onClick={() => setNewChatOpen(true)}>
+            <Plus className="h-4 w-4" /> محادثة جديدة
+          </Button>
+        </div>
       </div>
 
       <div className="grid gap-4 lg:grid-cols-[320px_1fr]">
@@ -307,6 +356,18 @@ function MessagesPageInner() {
                   <p className="truncate font-display font-bold text-white">{conversationName(active, myId)}</p>
                   {active.isGroup && <p className="truncate text-xs text-lunex-gray">{active.members.map((m) => m.displayName).join("، ")}</p>}
                 </div>
+                {peer && (
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    onClick={() => void toggleBlock(peer)}
+                    aria-label={peerBlocked ? "إلغاء الحظر" : "حظر"}
+                    title={peerBlocked ? "إلغاء الحظر" : "حظر"}
+                    className={peerBlocked ? "text-primary-300" : "text-red-400 hover:bg-red-500/10"}
+                  >
+                    {peerBlocked ? <UserCheck className="h-4 w-4" /> : <Ban className="h-4 w-4" />}
+                  </Button>
+                )}
                 {active.isGroup && active.createdById === myId && (
                   <Button variant="ghost" size="icon" onClick={() => setAddOpen(true)} aria-label="إضافة أشخاص">
                     <UserPlus className="h-4 w-4" />
@@ -344,7 +405,17 @@ function MessagesPageInner() {
                           <span className="rounded-full bg-white/5 px-3 py-0.5 text-[11px] text-lunex-gray">{row.day}</span>
                         </div>
                       )}
-                      <div className={cn("flex items-end gap-2", row.mine ? "justify-end" : "justify-start", row.first ? "mt-2" : "mt-0.5")}>
+                      <div className={cn("group flex items-end gap-2", row.mine ? "justify-end" : "justify-start", row.first ? "mt-2" : "mt-0.5")}>
+                        {row.mine && (
+                          <button
+                            type="button"
+                            onClick={() => void removeMessage(row.message)}
+                            aria-label="حذف الرسالة"
+                            className="mb-1 rounded-full p-1 text-lunex-gray opacity-0 transition hover:text-red-400 focus:opacity-100 group-hover:opacity-100 [@media(hover:none)]:opacity-60"
+                          >
+                            <Trash2 className="h-3.5 w-3.5" />
+                          </button>
+                        )}
                         {!row.mine && (
                           <div className="w-7 shrink-0" aria-hidden={!row.last}>
                             {row.last && row.sender && <PersonAvatar person={row.sender} size={28} />}
@@ -366,6 +437,12 @@ function MessagesPageInner() {
               <div className="shrink-0 border-t border-white/10 p-2.5 pb-[max(0.625rem,env(safe-area-inset-bottom))] sm:p-3">
                 <MuteNotice className="mb-2" />
                 {error && <p className="mb-2 text-xs text-red-400" role="alert">{error}</p>}
+                {peerBlocked && peer ? (
+                  <div className="flex items-center justify-between gap-3 rounded-xl bg-white/5 p-3 text-sm text-lunex-gray">
+                    <span>حظرت {peer.displayName}. ألغِ الحظر إن أردت المراسلة من جديد.</span>
+                    <Button size="sm" variant="secondary" onClick={() => void toggleBlock(peer)}>إلغاء الحظر</Button>
+                  </div>
+                ) : (
                 <form onSubmit={send} className="flex items-center gap-2">
                   <Input
                     value={draft}
@@ -380,6 +457,7 @@ function MessagesPageInner() {
                     {sending ? <Loader2 className="h-4 w-4 animate-spin" /> : <Send className="h-4 w-4" />}
                   </Button>
                 </form>
+                )}
               </div>
             </>
           )}
@@ -397,6 +475,16 @@ function MessagesPageInner() {
         }}
       />
 
+      <BlockedDialog
+        open={blockedOpen}
+        onClose={() => setBlockedOpen(false)}
+        blocked={blocked}
+        onUnblock={async (person) => {
+          await toggleBlock(person);
+          if (blocked.length <= 1) setBlockedOpen(false);
+        }}
+      />
+
       {active && active.isGroup && (
         <AddPeopleDialog
           open={addOpen}
@@ -409,6 +497,33 @@ function MessagesPageInner() {
         />
       )}
     </div>
+  );
+}
+
+/** The people the member has blocked, each with a way to undo it. */
+function BlockedDialog({ open, onClose, blocked, onUnblock }: { open: boolean; onClose: () => void; blocked: BlockedPerson[]; onUnblock: (person: Person) => void | Promise<void> }) {
+  return (
+    <Dialog open={open} onOpenChange={(v) => !v && onClose()}>
+      <DialogContent className="max-h-[88vh] overflow-y-auto">
+        <DialogHeader>
+          <DialogTitle>المحظورون</DialogTitle>
+        </DialogHeader>
+        <p className="text-xs text-lunex-gray">لا يستطيع أحدكما مراسلة الآخر ما دام الحظر قائمًا. لا يُبلَّغ الشخص بأنك حظرته.</p>
+        <ul className="space-y-2">
+          {blocked.map((person) => (
+            <li key={person.id} className="flex items-center gap-3 rounded-xl border border-white/10 p-2.5">
+              <PersonAvatar person={person} size={32} />
+              <div className="min-w-0 flex-1">
+                <p className="truncate text-sm font-semibold text-white">{person.displayName}</p>
+                <p className="truncate text-xs text-lunex-gray" dir="ltr">@{person.username}</p>
+              </div>
+              <Button size="sm" variant="secondary" onClick={() => void onUnblock(person)}>إلغاء الحظر</Button>
+            </li>
+          ))}
+          {blocked.length === 0 && <li className="p-4 text-center text-sm text-lunex-gray">لا أحد محظور.</li>}
+        </ul>
+      </DialogContent>
+    </Dialog>
   );
 }
 

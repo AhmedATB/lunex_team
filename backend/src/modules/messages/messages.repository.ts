@@ -105,6 +105,45 @@ export class MessagesRepository {
     return this.prisma.conversationMember.update({ where: { conversationId_userId: { conversationId, userId } }, data: { lastReadAt: new Date() } });
   }
 
+  findMessage(id: string) {
+    return this.prisma.message.findUnique({ where: { id }, select: { id: true, conversationId: true, senderId: true } });
+  }
+
+  deleteMessage(id: string) {
+    return this.prisma.message.delete({ where: { id } });
+  }
+
+  // ---- blocking ------------------------------------------------------------
+
+  /** Which of `userIds` have a block with `userId` standing, whichever of them made it. */
+  async blockedAmong(userId: string, userIds: string[]): Promise<string[]> {
+    if (userIds.length === 0) return [];
+    const rows = await this.prisma.userBlock.findMany({
+      where: { OR: [{ blockerId: userId, blockedId: { in: userIds } }, { blockedId: userId, blockerId: { in: userIds } }] },
+      select: { blockerId: true, blockedId: true },
+    });
+    return [...new Set(rows.map((r) => (r.blockerId === userId ? r.blockedId : r.blockerId)))];
+  }
+
+  /** The other person of a direct chat. */
+  async directPeer(conversationId: string, userId: string): Promise<string | null> {
+    const conversation = await this.prisma.conversation.findUnique({ where: { id: conversationId }, select: { isGroup: true, members: { select: { userId: true } } } });
+    if (!conversation || conversation.isGroup) return null;
+    return conversation.members.find((m) => m.userId !== userId)?.userId ?? null;
+  }
+
+  addBlock(blockerId: string, blockedId: string) {
+    return this.prisma.userBlock.upsert({ where: { blockerId_blockedId: { blockerId, blockedId } }, update: {}, create: { blockerId, blockedId } });
+  }
+
+  removeBlock(blockerId: string, blockedId: string) {
+    return this.prisma.userBlock.deleteMany({ where: { blockerId, blockedId } });
+  }
+
+  listBlocked(blockerId: string) {
+    return this.prisma.userBlock.findMany({ where: { blockerId }, orderBy: { createdAt: "desc" }, take: 200, select: { createdAt: true, blocked: { select: PERSON } } });
+  }
+
   async leave(conversationId: string, userId: string) {
     await this.prisma.conversationMember.delete({ where: { conversationId_userId: { conversationId, userId } } });
     if ((await this.prisma.conversationMember.count({ where: { conversationId } })) === 0) {

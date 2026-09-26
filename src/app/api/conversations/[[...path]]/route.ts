@@ -24,4 +24,4 @@ async function proxy(req: NextRequest, { params }: Context) {
   return NextResponse.json(result.body, { status: result.status, headers: { "Cache-Control": "private, no-store" } });
 }
 
-export { proxy as GET, proxy as POST, proxy as DELETE };
+export { proxy as GET, proxy as POST, proxy as PUT, proxy as DELETE };

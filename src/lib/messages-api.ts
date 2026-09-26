@@ -14,6 +14,10 @@ export interface ChatMessage {
   createdAt: string;
 }
 
+export interface BlockedPerson extends Person {
+  blockedAt: string;
+}
+
 export interface Conversation {
   id: string;
   title: string | null;
@@ -36,9 +40,12 @@ const MESSAGES: Record<string, string> = {
   account_banned: "هذا الحساب محظور.",
   not_a_group: "يمكن إضافة الأشخاص إلى المجموعات فقط.",
   insufficient_permissions: "لا تملك صلاحية لهذا الإجراء.",
+  cannot_message: "لا يمكنك مراسلة هذا الشخص.",
+  cannot_block_self: "لا يمكنك حظر نفسك.",
+  message_not_found: "هذه الرسالة غير موجودة.",
 };
 
-async function call<T>(path: string, method: "GET" | "POST" | "DELETE", body?: unknown): Promise<ApiResult<T>> {
+async function call<T>(path: string, method: "GET" | "POST" | "PUT" | "DELETE", body?: unknown): Promise<ApiResult<T>> {
   try {
     const res = await fetch(path, {
       method,
@@ -72,6 +79,12 @@ export const chatApi = {
   markRead: (id: string) => call<void>(`/api/conversations/${encodeURIComponent(id)}/read`, "POST", {}),
   addMembers: (id: string, usernames: string[]) => call<Conversation>(`/api/conversations/${encodeURIComponent(id)}/members`, "POST", { usernames }),
   leave: (id: string) => call<void>(`/api/conversations/${encodeURIComponent(id)}/members/me`, "DELETE"),
+  /** Takes back a message the member wrote: it disappears for everyone in the chat. */
+  deleteMessage: (id: string, messageId: string) => call<void>(`/api/conversations/${encodeURIComponent(id)}/messages/${encodeURIComponent(messageId)}`, "DELETE"),
+  /** The people the member has blocked: neither can then message the other. */
+  blocked: () => call<{ items: BlockedPerson[] }>("/api/conversations/blocks", "GET"),
+  block: (userId: string) => call<void>(`/api/conversations/blocks/${encodeURIComponent(userId)}`, "PUT"),
+  unblock: (userId: string) => call<void>(`/api/conversations/blocks/${encodeURIComponent(userId)}`, "DELETE"),
 };
 
 export const searchPeople = (q: string) => call<Person[]>(`/api/users/search?q=${encodeURIComponent(q)}&limit=12`, "GET");

@@ -32,6 +32,13 @@ function build(overrides: Record<string, unknown> = {}) {
     createMessage: jest.fn(async (d: { conversationId: string; senderId: string; text: string }) => ({ id: "m1", createdAt: new Date(), ...d })),
     markRead: jest.fn().mockResolvedValue(undefined),
     leave: jest.fn().mockResolvedValue(undefined),
+    blockedAmong: jest.fn().mockResolvedValue([]),
+    directPeer: jest.fn().mockResolvedValue(null),
+    findMessage: jest.fn().mockResolvedValue({ id: "m1", conversationId: "c1", senderId: "me" }),
+    deleteMessage: jest.fn().mockResolvedValue(undefined),
+    addBlock: jest.fn().mockResolvedValue(undefined),
+    removeBlock: jest.fn().mockResolvedValue(undefined),
+    listBlocked: jest.fn().mockResolvedValue([{ createdAt: new Date("2026-09-26T00:00:00Z"), blocked: person("sara") }]),
     ...overrides,
   };
   return { service: new MessagesService(repo as unknown as MessagesRepository), repo };
@@ -120,5 +127,73 @@ describe("reading and writing", () => {
     const mine = build({ findConversation: jest.fn().mockResolvedValue(conversationRow({ isGroup: true, createdById: "me" })) });
     await mine.service.addMembers("me", "c1", { usernames: ["omar"] });
     expect(mine.repo.addMembers).toHaveBeenCalledWith("c1", ["omar"]);
+  });
+});
+
+describe("blocking", () => {
+  const refused = { response: { code: "cannot_message" } };
+
+  it("refuses to start a chat, direct or group, with someone the caller blocked or who blocked them", async () => {
+    const { service, repo } = build({ blockedAmong: jest.fn().mockResolvedValue(["sara"]) });
+    await expect(service.create("me", { usernames: ["sara"] })).rejects.toMatchObject(refused);
+    await expect(service.create("me", { usernames: ["sara", "omar"] })).rejects.toBeInstanceOf(ForbiddenException);
+    expect(repo.createConversation).not.toHaveBeenCalled();
+    expect(repo.blockedAmong).toHaveBeenCalledWith("me", ["sara"]);
+  });
+
+  it("stops writing in a direct chat with a blocked person, and says the same thing whichever way round", async () => {
+    const { service, repo } = build({ directPeer: jest.fn().mockResolvedValue("sara"), blockedAmong: jest.fn().mockResolvedValue(["sara"]) });
+    await expect(service.send("me", "c1", { text: "مرحبا" })).rejects.toMatchObject(refused);
+    expect(repo.createMessage).not.toHaveBeenCalled();
+  });
+
+  it("does not check a group (whose people the writer may not be able to leave), and sends where nobody is blocked", async () => {
+    const { service, repo } = build(); // directPeer is null: a group
+    await service.send("me", "c1", { text: "مرحبا" });
+    expect(repo.createMessage).toHaveBeenCalled();
+    const direct = build({ directPeer: jest.fn().mockResolvedValue("sara") });
+    await direct.service.send("me", "c1", { text: "مرحبا" });
+    expect(direct.repo.createMessage).toHaveBeenCalled();
+  });
+
+  it("does not add a blocked person to a group", async () => {
+    const group = conversationRow({ isGroup: true, members: [{ userId: "me", user: person("me") }] });
+    const { service, repo } = build({ findConversation: jest.fn().mockResolvedValue(group), blockedAmong: jest.fn().mockResolvedValue(["omar"]) });
+    await expect(service.addMembers("me", "c1", { usernames: ["omar"] })).rejects.toMatchObject(refused);
+    expect(repo.addMembers).not.toHaveBeenCalled();
+  });
+
+  it("blocks, unblocks and lists — never oneself, never someone who does not exist", async () => {
+    const { service, repo } = build();
+    await service.block("me", "sara");
+    expect(repo.addBlock).toHaveBeenCalledWith("me", "sara");
+    await service.unblock("me", "sara");
+    expect(repo.removeBlock).toHaveBeenCalledWith("me", "sara");
+    await expect(service.blocked("me")).resolves.toEqual({ items: [expect.objectContaining({ id: "sara", blockedAt: expect.any(Date) })] });
+    await expect(service.block("me", "me")).rejects.toMatchObject({ response: { code: "cannot_block_self" } });
+    await expect(service.block("me", "ghost")).rejects.toBeInstanceOf(NotFoundException);
+  });
+});
+
+describe("deleting a message", () => {
+  it("lets the writer take their own message back", async () => {
+    const { service, repo } = build();
+    await service.deleteMessage("me", "c1", "m1");
+    expect(repo.deleteMessage).toHaveBeenCalledWith("m1");
+  });
+
+  it("never lets anyone delete another person's message, or one from another conversation", async () => {
+    const theirs = build({ findMessage: jest.fn().mockResolvedValue({ id: "m1", conversationId: "c1", senderId: "sara" }) });
+    await expect(theirs.service.deleteMessage("me", "c1", "m1")).rejects.toBeInstanceOf(ForbiddenException);
+    const elsewhere = build({ findMessage: jest.fn().mockResolvedValue({ id: "m1", conversationId: "c2", senderId: "me" }) });
+    await expect(elsewhere.service.deleteMessage("me", "c1", "m1")).rejects.toMatchObject({ response: { code: "message_not_found" } });
+    const missing = build({ findMessage: jest.fn().mockResolvedValue(null) });
+    await expect(missing.service.deleteMessage("me", "c1", "m1")).rejects.toBeInstanceOf(NotFoundException);
+    expect(theirs.repo.deleteMessage).not.toHaveBeenCalled();
+  });
+
+  it("is only for members of the conversation", async () => {
+    const { service } = build({ membership: jest.fn().mockResolvedValue(null) });
+    await expect(service.deleteMessage("me", "c1", "m1")).rejects.toBeInstanceOf(NotFoundException);
   });
 });

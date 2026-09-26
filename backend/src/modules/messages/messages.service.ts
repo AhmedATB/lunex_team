@@ -52,6 +52,7 @@ export class MessagesService {
     if (others.length > MAX_OTHER_MEMBERS) {
       throw new BadRequestException({ code: "too_many_members", message: `A chat has at most ${MAX_OTHER_MEMBERS + 1} people.` });
     }
+    await this.requireNotBlocked(actorId, others.map((p) => p.id));
 
     if (others.length === 1) {
       const pairKey = [actorId, others[0].id].sort().join(":");
@@ -105,6 +106,8 @@ export class MessagesService {
       throw new ForbiddenException({ code: "muted", message: "You are muted and cannot send messages right now." });
     }
     await this.requireMember(conversationId, actorId);
+    const peer = await this.repo.directPeer(conversationId, actorId);
+    if (peer) await this.requireNotBlocked(actorId, [peer]);
     const text = dto.text.trim();
     if (!text) throw new BadRequestException({ code: "empty_message", message: "Write something first." });
     const message = await this.repo.createMessage({ conversationId, senderId: actorId, text });
@@ -136,8 +139,42 @@ export class MessagesService {
     if (conversation.members.length + newcomers.length > MAX_OTHER_MEMBERS + 1) {
       throw new BadRequestException({ code: "too_many_members", message: `A chat has at most ${MAX_OTHER_MEMBERS + 1} people.` });
     }
+    await this.requireNotBlocked(actorId, newcomers.map((p) => p.id));
     await this.repo.addMembers(conversationId, newcomers.map((p) => p.id));
     return this.summary(conversationId, actorId);
+  }
+
+  /** Takes a message the caller wrote back: it disappears for everyone in the conversation. Nobody deletes another person's. */
+  async deleteMessage(actorId: string, conversationId: string, messageId: string): Promise<void> {
+    await this.requireMember(conversationId, actorId);
+    const message = await this.repo.findMessage(messageId);
+    if (!message || message.conversationId !== conversationId) throw new NotFoundException({ code: "message_not_found", message: "This message does not exist." });
+    if (message.senderId !== actorId) throw new ForbiddenException({ code: "insufficient_permissions", message: "You can only delete your own messages." });
+    await this.repo.deleteMessage(messageId);
+  }
+
+  // ---- blocking ------------------------------------------------------------
+
+  async blocked(actorId: string) {
+    return { items: (await this.repo.listBlocked(actorId)).map((row) => ({ ...toPerson(row.blocked), blockedAt: row.createdAt })) };
+  }
+
+  async block(actorId: string, userId: string): Promise<void> {
+    await this.requireActor(actorId);
+    if (userId === actorId) throw new BadRequestException({ code: "cannot_block_self", message: "You cannot block yourself." });
+    if ((await this.repo.findPeople({ ids: [userId] })).length === 0) throw new NotFoundException({ code: "user_not_found", message: "No such account." });
+    await this.repo.addBlock(actorId, userId);
+  }
+
+  async unblock(actorId: string, userId: string): Promise<void> {
+    await this.repo.removeBlock(actorId, userId);
+  }
+
+  /** The same refusal whichever of the two made the block, so a blocked person is not told who blocked them. */
+  private async requireNotBlocked(actorId: string, userIds: string[]) {
+    if ((await this.repo.blockedAmong(actorId, userIds)).length > 0) {
+      throw new ForbiddenException({ code: "cannot_message", message: "You cannot message this person." });
+    }
   }
 
   private async summary(conversationId: string, actorId: string) {

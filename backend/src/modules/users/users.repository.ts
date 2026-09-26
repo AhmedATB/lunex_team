@@ -144,6 +144,7 @@ export class UsersRepository {
       conversations,
       recruitmentApplications,
       teamRequests,
+      blocks,
     ] = await Promise.all([
         this.prisma.user.findUnique({
           where: { id: userId },
@@ -300,6 +301,7 @@ export class UsersRepository {
             reviewedAt: true,
           },
         }),
+        this.prisma.userBlock.findMany({ where: { blockerId: userId }, orderBy: { createdAt: "desc" }, select: { createdAt: true, blocked: { select: { username: true } } } }),
       ]);
 
     return {
@@ -323,6 +325,7 @@ export class UsersRepository {
       conversations,
       recruitmentApplications,
       teamRequests,
+      blocks,
     };
   }
 
