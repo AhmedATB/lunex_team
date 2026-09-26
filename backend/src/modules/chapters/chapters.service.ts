@@ -5,6 +5,7 @@ import { ImagesService, type IssuedImageToken } from "../images/images.service";
 import { StorageService } from "../images/storage/storage.interface";
 import type { RequestContext } from "../../common/middleware/request-context.middleware";
 import { WalletService } from "../wallet/wallet.service";
+import { NotificationsService } from "../notifications/notifications.service";
 import type { UnlockMethod } from "../wallet/wallet.repository";
 import { ChaptersRepository } from "./chapters.repository";
 
@@ -32,7 +33,8 @@ export class ChaptersService {
     private readonly repo: ChaptersRepository,
     private readonly storage: StorageService,
     private readonly images: ImagesService,
-    private readonly wallet: WalletService
+    private readonly wallet: WalletService,
+    private readonly notifications: NotificationsService
   ) {}
 
   private assertCanPublish(role: string) {
@@ -70,8 +72,11 @@ export class ChaptersService {
 
   async update(role: string, id: string, patch: { isPublished?: boolean; manualLock?: boolean | null }) {
     this.assertCanPublish(role);
-    await this.get(id);
-    return this.repo.update(id, patch);
+    const before = await this.get(id);
+    const updated = await this.repo.update(id, patch);
+    // Going live is what readers who follow the series want to hear about (never for a chapter already live).
+    if (patch.isPublished === true && !before.isPublished) void this.notifications.chapterPublished(before.seriesId, before.number);
+    return updated;
   }
 
   async remove(role: string, id: string) {

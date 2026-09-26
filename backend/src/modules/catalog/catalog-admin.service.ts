@@ -4,6 +4,7 @@ import sharp from "sharp";
 import type { RequestContext } from "../../common/middleware/request-context.middleware";
 import { isEffectivelyBanned } from "../moderation/moderation.util";
 import { StorageService } from "../images/storage/storage.interface";
+import { NotificationsService } from "../notifications/notifications.service";
 import { CatalogRepository } from "./catalog.repository";
 import { CatalogService } from "./catalog.service";
 import { EMPTY_STATS, slugify, toNewsDto, toSeriesDto, toTagDto, toTeamDto, uniqueSlug, type SeriesRow, type TeamRow } from "./catalog.util";
@@ -44,7 +45,8 @@ export class CatalogAdminService {
   constructor(
     private readonly repo: CatalogRepository,
     private readonly catalog: CatalogService,
-    private readonly storage: StorageService
+    private readonly storage: StorageService,
+    private readonly notifications: NotificationsService
   ) {}
 
   // ---- series ----------------------------------------------------------------
@@ -82,6 +84,7 @@ export class CatalogAdminService {
 
     await this.audit(actor, "catalog.series_created", row.id, ctx);
     this.catalog.invalidate();
+    void this.notifications.seriesAdded(row.id);
     return toSeriesDto(row as SeriesRow, EMPTY_STATS);
   }
 
@@ -314,12 +317,13 @@ export class CatalogAdminService {
     });
     await this.audit(actor, "catalog.news_created", row.id, ctx);
     this.catalog.invalidate();
+    if (row.isPublished) void this.notifications.newsPublished(row.id);
     return toNewsDto(row);
   }
 
   async updateNews(actorId: string, id: string, dto: UpdateNewsDto, ctx: RequestContext) {
     const actor = await this.requireNewsEditor(actorId);
-    await this.requireNews(id);
+    const before = await this.requireNews(id);
     const row = await this.repo.updateNews(id, {
       title: dto.title?.trim(),
       excerpt: dto.excerpt,
@@ -329,6 +333,8 @@ export class CatalogAdminService {
     });
     await this.audit(actor, "catalog.news_updated", id, ctx);
     this.catalog.invalidate();
+    // A post that was a draft and is now live is news; editing one that was already live is not.
+    if (row.isPublished && !before.isPublished) void this.notifications.newsPublished(id);
     return toNewsDto(row);
   }
 

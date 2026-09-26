@@ -1,3 +1,4 @@
+import type { NotificationsService } from "../notifications/notifications.service";
 import { BadRequestException, ForbiddenException, HttpException, NotFoundException } from "@nestjs/common";
 import type { ConfigService } from "@nestjs/config";
 import type { SpendOutcome, WalletRepository } from "./wallet.repository";
@@ -28,7 +29,8 @@ function build(setup: Setup = {}) {
     recentTransactions: jest.fn(async () => []),
   };
   const env = { get: (name: string) => CONFIG_VALUES[name] } as unknown as ConfigService;
-  return { service: new WalletService(repo as unknown as WalletRepository, env), repo };
+  const notifications = { coinsGranted: jest.fn().mockResolvedValue(undefined) };
+  return { service: new WalletService(repo as unknown as WalletRepository, env, notifications as unknown as NotificationsService), repo, notifications };
 }
 
 describe("who may read a chapter", () => {

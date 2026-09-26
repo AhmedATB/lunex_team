@@ -4,6 +4,7 @@ import type { StorageService } from "../images/storage/storage.interface";
 import { CatalogAdminService } from "./catalog-admin.service";
 import type { CatalogRepository } from "./catalog.repository";
 import type { CatalogService } from "./catalog.service";
+import type { NotificationsService } from "../notifications/notifications.service";
 
 const CTX = { ip: "203.0.113.5" } as RequestContext;
 
@@ -84,8 +85,14 @@ function build(roles: Record<string, string>) {
   };
   const catalog = { invalidate: jest.fn() };
   const storage = { put: jest.fn(async () => ({ checksum: "abc" })), get: jest.fn() };
-  const service = new CatalogAdminService(repo as unknown as CatalogRepository, catalog as unknown as CatalogService, storage as unknown as StorageService);
-  return { service, repo, catalog, storage };
+  const notifications = { seriesAdded: jest.fn().mockResolvedValue(undefined), newsPublished: jest.fn().mockResolvedValue(undefined) };
+  const service = new CatalogAdminService(
+    repo as unknown as CatalogRepository,
+    catalog as unknown as CatalogService,
+    storage as unknown as StorageService,
+    notifications as unknown as NotificationsService
+  );
+  return { service, repo, catalog, storage, notifications };
 }
 
 const roster = { owner: "owner", editor: "editor", manager: "global_team_manager", newsie: "news_manager", leader: "reader", member: "reader", reader: "reader", mod: "moderator" };

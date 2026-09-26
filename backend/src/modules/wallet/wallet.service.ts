@@ -1,3 +1,4 @@
+import { NotificationsService } from "../notifications/notifications.service";
 import { BadRequestException, ForbiddenException, HttpException, HttpStatus, Injectable, NotFoundException } from "@nestjs/common";
 import { ConfigService } from "@nestjs/config";
 import { isLockedByRule, walletConfig, type WalletConfig } from "./wallet.config";
@@ -32,7 +33,8 @@ export interface AccessDto {
 export class WalletService {
   constructor(
     private readonly repo: WalletRepository,
-    private readonly env: ConfigService
+    private readonly env: ConfigService,
+    private readonly notifications: NotificationsService
   ) {}
 
   private config(): WalletConfig {
@@ -98,6 +100,7 @@ export class WalletService {
     const target = await this.repo.findAccountByUsername(username);
     if (!target) throw new NotFoundException({ code: "user_not_found", message: "No member has that username." });
     const coins = await this.repo.grantCoins({ userId: target.id, amount, actorId, note: note?.trim() || null });
+    await this.notifications.coinsGranted(target.id, amount, note);
     return { username: target.username, granted: amount, coins };
   }
 

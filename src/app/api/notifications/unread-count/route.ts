@@ -2,13 +2,13 @@ import { NextRequest, NextResponse } from "next/server";
 import { callBackend } from "@/lib/backend-client";
 import { ACCESS_TOKEN_COOKIE } from "@/lib/session-cookies";
 
-/** A member's notifications: `?category=chapters|series|news|other`, `?limit=`, `?before=<ISO time>` pass through to the backend. */
+/** Only the number, for the bell's badge. */
 export async function GET(req: NextRequest) {
   const accessToken = req.cookies.get(ACCESS_TOKEN_COOKIE)?.value;
   if (!accessToken) {
     return NextResponse.json({ code: "missing_token", message: "Authentication required." }, { status: 401 });
   }
 
-  const result = await callBackend(`/v1/notifications${req.nextUrl.search}`, { authToken: accessToken });
+  const result = await callBackend("/v1/notifications/unread-count", { authToken: accessToken });
   return NextResponse.json(result.body, { status: result.status, headers: { "Cache-Control": "private, no-store" } });
 }

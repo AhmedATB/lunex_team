@@ -345,15 +345,21 @@ model Notification {
   id        String   @id @default(uuid())
   userId    String
   user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  /// "chapter" | "series" | "news" | "coins" | "team" | "moderation" | ... — the notifications page groups by it.
   type      String
   title     String
   body      String?
   link      String?
+  /// What the notification is about (a series id for "chapter"/"series"), so several chapters of one series fold into one row.
+  refId     String?
+  /// How many events the row stands for (e.g. chapters published since it was last read).
+  count     Int      @default(1)
   read      Boolean  @default(false)
   createdAt DateTime @default(now())
 
   @@index([userId, read])
   @@index([userId, createdAt])
+  @@index([userId, type, refId, read])
   @@map("notifications")
 }
 
