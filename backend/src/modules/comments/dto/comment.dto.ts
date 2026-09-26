@@ -1,4 +1,5 @@
-import { IsBoolean, IsIn, IsOptional, IsString, Matches, MaxLength, MinLength } from "class-validator";
+import { Transform, Type } from "class-transformer";
+import { IsBoolean, IsDateString, IsIn, IsInt, IsOptional, IsString, Matches, Max, MaxLength, Min, MinLength } from "class-validator";
 
 export const MAX_COMMENT_LENGTH = 2000;
 export const REACTION_KINDS = ["like", "dislike", "none"] as const;
@@ -47,4 +48,24 @@ export class ReportCommentDto {
   @MinLength(3)
   @MaxLength(300)
   reason!: string;
+}
+
+/** Query string of GET /v1/comments/admin. */
+export class StaffCommentsQueryDto {
+  @IsOptional()
+  @Type(() => Number)
+  @IsInt()
+  @Min(1)
+  @Max(100)
+  limit?: number;
+
+  /** ISO time of the oldest comment already shown. */
+  @IsOptional()
+  @IsDateString()
+  before?: string;
+
+  @IsOptional()
+  @Transform(({ value }) => value === true || value === "true" || value === "1")
+  @IsBoolean()
+  reported?: boolean;
 }

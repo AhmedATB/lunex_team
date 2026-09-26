@@ -42,6 +42,20 @@ export class CommentsRepository {
     });
   }
 
+  /** Every comment on the site, newest first, for the staff's moderation list (optionally only those reported, and only older than `before`). */
+  listForStaff(params: { take: number; before?: Date; reportedOnly: boolean }) {
+    return this.prisma.comment.findMany({
+      where: {
+        ...visible,
+        ...(params.before ? { createdAt: { lt: params.before } } : {}),
+        ...(params.reportedOnly ? { reports: { some: {} } } : {}),
+      },
+      orderBy: { createdAt: "desc" },
+      take: params.take,
+      include: { user: { select: AUTHOR_SELECT }, _count: { select: { reports: true } } },
+    });
+  }
+
   findById(id: string) {
     return this.prisma.comment.findUnique({ where: { id }, include: { user: { select: AUTHOR_SELECT } } });
   }

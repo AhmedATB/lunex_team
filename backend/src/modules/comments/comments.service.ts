@@ -182,6 +182,17 @@ export class CommentsService {
     await this.repo.upsertReport(id, userId, reason.trim());
   }
 
+  /** The staff's list of every comment, a page at a time; each carries how many reports it has. */
+  async listForStaff(actorId: string, query: { limit?: number; before?: string; reported?: boolean }) {
+    await this.requireStaff(actorId);
+    const limit = Math.min(Math.max(query.limit ?? 30, 1), 100);
+    const before = query.before ? new Date(query.before) : undefined;
+    const rows = await this.repo.listForStaff({ take: limit + 1, before: before && !Number.isNaN(+before) ? before : undefined, reportedOnly: query.reported === true });
+    const page = rows.slice(0, limit);
+    const dtos = await this.toDtos(page, undefined);
+    return { items: dtos.map((dto, i) => ({ ...dto, reportCount: page[i]._count.reports })), hasMore: rows.length > limit };
+  }
+
   async reportQueue(actorId: string) {
     await this.requireStaff(actorId);
     const rows = await this.repo.reportedComments(QUEUE_LIMIT);

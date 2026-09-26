@@ -18,7 +18,7 @@ import type { Request } from "express";
 import { CurrentUser } from "../../common/decorators/current-user.decorator";
 import { Public } from "../../common/decorators/public.decorator";
 import type { AccessTokenPayload } from "../../common/guards/jwt-auth.guard";
-import { CreateCommentDto, ReactDto, ReportCommentDto, SERIES_ID_PATTERN, UpdateCommentDto } from "./dto/comment.dto";
+import { CreateCommentDto, ReactDto, ReportCommentDto, SERIES_ID_PATTERN, StaffCommentsQueryDto, UpdateCommentDto } from "./dto/comment.dto";
 import { CommentsService } from "./comments.service";
 
 /**
@@ -49,6 +49,14 @@ export class CommentsController {
   latest(@Query("limit") limit: string | undefined) {
     const n = Number.parseInt(limit ?? "", 10);
     return this.comments.latest(Number.isFinite(n) ? n : 10);
+  }
+
+  /** Every comment, for moderators. Declared with the other static paths, before anything shaped like `:id`. */
+  @Get("admin")
+  @HttpCode(HttpStatus.OK)
+  @Throttle({ default: { limit: 60, ttl: 60_000 } })
+  listForStaff(@Query() query: StaffCommentsQueryDto, @CurrentUser() actor: AccessTokenPayload) {
+    return this.comments.listForStaff(actor.sub, query);
   }
 
   @Get("reports/queue")
