@@ -81,10 +81,9 @@ export class CatalogService {
       for (const m of team.members) personIds.add(m.userId);
     }
     const people = await this.repo.findPeople([...personIds]);
-    const readCounts = new Map(readers.map((r) => [r.userId, Math.round(r.total)]));
     const affiliation = await this.affiliations(teamRows);
 
-    const personDtos = people.map((p) => toPersonDto(p, { ...affiliation.get(p.id), readCount: readCounts.get(p.id) }));
+    const personDtos = people.map((p) => toPersonDto(p, { ...affiliation.get(p.id) }));
 
     return {
       tags: tagRows.map(toTagDto),

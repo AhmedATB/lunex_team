@@ -57,6 +57,19 @@ model User {
   historyVisibility   String @default("private")
   favoritesVisibility String @default("private")
 
+  /// Reader progression (modules/progress). Kept on the account and only ever changed on the server, so it cannot be
+  /// forged from the browser. `xp` is the running total; the level is worked out from it. `xpDay`/`xpDayGain` are the
+  /// day's earnings so far (a daily ceiling stops farming); `streakDays` counts consecutive UTC days with a finished
+  /// chapter and `bestStreak` is the longest ever; `achievements` holds the ids already earned (they stay earned).
+  xp            Int       @default(0)
+  xpDay         DateTime? @db.Date
+  xpDayGain     Int       @default(0)
+  chaptersRead  Int       @default(0)
+  streakDays    Int       @default(0)
+  bestStreak    Int       @default(0)
+  streakLastDay DateTime? @db.Date
+  achievements  String[]  @default([])
+
   sessions         Session[]
   devices          Device[]
   loginEvents      LoginEvent[]
@@ -338,6 +351,10 @@ model ReadingProgress {
   seriesId      String
   chapterNumber Float
   lastReadAt    DateTime @default(now())
+  /// The highest chapter number the reader has *finished* here — separate from `chapterNumber` (the furthest they have
+  /// opened). A finished chapter earns experience only when it lies beyond this, so re-reading earns nothing and no
+  /// per-chapter history has to be kept.
+  completedThrough Float @default(0)
 
   @@unique([userId, seriesId])
   @@index([userId, lastReadAt])

@@ -1,4 +1,5 @@
 import type { Comment } from "@/lib/types";
+import { useProgress } from "@/store/progress";
 import { formatDateTime } from "@/lib/use-mute-status";
 
 export type Reaction = "like" | "dislike";
@@ -99,6 +100,8 @@ export async function commentApi<T = unknown>(method: string, path: string, body
       cache: "no-store",
     });
     const parsed = res.status === 204 ? null : ((await res.json().catch(() => null)) as T | null);
+    // A posted comment earns experience on the server; look again so it is shown (and announced) at once.
+    if (res.ok && method === "POST" && path === "") void useProgress.getState().refresh();
     return { ok: res.ok, status: res.status, body: parsed };
   } catch {
     return { ok: false, status: 0, body: null };

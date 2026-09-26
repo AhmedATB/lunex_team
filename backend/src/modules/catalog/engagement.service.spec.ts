@@ -1,6 +1,7 @@
 import { NotFoundException } from "@nestjs/common";
 import type { CatalogService } from "./catalog.service";
 import type { EngagementRepository } from "./engagement.repository";
+import type { ProgressService } from "../progress/progress.service";
 import { EngagementService } from "./engagement.service";
 
 function build(overrides: Partial<Record<keyof EngagementRepository, jest.Mock>> = {}) {
@@ -15,7 +16,8 @@ function build(overrides: Partial<Record<keyof EngagementRepository, jest.Mock>>
     ...overrides,
   };
   const catalog = { invalidate: jest.fn() };
-  return { service: new EngagementService(repo as unknown as EngagementRepository, catalog as unknown as CatalogService), repo, catalog };
+  const progress = { awardRating: jest.fn(async () => undefined) };
+  return { service: new EngagementService(repo as unknown as EngagementRepository, catalog as unknown as CatalogService, progress as unknown as ProgressService), repo, catalog, progress };
 }
 
 describe("recording a view", () => {
@@ -64,5 +66,17 @@ describe("ratings", () => {
     await expect(service.setRating("u1", "ghost", 5)).rejects.toBeInstanceOf(NotFoundException);
     await expect(service.rating("u1", "ghost")).rejects.toBeInstanceOf(NotFoundException);
     expect(repo.upsertRating).not.toHaveBeenCalled();
+  });
+});
+
+describe("rating a series and experience", () => {
+  it("pays experience for a first rating only, not for changing it", async () => {
+    const first = build({ findRating: jest.fn(async () => null) });
+    await first.service.setRating("u1", "s1", 5);
+    expect(first.progress.awardRating).toHaveBeenCalledWith("u1");
+
+    const changed = build({ findRating: jest.fn(async () => ({ value: 3 })) });
+    await changed.service.setRating("u1", "s1", 5);
+    expect(changed.progress.awardRating).not.toHaveBeenCalled();
   });
 });

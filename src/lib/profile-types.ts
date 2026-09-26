@@ -14,6 +14,19 @@ export interface PrivacySettings {
   favoritesVisibility: ProfileVisibility;
 }
 
+/** Level, experience, streak and earned achievements — sent only to viewers who may see the owner's reading history. */
+export interface PublicProgress {
+  xp: number;
+  level: number;
+  xpIntoLevel: number;
+  levelSpan: number;
+  xpToNext: number;
+  streak: number;
+  bestStreak: number;
+  chaptersRead: number;
+  achievements: string[];
+}
+
 /** GET /v1/profiles/:username — what the viewer is allowed to see. Hidden sections are absent, never empty. */
 export interface ServerProfile {
   id: string;
@@ -30,5 +43,6 @@ export interface ServerProfile {
   /** Only sent to the owner and staff. */
   visibility?: { profile: ProfileVisibility; history: ProfileVisibility; favorites: ProfileVisibility };
   bookmarks?: string[];
+  progress?: PublicProgress;
   history?: { seriesId: string; chapterNumber: number; lastReadAt: string }[];
 }

@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
+import { ProgressSummary } from "@/components/profile/progress-summary";
 import { useParams, notFound } from "next/navigation";
 import Image from "next/image";
 import Link from "next/link";
@@ -110,6 +111,7 @@ function ServerProfileView({ profile, series }: { profile: ServerProfile; series
                 <CalendarDays className="h-3.5 w-3.5" /> انضم في {joined}
               </p>
             )}
+            {profile.progress && <ProgressSummary progress={profile.progress} />}
 
             <div className="flex flex-wrap items-center justify-center gap-2 pt-2 sm:justify-start">
               {profile.isSelf ? (

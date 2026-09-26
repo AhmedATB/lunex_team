@@ -13,6 +13,9 @@ const PERSON_SELECT = {
   createdAt: true,
   updatedAt: true,
   avatarMimeType: true,
+  xp: true,
+  chaptersRead: true,
+  historyVisibility: true,
 } as const;
 
 @Injectable()
@@ -322,18 +325,15 @@ export class CatalogRepository {
   }
 
   /**
-   * Readers ranked by how far they have read (the sum of their furthest
-   * chapters). Only accounts that made their reading history public appear: a
-   * ranking must not reveal a number the owner chose to keep private.
+   * Readers ranked by experience. Only accounts that made their reading history public appear (and only those who have
+   * earned some): a ranking must not reveal a number the owner chose to keep private.
    */
   async topReaders(take: number): Promise<{ userId: string; total: number }[]> {
     const rows = await this.prisma.$queryRaw<{ userId: string; total: number }[]>`
-      SELECT rp."userId" AS "userId", CAST(SUM(rp."chapterNumber") AS DOUBLE PRECISION) AS "total"
-      FROM reading_progress rp
-      JOIN users u ON u.id = rp."userId"
-      WHERE u."historyVisibility" = 'public' AND u."isBanned" = false
-      GROUP BY rp."userId"
-      ORDER BY "total" DESC
+      SELECT u.id AS "userId", CAST(u.xp AS DOUBLE PRECISION) AS "total"
+      FROM users u
+      WHERE u."historyVisibility" = 'public' AND u."isBanned" = false AND u.xp > 0
+      ORDER BY u.xp DESC, u."chaptersRead" DESC, u."createdAt" ASC
       LIMIT ${take}`;
     return rows;
   }

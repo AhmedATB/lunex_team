@@ -93,6 +93,11 @@ export class UsersRepository {
             profileVisibility: true,
             historyVisibility: true,
             favoritesVisibility: true,
+            xp: true,
+            chaptersRead: true,
+            streakDays: true,
+            bestStreak: true,
+            achievements: true,
           },
         }),
         this.prisma.oAuthAccount.findMany({
@@ -145,7 +150,7 @@ export class UsersRepository {
         this.prisma.readingProgress.findMany({
           where: { userId },
           orderBy: { lastReadAt: "desc" },
-          select: { seriesId: true, chapterNumber: true, lastReadAt: true },
+          select: { seriesId: true, chapterNumber: true, completedThrough: true, lastReadAt: true },
         }),
         this.prisma.sanction.findMany({
           where: { userId },

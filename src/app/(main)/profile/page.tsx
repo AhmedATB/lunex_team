@@ -3,13 +3,11 @@
 import { useEffect, useState } from "react";
 import Link from "next/link";
 import Image from "next/image";
-import { Award, BookOpen, MessageSquare, Bookmark as BookmarkIcon, Bell, Settings2, Lock } from "lucide-react";
+import { Award, BookOpen, MessageSquare, Bookmark as BookmarkIcon, Bell, Settings2, Lock, Flame } from "lucide-react";
 import { useSession } from "@/store/session";
 import { useBookmarks, useReadingProgress } from "@/store/reader-settings";
 import { useProfile, effectiveAvatarSeed } from "@/store/profile";
-import { useRewards, computeStreak } from "@/store/rewards";
-import { useComments } from "@/store/comments";
-import { useAchievements } from "@/store/achievements";
+import { useProgress } from "@/store/progress";
 import { ACHIEVEMENTS, type AchievementMetric } from "@/lib/achievements";
 import { useCatalog } from "@/components/catalog-provider";
 import { GLOBAL_ROLE_LABELS, TEAM_ROLE_LABELS } from "@/lib/rbac";
@@ -39,19 +37,17 @@ export default function ProfilePage() {
     .map(([seriesId, chapter]) => ({ series: db.series.find((s) => s.id === seriesId), chapter }))
     .filter((e) => e.series);
 
-  const chaptersReadCount = useRewards((s) => s.allTimeReadKeys.length);
-  const readDates = useRewards((s) => s.readDates);
-  const ownCommentCount = useComments((s) => {
-    const removed = new Set(s.removedCommentIds);
-    const local = s.addedComments.filter((c) => c.userId === currentUserId && !removed.has(c.id)).length;
-    return local + (currentUserId ? (s.postedOnServer[currentUserId] ?? 0) : 0);
-  });
-  const unlockedAchievements = useAchievements((s) => s.unlocked);
+  // Level, experience, streak, counts and achievements are the server's numbers (backend modules/progress) — the browser only shows them.
+  const serverProgress = useProgress((s) => s.progress);
+  const chaptersReadCount = serverProgress?.chaptersRead ?? 0;
+  const ownCommentCount = serverProgress?.comments ?? 0;
+  const unlockedAchievements = new Set(serverProgress?.achievements ?? []);
   const achievementValues: Record<AchievementMetric, number> = {
     chaptersRead: chaptersReadCount,
     comments: ownCommentCount,
-    bookmarks: bookmarkIds.length,
-    streak: computeStreak(readDates),
+    bookmarks: serverProgress?.bookmarks ?? bookmarkIds.length,
+    streak: serverProgress?.bestStreak ?? 0,
+    level: serverProgress?.level ?? 1,
   };
 
   const [notifications, setNotifications] = useState<AppNotification[]>([]);
@@ -103,10 +99,18 @@ export default function ProfilePage() {
 
             <div className="mx-auto max-w-xs space-y-1 sm:mx-0">
               <div className="flex justify-between text-xs text-lunex-gray">
-                <span>المستوى {user.level}</span>
-                <span>{user.xp}/{user.xpToNext} XP</span>
+                <span>المستوى {serverProgress?.level ?? 1}</span>
+                <span>
+                  {serverProgress?.xpIntoLevel ?? 0}/{serverProgress?.levelSpan ?? 100} XP
+                </span>
               </div>
-              <Progress value={(user.xp / user.xpToNext) * 100} />
+              <Progress value={serverProgress ? (serverProgress.xpIntoLevel / serverProgress.levelSpan) * 100 : 0} />
+              {serverProgress && (
+                <p className="flex items-center justify-between text-[11px] text-lunex-gray/80">
+                  <span>{formatNumber(serverProgress.xp)} XP في المجموع</span>
+                  <span>اليوم {serverProgress.todayXp}/{serverProgress.dailyCap}</span>
+                </p>
+              )}
             </div>
 
             {user.badges.length > 0 && (
@@ -126,8 +130,9 @@ export default function ProfilePage() {
                 <Settings2 className="h-4 w-4" /> إعدادات الحساب
               </Link>
             </Button>
-            <div className="grid grid-cols-3 gap-4 text-center sm:flex sm:gap-3">
+            <div className="grid grid-cols-4 gap-2 text-center sm:flex sm:gap-3">
               <Stat icon={BookOpen} label="فصل مقروء" value={chaptersReadCount} />
+              <Stat icon={Flame} label="أيام متتالية" value={serverProgress?.streak ?? 0} />
               <Stat icon={MessageSquare} label="تعليق" value={ownCommentCount} />
               <Stat icon={BookmarkIcon} label="مفضلة" value={bookmarkedSeries.length} />
             </div>
@@ -171,7 +176,7 @@ export default function ProfilePage() {
         <TabsContent value="achievements">
           <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 md:grid-cols-4">
             {ACHIEVEMENTS.map((a) => {
-              const isUnlocked = Boolean(unlockedAchievements[a.id]);
+              const isUnlocked = unlockedAchievements.has(a.id);
               const value = achievementValues[a.metric];
               const pct = Math.min(100, Math.round((value / a.target) * 100));
               const Icon = a.icon;

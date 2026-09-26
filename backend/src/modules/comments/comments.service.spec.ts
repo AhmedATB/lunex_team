@@ -3,6 +3,7 @@ import type { RequestContext } from "../../common/middleware/request-context.mid
 import type { NotificationsService } from "../notifications/notifications.service";
 import { cleanCommentText } from "./comment-text.util";
 import type { CommentsRepository } from "./comments.repository";
+import type { ProgressService } from "../progress/progress.service";
 import { CommentsService } from "./comments.service";
 import { MAX_COMMENT_LENGTH } from "./dto/comment.dto";
 
@@ -78,8 +79,9 @@ function build(users: Record<string, { role: string; isBanned?: boolean; bannedU
     writeAuditLog: jest.fn().mockResolvedValue(undefined),
   };
   const notifications = { notify: jest.fn().mockResolvedValue(undefined) };
-  const service = new CommentsService(repo as unknown as CommentsRepository, notifications as unknown as NotificationsService);
-  return { service, repo, notifications };
+  const progress = { awardComment: jest.fn(async () => undefined) };
+  const service = new CommentsService(repo as unknown as CommentsRepository, notifications as unknown as NotificationsService, progress as unknown as ProgressService);
+  return { service, repo, notifications, progress };
 }
 
 const roster = () => ({
@@ -91,6 +93,15 @@ const roster = () => ({
 });
 
 describe("CommentsService.create", () => {
+  it("gives the author experience for a posted comment, and nothing for one that is refused", async () => {
+    const { service, progress } = build({ ...roster(), muted: { role: "reader", mutedUntil: new Date(Date.now() + 3_600_000) } });
+    await service.create("author", { seriesId: "series-1", content: "hello there" });
+    expect(progress.awardComment).toHaveBeenCalledWith("author");
+    progress.awardComment.mockClear();
+    await expect(service.create("muted", { seriesId: "series-1", content: "hello there" })).rejects.toBeDefined();
+    expect(progress.awardComment).not.toHaveBeenCalled();
+  });
+
   it("posts a cleaned comment for an ordinary member", async () => {
     const { service, repo } = build(roster());
     await service.create("author", { seriesId: "series-1", content: "  great chapter  ", isSpoiler: true });

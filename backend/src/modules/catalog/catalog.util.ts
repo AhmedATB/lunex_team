@@ -1,3 +1,4 @@
+import { levelInfo } from "../progress/progress.util";
 export const SERIES_TYPES = ["manhwa", "manga", "manhua", "novel"] as const;
 export const SERIES_STATUSES = ["ongoing", "completed", "hiatus", "dropped"] as const;
 export const COUNTRIES = ["kr", "jp", "cn"] as const;
@@ -270,10 +271,20 @@ export interface PersonRow {
   createdAt: Date;
   updatedAt: Date;
   avatarMimeType: string | null;
+  /** Reader progression (modules/progress). Shown to others only when the owner made their reading history public. */
+  xp?: number;
+  chaptersRead?: number;
+  historyVisibility?: string;
 }
 
-/** A member as the frontend's `User` type wants it: identity from the account, everything gamified starts at zero. */
+/**
+ * A member as the frontend's `User` type wants it: identity from the account, and the level and experience only when the
+ * owner made their reading history public (they say how much someone has read); otherwise the neutral starting values.
+ * `xp` / `xpToNext` are the progress inside the current level (a bar's numerator and denominator); `xpTotal` is the total.
+ */
 export function toPersonDto(row: PersonRow, extra: { teamId?: string; teamRole?: string; readCount?: number } = {}) {
+  const shown = row.historyVisibility === "public";
+  const info = levelInfo(shown ? (row.xp ?? 0) : 0);
   return {
     id: row.id,
     username: row.username,
@@ -284,13 +295,14 @@ export function toPersonDto(row: PersonRow, extra: { teamId?: string; teamRole?:
     role: row.role,
     teamId: extra.teamId,
     teamRole: extra.teamRole,
-    level: 1,
-    xp: 0,
-    xpToNext: 100,
+    level: info.level,
+    xp: info.xpIntoLevel,
+    xpToNext: info.levelSpan,
+    xpTotal: shown ? (row.xp ?? 0) : 0,
     joinedAt: row.createdAt.toISOString(),
     bio: row.bio ?? "",
     isOnline: false,
-    readCount: extra.readCount ?? 0,
+    readCount: shown ? (row.chaptersRead ?? 0) : (extra.readCount ?? 0),
     commentCount: 0,
     bookmarkCount: 0,
     badges: [] as string[],

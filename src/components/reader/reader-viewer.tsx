@@ -7,6 +7,7 @@ import { ChevronLeft, ChevronRight, Lock } from "lucide-react";
 import { useReaderSettings, useReadingProgress } from "@/store/reader-settings";
 import { useReaderChrome } from "@/store/reader-chrome";
 import { useRewards, chapterKey } from "@/store/rewards";
+import { useProgress } from "@/store/progress";
 import { ProtectedImage } from "@/components/reader/protected-image";
 import { ProtectedPage } from "@/components/reader/protected-page";
 import { Button } from "@/components/ui/button";
@@ -162,8 +163,10 @@ export function ReaderViewer({
     if (finished) {
       recordedRef.current = true;
       recordChapterRead(chapterKey(seriesId, chapter.number));
+      // Experience is the server's to give: it checks the chapter was opened, for long enough, and is beyond what was finished.
+      if (realChapterId) void useProgress.getState().complete(realChapterId);
     }
-  }, [mode, scrollProgress, pageIndex, pageCount, seriesId, chapter.number, recordChapterRead]);
+  }, [mode, scrollProgress, pageIndex, pageCount, seriesId, chapter.number, recordChapterRead, realChapterId]);
 
   const fitClass =
     fit === "width" ? "w-full h-auto" : fit === "height" ? "h-[calc(100vh-8rem)] w-auto" : "";

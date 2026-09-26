@@ -2,6 +2,7 @@ import { Injectable, NotFoundException } from "@nestjs/common";
 import { CatalogService } from "./catalog.service";
 import { EngagementRepository } from "./engagement.repository";
 import { roundRating, utcDay } from "./catalog.util";
+import { ProgressService } from "../progress/progress.service";
 
 /**
  * What readers do to the numbers on the site: opening a chapter counts a view, and a rating replaces the
@@ -12,7 +13,8 @@ import { roundRating, utcDay } from "./catalog.util";
 export class EngagementService {
   constructor(
     private readonly repo: EngagementRepository,
-    private readonly catalog: CatalogService
+    private readonly catalog: CatalogService,
+    private readonly progress: ProgressService
   ) {}
 
   async recordView(userId: string, chapterId: string, now: Date = new Date()): Promise<{ counted: boolean }> {
@@ -24,7 +26,9 @@ export class EngagementService {
 
   async setRating(userId: string, seriesId: string, value: number) {
     await this.assertSeries(seriesId);
+    const first = (await this.repo.findRating(userId, seriesId)) === null;
     await this.repo.upsertRating(userId, seriesId, value);
+    if (first) await this.progress.awardRating(userId); // experience for a first rating of a series; changing it earns nothing
     this.catalog.invalidate();
     return this.rating(userId, seriesId);
   }

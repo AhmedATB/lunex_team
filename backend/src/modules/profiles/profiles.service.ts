@@ -2,6 +2,8 @@ import { BadRequestException, ConflictException, Injectable, NotFoundException }
 import { MODERATOR_ROLES } from "../../common/roles";
 import { MAX_CHAPTER_NUMBER, MAX_SYNC_ITEMS, type SyncLibraryDto } from "./dto/progress.dto";
 import type { UpdatePrivacyDto } from "./dto/update-privacy.dto";
+import { publicProgress } from "../progress/progress.service";
+import { dayKey } from "../progress/progress.util";
 import { canView, type Viewer } from "./profile-visibility.util";
 import { ProfilesRepository } from "./profiles.repository";
 
@@ -77,6 +79,24 @@ export class ProfilesService {
               history: user.historyVisibility,
               favorites: user.favoritesVisibility,
             },
+          }
+        : {}),
+      // Level, experience, streak and achievements say how much someone reads, so they follow the history setting.
+      ...(access.history
+        ? {
+            progress: publicProgress(
+              {
+                xp: user.xp,
+                xpDay: user.xpDay ? dayKey(user.xpDay) : null,
+                xpDayGain: user.xpDayGain,
+                chaptersRead: user.chaptersRead,
+                streakDays: user.streakDays,
+                bestStreak: user.bestStreak,
+                streakLastDay: user.streakLastDay ? dayKey(user.streakLastDay) : null,
+                achievements: user.achievements,
+              },
+              dayKey(new Date())
+            ),
           }
         : {}),
       ...(bookmarks ? { bookmarks: bookmarks.map((b) => b.seriesId) } : {}),

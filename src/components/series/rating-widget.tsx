@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { useProgress } from "@/store/progress";
 import { useRouter } from "next/navigation";
 import { AlertCircle, Star } from "lucide-react";
 import { useSession } from "@/store/session";
@@ -54,6 +55,7 @@ export function RatingWidget({ seriesId, rating, ratingCount }: { seriesId: stri
       const body = (await res.json()) as RatingBody;
       setLive({ average: body.average, count: body.count });
       setMine(body.mine ?? 0);
+      void useProgress.getState().refresh(); // a first rating of a series earns experience
       router.refresh();
     } catch {
       setError("تعذر حفظ التقييم، حاول مرة أخرى.");

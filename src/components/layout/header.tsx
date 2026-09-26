@@ -22,6 +22,7 @@ import { NotificationsBell } from "@/components/layout/notifications-bell";
 import { useSession } from "@/store/session";
 import { useProfile, effectiveAvatarSeed } from "@/store/profile";
 import { useRewards } from "@/store/rewards";
+import { useProgress } from "@/store/progress";
 import { useMessages } from "@/store/messages";
 import { useNavigation } from "@/store/navigation";
 import { useCatalog } from "@/components/catalog-provider";
@@ -51,6 +52,7 @@ export function Header() {
   );
   const avatarOverrides = useProfile((s) => s.avatarOverrides);
   const coins = useRewards((s) => s.coins);
+  const progress = useProgress((s) => s.progress);
   const unreadBy = useMessages((s) => s.unreadBy);
   const hasUnreadMessages = useMemo(
     () => (currentUserId ? Object.values(unreadBy).some((ids) => ids.includes(currentUserId)) : false),
@@ -169,6 +171,11 @@ export function Header() {
                     <span className="text-[11px] text-primary-300">
                       {GLOBAL_ROLE_LABELS[currentUser.role]}
                     </span>
+                    {progress && (
+                      <span className="text-[11px] text-lunex-gray">
+                        المستوى {progress.level} · {progress.xpIntoLevel}/{progress.levelSpan} XP
+                      </span>
+                    )}
                   </DropdownMenuLabel>
                   <DropdownMenuSeparator />
                   <DropdownMenuItem asChild>

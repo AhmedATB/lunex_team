@@ -21,6 +21,14 @@ export class ProfilesRepository {
         profileVisibility: true,
         historyVisibility: true,
         favoritesVisibility: true,
+        xp: true,
+        xpDay: true,
+        xpDayGain: true,
+        chaptersRead: true,
+        streakDays: true,
+        bestStreak: true,
+        streakLastDay: true,
+        achievements: true,
       },
     });
   }

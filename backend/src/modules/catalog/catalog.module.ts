@@ -1,4 +1,5 @@
 import { Module } from "@nestjs/common";
+import { ProgressModule } from "../progress/progress.module";
 import { ImagesModule } from "../images/images.module";
 import { CatalogAdminController } from "./catalog-admin.controller";
 import { CatalogAdminService } from "./catalog-admin.service";
@@ -15,7 +16,7 @@ import { StorageAdminService } from "./legacy/storage-admin.service";
 
 /** ImagesModule exports StorageService, so covers and logos live behind the same swappable backend as chapter pages. */
 @Module({
-  imports: [ImagesModule],
+  imports: [ImagesModule, ProgressModule],
   controllers: [CatalogController, CatalogAdminController, EngagementController, LegacyImportController],
   providers: [CatalogService, CatalogAdminService, CatalogRepository, EngagementService, EngagementRepository, LegacyImportService, LegacyChapterImportService, StorageAdminService],
   exports: [CatalogService, CatalogRepository],

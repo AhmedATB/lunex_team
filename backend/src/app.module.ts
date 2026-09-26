@@ -20,6 +20,7 @@ import { ModerationModule } from "./modules/moderation/moderation.module";
 import { NotificationsModule } from "./modules/notifications/notifications.module";
 import { OAuthModule } from "./modules/oauth/oauth.module";
 import { ProfilesModule } from "./modules/profiles/profiles.module";
+import { ProgressModule } from "./modules/progress/progress.module";
 import { RetentionModule } from "./modules/retention/retention.module";
 import { UsersModule } from "./modules/users/users.module";
 import { PrismaModule } from "./prisma/prisma.module";
@@ -45,6 +46,7 @@ import { PrismaModule } from "./prisma/prisma.module";
     NotificationsModule,
     OAuthModule,
     ProfilesModule,
+    ProgressModule,
     RetentionModule,
     UsersModule,
   ],

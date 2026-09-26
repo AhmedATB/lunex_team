@@ -11,6 +11,8 @@ const MEDAL_COLORS = ["text-amber-300", "text-slate-300", "text-orange-400"];
 
 export function TopReaders({ users }: { users: User[] }) {
   const avatarOverrides = useProfile((s) => s.avatarOverrides);
+  // Ranked by experience, and only members who chose to make their reading public: an empty list simply is not shown.
+  if (users.length === 0) return null;
   return (
     <section className="space-y-4">
       <h2 className="font-display text-xl font-bold text-white sm:text-2xl">أفضل القرّاء</h2>

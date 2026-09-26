@@ -11,6 +11,7 @@ import type { RequestContext } from "../../common/middleware/request-context.mid
 import { MODERATOR_ROLES, rankOf } from "../../common/roles";
 import { activeMutedUntil, isEffectivelyBanned, isMuted } from "../moderation/moderation.util";
 import { NotificationsService } from "../notifications/notifications.service";
+import { ProgressService } from "../progress/progress.service";
 import { cleanCommentText } from "./comment-text.util";
 import { MAX_COMMENT_LENGTH, type CreateCommentDto, type UpdateCommentDto } from "./dto/comment.dto";
 import { CommentsRepository } from "./comments.repository";
@@ -52,7 +53,8 @@ interface CommentRow {
 export class CommentsService {
   constructor(
     private readonly repo: CommentsRepository,
-    private readonly notifications: NotificationsService
+    private readonly notifications: NotificationsService,
+    private readonly progress: ProgressService
   ) {}
 
   async listForSeries(seriesId: string, viewerId: string | undefined) {
@@ -88,6 +90,7 @@ export class CommentsService {
     }
 
     const row = await this.repo.create({ seriesId: dto.seriesId, userId, content, isSpoiler: dto.isSpoiler ?? false });
+    await this.progress.awardComment(userId); // experience for the comment; never fails the comment itself
     return (await this.toDtos([row], userId))[0];
   }
 

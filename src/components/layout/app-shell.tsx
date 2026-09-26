@@ -11,7 +11,7 @@ import { NeonBackdrop } from "@/components/neon-backdrop";
 import { MagicCursor } from "@/components/effects/magic-cursor";
 import { ScrollPerformanceGuard } from "@/components/effects/scroll-performance-guard";
 import { ToastHost } from "@/components/ui/toast-host";
-import { AchievementWatcher } from "@/components/effects/achievement-watcher";
+import { ProgressWatcher } from "@/components/effects/progress-watcher";
 
 export function AppShell({ children, initialStyle }: { children: ReactNode; initialStyle: StyleId }) {
   return (
@@ -19,7 +19,7 @@ export function AppShell({ children, initialStyle }: { children: ReactNode; init
       <MagicCursor />
       <ScrollPerformanceGuard />
       <ToastHost />
-      <AchievementWatcher />
+      <ProgressWatcher />
       {/*
         Everything decorative below is `absolute` inside the page's own `relative` root: it belongs to the page and
         scrolls with it, never following the reader down the screen; the glows and sparkles pulse in place, nothing drifts. The glows sit at the page
