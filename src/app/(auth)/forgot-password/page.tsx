@@ -10,6 +10,8 @@ import { Button } from "@/components/ui/button";
 import { getDeviceFingerprint } from "@/lib/device-fingerprint";
 import { fetchAndSolvePow } from "@/lib/pow-client";
 import { CONTACT_DISCORD_URL } from "@/lib/site";
+import { TURNSTILE_ENABLED, turnstileErrorMessage } from "@/lib/turnstile";
+import { TurnstileBox } from "@/components/auth/turnstile-box";
 
 type Stage = "form" | "sent" | "unavailable";
 
@@ -18,21 +20,25 @@ export default function ForgotPasswordPage() {
   const [stage, setStage] = useState<Stage>("form");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
+  const [boxToken, setBoxToken] = useState<string | null>(null);
+  const [boxReset, setBoxReset] = useState(0);
 
   async function submit(e: React.FormEvent) {
     e.preventDefault();
     if (!email || loading) return;
     setError("");
+    if (TURNSTILE_ENABLED && !boxToken) return setError("أكّد أنك لست روبوتًا بالضغط على المربع أعلاه.");
     setLoading(true);
     try {
       const powSolution = await fetchAndSolvePow();
       const res = await fetch("/api/auth/forgot-password", {
         method: "POST",
-        headers: { "Content-Type": "application/json", "x-device-fingerprint": getDeviceFingerprint(), "x-pow-solution": powSolution },
+        headers: { "Content-Type": "application/json", "x-device-fingerprint": getDeviceFingerprint(), "x-pow-solution": powSolution, ...(boxToken ? { "x-turnstile-token": boxToken } : {}) },
         body: JSON.stringify({ email: email.trim() }),
       });
-      const body = (await res.json().catch(() => null)) as { available?: boolean; message?: string } | null;
-      if (res.status === 429) setError("محاولات كثيرة، انتظر دقيقة ثم حاول مرة أخرى.");
+      const body = (await res.json().catch(() => null)) as { available?: boolean; code?: string; message?: string } | null;
+      if (turnstileErrorMessage(body?.code)) setError(turnstileErrorMessage(body?.code) as string);
+      else if (res.status === 429) setError("محاولات كثيرة، انتظر دقيقة ثم حاول مرة أخرى.");
       else if (res.status === 400) setError("أدخل بريدًا إلكترونيًا صحيحًا.");
       else if (!res.ok) setError("تعذر الإرسال الآن، حاول مرة أخرى بعد قليل.");
       else setStage(body?.available === false ? "unavailable" : "sent");
@@ -40,6 +46,7 @@ export default function ForgotPasswordPage() {
       setError("تعذر الاتصال بالخادم، حاول مرة أخرى.");
     } finally {
       setLoading(false);
+      if (TURNSTILE_ENABLED) setBoxReset((n) => n + 1); // a token works once
     }
   }
 
@@ -85,8 +92,9 @@ export default function ForgotPasswordPage() {
                 <Input id="email" type="email" value={email} onChange={(e) => setEmail(e.target.value)} placeholder="you@example.com" className="ps-9" autoComplete="email" />
               </div>
             </div>
+            <TurnstileBox action="forgot" onToken={setBoxToken} resetKey={boxReset} />
             {error && <p className="text-sm text-red-400">{error}</p>}
-            <Button type="submit" className="w-full" disabled={!email || loading}>
+            <Button type="submit" className="w-full" disabled={!email || loading || (TURNSTILE_ENABLED && !boxToken)}>
               {loading && <Loader2 className="h-4 w-4 animate-spin" />}
               إرسال رابط الاستعادة
             </Button>

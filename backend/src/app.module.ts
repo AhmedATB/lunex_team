@@ -9,6 +9,7 @@ import { BotUserAgentGuard } from "./common/security/bot-user-agent.guard";
 import { ClientIpThrottlerGuard } from "./common/security/client-ip-throttler.guard";
 import { ProofOfWorkGuard } from "./common/security/proof-of-work.guard";
 import { SecurityModule } from "./common/security/security.module";
+import { TurnstileGuard } from "./common/security/turnstile.guard";
 import { AuthModule } from "./modules/auth/auth.module";
 import { BotIntegrationModule } from "./modules/bot-integration/bot-integration.module";
 import { CatalogModule } from "./modules/catalog/catalog.module";
@@ -69,10 +70,12 @@ import { PrismaModule } from "./prisma/prisma.module";
     //   2. JwtAuthGuard — auth by default (opt out per-route with @Public()).
     //   3. ClientIpThrottlerGuard — per-visitor request-rate ceiling (per verified client IP; see the guard).
     //   4. ProofOfWorkGuard — opt-in (@RequirePow()) CPU-cost gate on abuse-prone endpoints.
+    //   5. TurnstileGuard — opt-in (@RequireTurnstile(action)) "I am not a robot" box, after the cheaper checks so a failed one never spends a token.
     { provide: APP_GUARD, useClass: BotUserAgentGuard },
     { provide: APP_GUARD, useClass: JwtAuthGuard },
     { provide: APP_GUARD, useClass: ClientIpThrottlerGuard },
     { provide: APP_GUARD, useClass: ProofOfWorkGuard },
+    { provide: APP_GUARD, useClass: TurnstileGuard },
     { provide: APP_FILTER, useClass: AllExceptionsFilter },
   ],
 })

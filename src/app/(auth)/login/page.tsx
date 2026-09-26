@@ -14,6 +14,8 @@ import { useRealUsers, synthesizeProfile } from "@/store/real-users";
 import { mergeRealUsers } from "@/lib/mock/generate";
 import { getDeviceFingerprint } from "@/lib/device-fingerprint";
 import { fetchAndSolvePow } from "@/lib/pow-client";
+import { TURNSTILE_ENABLED, turnstileErrorMessage } from "@/lib/turnstile";
+import { TurnstileBox } from "@/components/auth/turnstile-box";
 import { nextPathFrom } from "@/lib/safe-next";
 
 /** The backend's messages are English; the ban one carries the end date of a temporary ban ("... until <ISO>."). */
@@ -25,7 +27,7 @@ function loginErrorMessage(body: { code?: string; message?: string } | null): st
       ? `تم حظر هذا الحساب مؤقتًا حتى ${new Intl.DateTimeFormat("ar", { dateStyle: "medium", timeStyle: "short" }).format(date)}.`
       : "تم حظر هذا الحساب. تواصل مع الإدارة عبر Discord إن كنت تراه خطأً.";
   }
-  return body?.message ?? "فشل تسجيل الدخول.";
+  return turnstileErrorMessage(body?.code) ?? body?.message ?? "فشل تسجيل الدخول.";
 }
 
 export default function LoginPage() {
@@ -35,6 +37,8 @@ export default function LoginPage() {
   const [password, setPassword] = useState("");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
+  const [boxToken, setBoxToken] = useState<string | null>(null);
+  const [boxReset, setBoxReset] = useState(0);
 
   useEffect(() => {
     const params = new URLSearchParams(window.location.search);
@@ -49,6 +53,10 @@ export default function LoginPage() {
       setError("يرجى تعبئة جميع الحقول.");
       return;
     }
+    if (TURNSTILE_ENABLED && !boxToken) {
+      setError("أكّد أنك لست روبوتًا بالضغط على المربع أعلاه.");
+      return;
+    }
     setLoading(true);
     try {
       const powSolution = await fetchAndSolvePow();
@@ -58,6 +66,7 @@ export default function LoginPage() {
           "Content-Type": "application/json",
           "x-device-fingerprint": getDeviceFingerprint(),
           "x-pow-solution": powSolution,
+          ...(boxToken ? { "x-turnstile-token": boxToken } : {}),
         },
         body: JSON.stringify({ email, password }),
       });
@@ -76,6 +85,7 @@ export default function LoginPage() {
       setError("تعذر الاتصال بالخادم، حاول مرة أخرى.");
     } finally {
       setLoading(false);
+      if (TURNSTILE_ENABLED) setBoxReset((n) => n + 1); // a token works once
     }
   }
 
@@ -121,9 +131,11 @@ export default function LoginPage() {
             </div>
           </div>
 
+          <TurnstileBox action="login" onToken={setBoxToken} resetKey={boxReset} />
+
           {error && <p className="text-sm text-red-400">{error}</p>}
 
-          <Button type="submit" className="w-full" disabled={loading}>
+          <Button type="submit" className="w-full" disabled={loading || (TURNSTILE_ENABLED && !boxToken)}>
             {loading && <Loader2 className="h-4 w-4 animate-spin" />}
             تسجيل الدخول
           </Button>

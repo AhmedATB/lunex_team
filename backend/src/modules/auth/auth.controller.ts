@@ -4,6 +4,7 @@ import type { Request } from "express";
 import { CurrentUser } from "../../common/decorators/current-user.decorator";
 import { Public } from "../../common/decorators/public.decorator";
 import { RequirePow } from "../../common/decorators/require-pow.decorator";
+import { RequireTurnstile } from "../../common/decorators/require-turnstile.decorator";
 import type { AccessTokenPayload } from "../../common/guards/jwt-auth.guard";
 import { AuthService } from "./auth.service";
 import { ChangePasswordDto } from "./dto/change-password.dto";
@@ -24,6 +25,7 @@ export class AuthController {
 
   @Public()
   @RequirePow() // CPU-cost gate on top of the rate limit — see ProofOfWorkService for why
+  @RequireTurnstile("register")
   @Post("register")
   @HttpCode(HttpStatus.CREATED)
   @Throttle({ default: { limit: 5, ttl: 60_000 } }) // 5 registrations/min/IP — slows bulk fake-account creation
@@ -46,6 +48,7 @@ export class AuthController {
 
   @Public()
   @RequirePow()
+  @RequireTurnstile("login")
   @Post("login")
   @HttpCode(HttpStatus.OK)
   @Throttle({ default: { limit: 10, ttl: 60_000 } }) // 10 attempts/min/IP — credential-stuffing friction; per-account limiting is a Redis-backed follow-up (§14)
@@ -71,6 +74,7 @@ export class AuthController {
   /** Always answers the same for any address (see AuthService.requestPasswordReset); proof of work + a tight limit keep it from being used to flood inboxes. */
   @Public()
   @RequirePow()
+  @RequireTurnstile("forgot")
   @Post("forgot-password")
   @HttpCode(HttpStatus.OK)
   @Throttle({ default: { limit: 5, ttl: 60_000 } })

@@ -15,6 +15,7 @@ export async function POST(req: NextRequest) {
     forwardedHeaders: {
       "x-device-fingerprint": req.headers.get("x-device-fingerprint") ?? undefined,
       "x-pow-solution": req.headers.get("x-pow-solution") ?? undefined,
+      "x-turnstile-token": req.headers.get("x-turnstile-token") ?? undefined,
     },
   });
 

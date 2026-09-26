@@ -15,6 +15,8 @@ import { mergeRealUsers } from "@/lib/mock/generate";
 import { getDeviceFingerprint } from "@/lib/device-fingerprint";
 import { cleanDisplayName, displayNameProblem } from "@/lib/display-name";
 import { fetchAndSolvePow } from "@/lib/pow-client";
+import { TURNSTILE_ENABLED, turnstileErrorMessage } from "@/lib/turnstile";
+import { TurnstileBox } from "@/components/auth/turnstile-box";
 import { nextPathFrom } from "@/lib/safe-next";
 import { cn } from "@/lib/utils";
 
@@ -125,6 +127,8 @@ export default function RegisterPage() {
   const [loading, setLoading] = useState(false);
   const [sealed, setSealed] = useState(false);
   const [error, setError] = useState("");
+  const [boxToken, setBoxToken] = useState<string | null>(null);
+  const [boxReset, setBoxReset] = useState(0);
 
   const displayNameRef = useRef<HTMLInputElement>(null);
   const emailRef = useRef<HTMLInputElement>(null);
@@ -196,6 +200,7 @@ export default function RegisterPage() {
           "Content-Type": "application/json",
           "x-device-fingerprint": getDeviceFingerprint(),
           "x-pow-solution": powSolution,
+          ...(boxToken ? { "x-turnstile-token": boxToken } : {}),
         },
         body: JSON.stringify({ email: form.email, username: form.username, displayName: cleanDisplayName(form.displayName), password: form.password }),
       });
@@ -221,7 +226,7 @@ export default function RegisterPage() {
           }
           return;
         }
-        setError(message);
+        setError(turnstileErrorMessage(body?.code) ?? message);
         return;
       }
       setUser(body.user);
@@ -238,6 +243,7 @@ export default function RegisterPage() {
       setError("تعذر الاتصال بالخادم، حاول مرة أخرى.");
     } finally {
       setLoading(false);
+      if (TURNSTILE_ENABLED) setBoxReset((n) => n + 1); // a token works once
     }
   }
 
@@ -256,6 +262,7 @@ export default function RegisterPage() {
       return goTo(3);
     }
     if (!agree) return setError("يجب الموافقة على الشروط والأحكام وسياسة الخصوصية.");
+    if (TURNSTILE_ENABLED && !boxToken) return setError("أكّد أنك لست روبوتًا بالضغط على المربع أعلاه.");
     void createAccount();
   }
 
@@ -492,6 +499,8 @@ export default function RegisterPage() {
                   .
                 </span>
               </label>
+
+              <TurnstileBox action="register" onToken={setBoxToken} resetKey={boxReset} />
             </>
           )}
         </div>
@@ -509,7 +518,7 @@ export default function RegisterPage() {
               رجوع
             </Button>
           )}
-          <Button type="submit" size="lg" className="flex-1" disabled={busy || !stepValid}>
+          <Button type="submit" size="lg" className="flex-1" disabled={busy || !stepValid || (step === 3 && TURNSTILE_ENABLED && !boxToken)}>
             {step < 3 ? (
               <>
                 التالي <ArrowLeft className="h-4 w-4 rtl:rotate-0 ltr:rotate-180" />
