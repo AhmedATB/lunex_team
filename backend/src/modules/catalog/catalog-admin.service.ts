@@ -5,6 +5,7 @@ import type { RequestContext } from "../../common/middleware/request-context.mid
 import { isEffectivelyBanned } from "../moderation/moderation.util";
 import { StorageService } from "../images/storage/storage.interface";
 import { NotificationsService } from "../notifications/notifications.service";
+import { AnnouncementsService } from "../announcements/announcements.service";
 import { TeamActivityService } from "../team-activity/team-activity.service";
 import { CatalogRepository } from "./catalog.repository";
 import { CatalogService } from "./catalog.service";
@@ -48,7 +49,8 @@ export class CatalogAdminService {
     private readonly catalog: CatalogService,
     private readonly storage: StorageService,
     private readonly notifications: NotificationsService,
-    private readonly activity: TeamActivityService
+    private readonly activity: TeamActivityService,
+    private readonly announcements: AnnouncementsService
   ) {}
 
   // ---- series ----------------------------------------------------------------
@@ -87,6 +89,7 @@ export class CatalogAdminService {
     await this.audit(actor, "catalog.series_created", row.id, ctx);
     this.catalog.invalidate();
     void this.notifications.seriesAdded(row.id);
+    this.announcements.seriesAdded(row.id); // the community (Discord) hears of it a minute later, once it has its cover
     return toSeriesDto(row as SeriesRow, EMPTY_STATS);
   }
 

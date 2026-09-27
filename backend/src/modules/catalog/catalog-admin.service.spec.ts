@@ -5,6 +5,7 @@ import { CatalogAdminService } from "./catalog-admin.service";
 import type { CatalogRepository } from "./catalog.repository";
 import type { CatalogService } from "./catalog.service";
 import type { NotificationsService } from "../notifications/notifications.service";
+import type { AnnouncementsService } from "../announcements/announcements.service";
 import type { TeamActivityService } from "../team-activity/team-activity.service";
 
 const CTX = { ip: "203.0.113.5" } as RequestContext;
@@ -90,14 +91,16 @@ function build(roles: Record<string, string>) {
   const storage = { put: jest.fn(async () => ({ checksum: "abc" })), get: jest.fn() };
   const notifications = { seriesAdded: jest.fn().mockResolvedValue(undefined), newsPublished: jest.fn().mockResolvedValue(undefined), notify: jest.fn().mockResolvedValue(undefined) };
   const activity = { record: jest.fn().mockResolvedValue(undefined) };
+  const announcements = { seriesAdded: jest.fn() };
   const service = new CatalogAdminService(
     repo as unknown as CatalogRepository,
     catalog as unknown as CatalogService,
     storage as unknown as StorageService,
     notifications as unknown as NotificationsService,
-    activity as unknown as TeamActivityService
+    activity as unknown as TeamActivityService,
+    announcements as unknown as AnnouncementsService
   );
-  return { service, repo, catalog, storage, notifications, activity };
+  return { service, repo, catalog, storage, notifications, activity, announcements };
 }
 
 const roster = { owner: "owner", editor: "editor", manager: "global_team_manager", newsie: "news_manager", leader: "reader", member: "reader", reader: "reader", mod: "moderator" };
@@ -110,6 +113,14 @@ describe("series permissions", () => {
     await expect(service.createSeries("reader", { titleAr: "س" }, CTX)).rejects.toBeInstanceOf(ForbiddenException);
     await expect(service.createSeries("mod", { titleAr: "س" }, CTX)).rejects.toBeInstanceOf(ForbiddenException);
     expect(repo.createSeries).toHaveBeenCalledTimes(2);
+  });
+
+  it("tells the community about a new work once it is listed, and not when creating it is refused", async () => {
+    const { service, announcements } = build(roster);
+    await expect(service.createSeries("reader", { titleAr: "س" }, CTX)).rejects.toBeInstanceOf(ForbiddenException);
+    expect(announcements.seriesAdded).not.toHaveBeenCalled();
+    await service.createSeries("editor", { titleAr: "س" }, CTX);
+    expect(announcements.seriesAdded).toHaveBeenCalledTimes(1);
   });
 
   it("lets a team's leader add a series to their own team but never flag it as featured", async () => {

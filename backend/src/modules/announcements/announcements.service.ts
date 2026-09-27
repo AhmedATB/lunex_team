@@ -4,7 +4,8 @@ import { AnnouncementsRepository } from "./announcements.repository";
 
 /**
  * A chapter published in the minute after another of the same work goes out in one announcement, not one each: publishing a batch
- * must not flood a channel. And two announcements are never closer than this, whichever works they are about.
+ * must not flood a channel. And two announcements are never closer than this, whichever works they are about. A new work waits the
+ * same minute, so the team has time to give it its cover before it is announced.
  */
 const GATHER_MS = 60_000;
 const SPACING_MS = 1_500;
@@ -14,6 +15,9 @@ const SEND_TIMEOUT_MS = 8_000;
 const DEFAULT_SITE = "https://lunexteam.com";
 /** Not a secret: it is published on the site itself, at `/<key>.txt` (frontend `public/`). */
 const DEFAULT_INDEXNOW_KEY = "0dfe21d467149da7cb31f2051b4a298c";
+/** The community server's roles that are pinged: those who follow new chapters, and those who follow new works. Not secrets; settings can replace them. */
+const DEFAULT_CHAPTER_ROLE = "1472481779662196736";
+const DEFAULT_SERIES_ROLE = "1474536152697671874";
 
 const clip = (text: string, max: number) => {
   const one = text.replace(/\s+/g, " ").trim();
@@ -22,22 +26,40 @@ const clip = (text: string, max: number) => {
 /** Telegram's limit for the caption of a photo (counted on the text, not the markup). */
 const TELEGRAM_CAPTION_MAX = 1024;
 const escapeHtml = (text: string) => text.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
+const isWebhook = (url: string | undefined): url is string => !!url && /^https:\/\/(?:[a-z]+\.)?discord(?:app)?\.com\/api\/webhooks\//i.test(url);
+const roleId = (value: string | undefined, fallback: string) => {
+  const id = (value ?? fallback).trim();
+  return /^\d{15,25}$/.test(id) ? id : undefined;
+};
+
+interface Post {
+  name: string;
+  link: string;
+  cover?: string;
+  summary: string;
+  team: string | null;
+}
 
 /**
- * Tells the outside world about a chapter that just went live: a post in the team's Discord channel (a webhook) and Telegram
- * channel (a bot), and a ping to Bing and the other IndexNow search engines so the page is found within minutes (Google does
- * not use IndexNow; it reads the sitemap). Each channel is switched on by its own setting and does nothing without it:
- * `DISCORD_WEBHOOK_URL`, `TELEGRAM_BOT_TOKEN` + `TELEGRAM_CHAT_ID`; IndexNow needs none. It never throws — the chapter is
- * already published, and a channel being down must not undo that.
+ * Tells the outside world about what just went live: a chapter, or a new work. A post in the community's Discord (a webhook per
+ * room, pinging the role that follows it) and, for a chapter, in the Telegram channel (a bot); and a ping to Bing and the other
+ * IndexNow search engines so the page is found within minutes (Google does not use IndexNow; it reads the sitemap). Each channel
+ * is switched on by its own setting and does nothing without it: `DISCORD_WEBHOOK_URL` (chapters), `DISCORD_NEW_SERIES_WEBHOOK_URL`
+ * (new works), `TELEGRAM_BOT_TOKEN` + `TELEGRAM_CHAT_ID`; IndexNow needs none. It never throws — the chapter or work is already
+ * published, and a channel being down must not undo that.
  */
 @Injectable()
 export class AnnouncementsService implements OnModuleDestroy {
   private readonly log = new Logger(AnnouncementsService.name);
   private readonly pending = new Map<string, { numbers: Set<number>; timer: NodeJS.Timeout }>();
+  private readonly pendingSeries = new Map<string, NodeJS.Timeout>();
   private queue: Promise<void> = Promise.resolve();
 
   private readonly site: string;
-  private readonly discord?: string;
+  private readonly discordChapters?: string;
+  private readonly discordSeries?: string;
+  private readonly chapterRole?: string;
+  private readonly seriesRole?: string;
   private readonly telegramToken?: string;
   private readonly telegramChat?: string;
   private readonly indexNowKey: string;
@@ -47,8 +69,12 @@ export class AnnouncementsService implements OnModuleDestroy {
     config: ConfigService
   ) {
     this.site = (config.get<string>("FRONTEND_URL") ?? DEFAULT_SITE).replace(/\/+$/, "");
-    const hook = config.get<string>("DISCORD_WEBHOOK_URL")?.trim();
-    this.discord = hook && /^https:\/\/(?:[a-z]+\.)?discord(?:app)?\.com\/api\/webhooks\//i.test(hook) ? hook : undefined;
+    const chapters = config.get<string>("DISCORD_WEBHOOK_URL")?.trim();
+    const series = config.get<string>("DISCORD_NEW_SERIES_WEBHOOK_URL")?.trim();
+    this.discordChapters = isWebhook(chapters) ? chapters : undefined;
+    this.discordSeries = isWebhook(series) ? series : undefined;
+    this.chapterRole = roleId(config.get<string>("DISCORD_CHAPTER_ROLE_ID"), DEFAULT_CHAPTER_ROLE);
+    this.seriesRole = roleId(config.get<string>("DISCORD_SERIES_ROLE_ID"), DEFAULT_SERIES_ROLE);
     this.telegramToken = config.get<string>("TELEGRAM_BOT_TOKEN")?.trim() || undefined;
     this.telegramChat = config.get<string>("TELEGRAM_CHAT_ID")?.trim() || undefined;
     this.indexNowKey = config.get<string>("INDEXNOW_KEY")?.trim() || DEFAULT_INDEXNOW_KEY;
@@ -56,7 +82,9 @@ export class AnnouncementsService implements OnModuleDestroy {
 
   onModuleDestroy() {
     for (const { timer } of this.pending.values()) clearTimeout(timer);
+    for (const timer of this.pendingSeries.values()) clearTimeout(timer);
     this.pending.clear();
+    this.pendingSeries.clear();
   }
 
   /** Call when a chapter goes live. Returns at once; the announcement follows about a minute later, with any others of the same work. */
@@ -71,18 +99,42 @@ export class AnnouncementsService implements OnModuleDestroy {
     this.pending.set(seriesId, { numbers: new Set([number]), timer });
   }
 
+  /** Call when a new work is listed. Returns at once; the announcement follows about a minute later (once, whatever happens to it meanwhile). */
+  seriesAdded(seriesId: string): void {
+    if (this.pendingSeries.has(seriesId)) return;
+    const timer = setTimeout(() => this.flushSeries(seriesId), GATHER_MS);
+    timer.unref();
+    this.pendingSeries.set(seriesId, timer);
+  }
+
   /** Sends what is waiting for one work now (the timer's job; public so a test can do it without waiting). */
   flush(seriesId: string): Promise<void> {
     const waiting = this.pending.get(seriesId);
     if (!waiting) return this.queue;
     clearTimeout(waiting.timer);
     this.pending.delete(seriesId);
-    const numbers = [...waiting.numbers];
+    return this.enqueue(() => this.announce(seriesId, [...waiting.numbers]));
+  }
+
+  /** The new-work announcement for one work, now (public for the same reason). */
+  flushSeries(seriesId: string): Promise<void> {
+    const timer = this.pendingSeries.get(seriesId);
+    if (!timer) return this.queue;
+    clearTimeout(timer);
+    this.pendingSeries.delete(seriesId);
+    return this.enqueue(() => this.announceSeries(seriesId));
+  }
+
+  private enqueue(job: () => Promise<void>): Promise<void> {
     this.queue = this.queue
-      .then(() => this.announce(seriesId, numbers))
+      .then(job)
       .catch((error) => this.log.warn(`announcement failed: ${error instanceof Error ? error.message : String(error)}`))
       .then(() => new Promise<void>((resolve) => setTimeout(resolve, SPACING_MS).unref()));
     return this.queue;
+  }
+
+  private coverOf(series: { id: string; updatedAt: Date; coverAssetId: string | null }) {
+    return series.coverAssetId ? `${this.site}/api/catalog/series/${series.id}/cover?v=${series.updatedAt.getTime()}` : undefined;
   }
 
   private async announce(seriesId: string, published: number[]) {
@@ -96,24 +148,39 @@ export class AnnouncementsService implements OnModuleDestroy {
     const label = numbers.length === 1 ? `الفصل ${numbers[0]}` : `الفصول ${numbers[0]}–${numbers[numbers.length - 1]}`;
     const seriesUrl = `${this.site}/series/${encodeURIComponent(series.slug)}`;
     const link = numbers.length === 1 ? `${seriesUrl}/${numbers[0]}` : seriesUrl;
-    const cover = series.coverAssetId ? `${this.site}/api/catalog/series/${series.id}/cover?v=${series.updatedAt.getTime()}` : undefined;
-    const summary = clip(series.synopsis, 180);
+    const post: Post = { name, link, cover: this.coverOf(series), summary: clip(series.synopsis, 180), team };
 
     await Promise.all([
-      this.postDiscord({ name, label, link, cover, summary, team }),
-      this.postTelegram({ name, label, link, cover, summary, team, synopsis: series.synopsis, genres }),
+      this.postDiscordChapter(post, label),
+      this.postTelegram({ ...post, label, synopsis: series.synopsis, genres }),
       this.pingIndexNow([...numbers.map((n) => `${seriesUrl}/${n}`), seriesUrl]),
     ]);
   }
 
-  private async postDiscord(p: { name: string; label: string; link: string; cover?: string; summary: string; team: string | null }) {
-    if (!this.discord) return;
-    const body = {
+  private async announceSeries(seriesId: string) {
+    const series = await this.repo.findSeries(seriesId);
+    if (!series || series.state !== "approved") return;
+    const [team, genres] = await Promise.all([this.repo.teamName(series.teamId), this.repo.genres(seriesId)]);
+    const seriesUrl = `${this.site}/series/${encodeURIComponent(series.slug)}`;
+    await Promise.all([
+      this.postDiscordSeries({ name: series.titleAr || series.titleEn, link: seriesUrl, cover: this.coverOf(series), summary: clip(series.synopsis, 400), team }, genres),
+      this.pingIndexNow([seriesUrl]),
+    ]);
+  }
+
+  /** The words that go with a ping: the role's mention, and the permission to ping exactly that role and nobody else. */
+  private ping(role: string | undefined) {
+    return role ? { content: `<@&${role}>`, allowed_mentions: { parse: [], roles: [role] } } : { allowed_mentions: { parse: [] } };
+  }
+
+  private async postDiscordChapter(p: Post, label: string) {
+    if (!this.discordChapters) return;
+    await this.send("Discord", this.discordChapters, {
       username: "LUNEX TEAM",
-      allowed_mentions: { parse: [] },
+      ...this.ping(this.chapterRole),
       embeds: [
         {
-          title: `${p.label} — ${p.name}`,
+          title: `${label} — ${p.name}`,
           url: p.link,
           description: p.summary,
           color: 0x7c3aed,
@@ -122,16 +189,36 @@ export class AnnouncementsService implements OnModuleDestroy {
           timestamp: new Date().toISOString(),
         },
       ],
-    };
-    await this.send("Discord", this.discord, body);
+    });
+  }
+
+  private async postDiscordSeries(p: Post, genres: string[]) {
+    if (!this.discordSeries) return;
+    const fields = [...(genres.length > 0 ? [{ name: "التصنيف", value: genres.join("، "), inline: false }] : []), ...(p.team ? [{ name: "الفريق", value: p.team, inline: true }] : [])];
+    await this.send("Discord", this.discordSeries, {
+      username: "LUNEX TEAM",
+      ...this.ping(this.seriesRole),
+      embeds: [
+        {
+          title: `عمل جديد — ${p.name}`,
+          url: p.link,
+          description: p.summary,
+          color: 0x7c3aed,
+          ...(fields.length > 0 ? { fields } : {}),
+          ...(p.cover ? { image: { url: p.cover } } : {}),
+          footer: { text: "LUNEX TEAM" },
+          timestamp: new Date().toISOString(),
+        },
+      ],
+    });
   }
 
   /**
    * The channel's own look: a tag, the title, then the details in quote blocks — the chapter and genres, and the story in an
-   * expandable one (Telegram folds it after a few lines and the reader opens it) — then the team and "مشاهدة ممتعة" as the link to the chapter. The story
-   * is cut to what fits the caption of a photo, which Telegram caps at 1024 characters.
+   * expandable one (Telegram folds it after a few lines and the reader opens it) — then the team and "مشاهدة ممتعة" as the link to
+   * the chapter. The story is cut to what fits the caption of a photo, which Telegram caps at 1024 characters.
    */
-  private async postTelegram(p: { name: string; label: string; link: string; cover?: string; summary: string; team: string | null; synopsis: string; genres: string[] }) {
+  private async postTelegram(p: Post & { label: string; synopsis: string; genres: string[] }) {
     if (!this.telegramToken || !this.telegramChat) return;
     const api = `https://api.telegram.org/bot${this.telegramToken}`;
     const genres = p.genres.length > 0 ? p.genres.join("، ") : null;
