@@ -1,22 +1,31 @@
 "use client";
 
-import { Suspense, useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { Suspense, useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import Image from "next/image";
+import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
-import { ArrowRight, Ban, LogOut, Loader2, MessageCircle, Pencil, Plus, Send, Trash2, UserCheck, UserPlus, Users } from "lucide-react";
+import { ArrowRight, Ban, Keyboard, LogOut, Loader2, MessageCircle, Pencil, Plus, Send, Smile, Trash2, UserCheck, UserPlus, Users } from "lucide-react";
 import { useSession } from "@/store/session";
 import { chatApi, conversationName, MESSAGES_CHANGED, type BlockedPerson, type ChatMessage, type Conversation, type Person } from "@/lib/messages-api";
 import { resolveAvatarUrl, cn } from "@/lib/utils";
 import { useMuteStatus } from "@/lib/use-mute-status";
 import { MuteNotice } from "@/components/moderation/mute-notice";
 import { UserPicker } from "@/components/messages/user-picker";
+import { EmojiPanel } from "@/components/messages/emoji-panel";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
+import { Textarea } from "@/components/ui/textarea";
 import { GridPageSkeleton } from "@/components/shared/skeletons";
 
 const LIST_POLL_MS = 10_000;
 const THREAD_POLL_MS = 4_000;
+/** The server's limit for one message. */
+const MAX_MESSAGE = 2000;
+/** The message box grows with what is typed, up to about five lines, then scrolls inside itself. */
+const INPUT_MAX_PX = 144;
+/** The phone's keyboard covers this much or more of the screen; below it, the browser bar coming and going is not the keyboard. */
+const KEYBOARD_MIN_PX = 120;
 
 export default function MessagesPage() {
   return (
@@ -52,6 +61,15 @@ const startOfDay = (date: Date) => new Date(date.getFullYear(), date.getMonth(),
 /** How long after sending a message can still be edited (the server enforces it; this only decides whether to offer the button). */
 const EDIT_WINDOW_MS = 24 * 60 * 60 * 1000;
 const clock = (iso: string) => new Intl.DateTimeFormat("ar", { timeStyle: "short" }).format(new Date(iso));
+
+/** The time beside a chat in the list: the clock today, "أمس" yesterday, the date before that. */
+function listTime(iso: string): string {
+  const date = new Date(iso);
+  const days = Math.round((startOfDay(new Date()) - startOfDay(date)) / DAY_MS);
+  if (days <= 0) return clock(iso);
+  if (days === 1) return "أمس";
+  return new Intl.DateTimeFormat("ar", { day: "numeric", month: "short" }).format(date);
+}
 
 function dayLabel(iso: string): string {
   const date = new Date(iso);
@@ -125,8 +143,19 @@ function MessagesPageInner() {
   const [blocked, setBlocked] = useState<BlockedPerson[]>([]);
   const [blockedOpen, setBlockedOpen] = useState(false);
 
+  const [emojiOpen, setEmojiOpen] = useState(false);
+
+  const rootRef = useRef<HTMLDivElement>(null);
   const scroller = useRef<HTMLDivElement>(null);
+  const inputRef = useRef<HTMLTextAreaElement>(null);
   const stickToBottom = useRef(true);
+  /** Where the caret goes after an emoji is put in. */
+  const caretAfter = useRef<number | null>(null);
+  /** A phone (touch): Enter starts a new line and the arrow sends; on a computer Enter sends and Shift+Enter starts a new line. */
+  const coarsePointer = useRef(false);
+  useEffect(() => {
+    coarsePointer.current = window.matchMedia("(pointer: coarse)").matches;
+  }, []);
 
   const active = useMemo(() => conversations.find((c) => c.id === activeId) ?? null, [conversations, activeId]);
   const rows = useMemo(() => buildRows(messages, myId, active?.members ?? []), [messages, myId, active]);
@@ -197,7 +226,18 @@ function MessagesPageInner() {
         const kept = current.filter((m) => ids.has(m.id) || (floor !== undefined && m.createdAt < floor));
         const known = new Set(kept.map((m) => m.id));
         const fresh = items.filter((m) => !known.has(m.id));
-        return fresh.length || kept.length !== current.length ? [...kept, ...fresh] : current;
+        // A message the writer corrected since it was fetched comes back with its new text: take the server's version.
+        const latest = new Map(items.map((m) => [m.id, m]));
+        let corrected = false;
+        const merged = kept.map((m) => {
+          const now = latest.get(m.id);
+          if (now && (now.text !== m.text || now.editedAt !== m.editedAt)) {
+            corrected = true;
+            return now;
+          }
+          return m;
+        });
+        return fresh.length || corrected || kept.length !== current.length ? [...merged, ...fresh] : current;
       });
       if (initial) setHasOlder(result.body.hasMore);
       if (result.body.items.length > 0) {
@@ -226,6 +266,76 @@ function MessagesPageInner() {
     if (el && stickToBottom.current) el.scrollTop = el.scrollHeight;
   }, [messages, activeId]);
 
+  // On a phone the chat is the visible part of the screen above the keyboard: the box is as tall as what the keyboard leaves, so the
+  // message box sits right on top of it. (`--vvh`/`--vvt` are read by the root's classes; nothing re-renders when they change.)
+  const boxReady = ready && !!myId;
+  useEffect(() => {
+    const el = rootRef.current;
+    const viewport = window.visualViewport;
+    if (!boxReady || !el || !viewport) return;
+    const narrow = window.matchMedia("(max-width: 1023px)");
+    const html = document.documentElement;
+    const apply = () => {
+      if (!narrow.matches) {
+        el.style.removeProperty("--vvh");
+        el.style.removeProperty("--vvt");
+        el.style.removeProperty("--sab");
+        html.style.overflow = "";
+        return;
+      }
+      html.style.overflow = "hidden"; // the page behind does not scroll under the chat
+      el.style.setProperty("--vvh", `${viewport.height}px`);
+      el.style.setProperty("--vvt", `${viewport.offsetTop}px`);
+      // Room for the home bar only while the keyboard is down; over the keyboard there is no bar to clear.
+      el.style.setProperty("--sab", window.innerHeight - viewport.height > KEYBOARD_MIN_PX ? "0px" : "env(safe-area-inset-bottom, 0px)");
+      const list = scroller.current;
+      if (list && stickToBottom.current) list.scrollTop = list.scrollHeight;
+    };
+    apply();
+    viewport.addEventListener("resize", apply);
+    viewport.addEventListener("scroll", apply);
+    narrow.addEventListener("change", apply);
+    return () => {
+      viewport.removeEventListener("resize", apply);
+      viewport.removeEventListener("scroll", apply);
+      narrow.removeEventListener("change", apply);
+      html.style.overflow = "";
+    };
+  }, [boxReady]);
+
+  // The message box grows with the text (to a limit), and the caret goes after a picked emoji.
+  useLayoutEffect(() => {
+    const el = inputRef.current;
+    if (!el) return;
+    el.style.height = "auto";
+    el.style.height = `${Math.min(el.scrollHeight + (el.offsetHeight - el.clientHeight), INPUT_MAX_PX)}px`;
+    if (caretAfter.current !== null) {
+      el.setSelectionRange(caretAfter.current, caretAfter.current);
+      caretAfter.current = null;
+    }
+    const list = scroller.current;
+    if (list && stickToBottom.current) list.scrollTop = list.scrollHeight;
+  }, [draft, activeId, emojiOpen]);
+
+  // Switching between the emoji drawer and the keyboard: the box keeps its caret, and only asks for the phone's keyboard when the drawer is shut.
+  const drawerRan = useRef(false);
+  useEffect(() => {
+    if (!drawerRan.current) {
+      drawerRan.current = true;
+      return;
+    }
+    const el = inputRef.current;
+    if (!el) return;
+    el.blur();
+    el.focus({ preventScroll: true });
+  }, [emojiOpen]);
+
+  // Opening a chat: on a computer the cursor is in the box already; on a phone the keyboard waits until it is asked for.
+  useEffect(() => {
+    setEmojiOpen(false);
+    if (activeId && !coarsePointer.current) inputRef.current?.focus({ preventScroll: true });
+  }, [activeId]);
+
   async function loadOlder() {
     if (!activeId || messages.length === 0) return;
     const result = await chatApi.messages(activeId, { before: messages[0].createdAt, limit: 40 });
@@ -236,8 +346,7 @@ function MessagesPageInner() {
     }
   }
 
-  async function send(e: React.FormEvent) {
-    e.preventDefault();
+  async function submit() {
     const text = draft.trim();
     if (!activeId || !text || sending || mute.muted) return;
     setSending(true);
@@ -252,6 +361,18 @@ function MessagesPageInner() {
     stickToBottom.current = true;
     setMessages((current) => (current.some((m) => m.id === result.body.id) ? current : [...current, result.body]));
     void refreshList();
+    // The keyboard stays up for the next message, as in any chat app.
+    if (!emojiOpen) inputRef.current?.focus({ preventScroll: true });
+  }
+
+  function pickEmoji(emoji: string) {
+    const el = inputRef.current;
+    const start = el?.selectionStart ?? draft.length;
+    const end = el?.selectionEnd ?? draft.length;
+    const next = draft.slice(0, start) + emoji + draft.slice(end);
+    if (next.length > MAX_MESSAGE) return;
+    caretAfter.current = start + emoji.length;
+    setDraft(next);
   }
 
   async function saveEdit() {
@@ -308,8 +429,12 @@ function MessagesPageInner() {
   if (!myId) return <div className="container py-16 text-center text-lunex-gray">يجب تسجيل الدخول لعرض رسائلك.</div>;
 
   return (
-    <div className="container py-3 lg:py-6">
-      <div className={cn("mb-3 flex items-center justify-between gap-3 lg:mb-4", active && "hidden lg:flex")}>
+    <div
+      ref={rootRef}
+      className="fixed inset-x-0 top-[var(--vvt,0px)] z-[45] flex h-[var(--vvh,100dvh)] flex-col overflow-hidden bg-background lg:static lg:z-auto lg:block lg:h-auto lg:overflow-visible lg:bg-transparent lg:container lg:py-6"
+    >
+      {/* A wide screen keeps the page's own title row; on a phone the bars of the list and of the chat take its place. */}
+      <div className="mb-4 hidden items-center justify-between gap-3 lg:flex">
         <h1 className="section-title font-display text-2xl font-bold text-white">الرسائل</h1>
         <div className="flex items-center gap-2">
           {blocked.length > 0 && (
@@ -323,42 +448,65 @@ function MessagesPageInner() {
         </div>
       </div>
 
-      <div className="grid gap-4 lg:grid-cols-[320px_1fr]">
+      <div className="flex min-h-0 flex-1 flex-col lg:grid lg:grid-cols-[320px_1fr] lg:gap-4">
         {/* The list: on a phone it is the whole screen until a chat is opened. */}
-        <div className={cn("panel h-[calc(100dvh-13rem)] min-h-[16rem] overflow-y-auto lg:h-[72vh]", active && "hidden lg:block")}>
-          {!listLoaded ? (
-            <div className="flex justify-center p-8 text-lunex-gray"><Loader2 className="h-5 w-5 animate-spin" /></div>
-          ) : conversations.length === 0 ? (
-            <div className="space-y-3 p-6 text-center text-sm text-lunex-gray">
-              <p>لا توجد محادثات بعد.</p>
-              <Button size="sm" variant="secondary" onClick={() => setNewChatOpen(true)}>ابدأ محادثة</Button>
-            </div>
-          ) : (
-            conversations.map((c) => (
-              <button
-                key={c.id}
-                onClick={() => setActiveId(c.id)}
-                className={cn(
-                  "flex w-full items-center gap-3 border-b border-white/5 p-3 text-start transition-colors hover:bg-primary-600/10",
-                  activeId === c.id && "bg-primary-600/15"
-                )}
-              >
-                <ChatAvatar conversation={c} myId={myId} size={40} />
-                <div className="min-w-0 flex-1">
-                  <p className="truncate text-sm font-bold text-white">{conversationName(c, myId)}</p>
-                  <p className="truncate text-xs text-lunex-gray">{c.lastMessage ? c.lastMessage.text : "لا توجد رسائل بعد"}</p>
-                </div>
-                {c.unreadCount > 0 && (
-                  <span className="flex min-w-[1.25rem] shrink-0 items-center justify-center rounded-full bg-primary-500 px-1.5 text-[11px] font-bold leading-5 text-white">
-                    {c.unreadCount > 9 ? "9+" : c.unreadCount}
-                  </span>
-                )}
-              </button>
-            ))
-          )}
+        <div className={cn("flex min-h-0 flex-1 flex-col lg:panel lg:h-[72vh] lg:flex-none", active && "hidden lg:flex")}>
+          <div className="flex shrink-0 items-center gap-1 border-b border-white/10 bg-background/95 px-2 pb-2 pt-[max(0.5rem,env(safe-area-inset-top))] lg:hidden">
+            <Button asChild variant="ghost" size="icon" aria-label="الرئيسية">
+              <Link href="/">
+                <ArrowRight className="h-5 w-5" />
+              </Link>
+            </Button>
+            <h1 className="flex-1 font-display text-lg font-bold text-white">الرسائل</h1>
+            {blocked.length > 0 && (
+              <Button variant="ghost" size="icon" onClick={() => setBlockedOpen(true)} aria-label={`المحظورون (${blocked.length})`}>
+                <Ban className="h-5 w-5" />
+              </Button>
+            )}
+            <Button size="icon" onClick={() => setNewChatOpen(true)} aria-label="محادثة جديدة">
+              <Plus className="h-5 w-5" />
+            </Button>
+          </div>
+          <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain">
+            {!listLoaded ? (
+              <div className="flex justify-center p-8 text-lunex-gray"><Loader2 className="h-5 w-5 animate-spin" /></div>
+            ) : conversations.length === 0 ? (
+              <div className="space-y-3 p-6 text-center text-sm text-lunex-gray">
+                <p>لا توجد محادثات بعد.</p>
+                <Button size="sm" variant="secondary" onClick={() => setNewChatOpen(true)}>ابدأ محادثة</Button>
+              </div>
+            ) : (
+              conversations.map((c) => (
+                <button
+                  key={c.id}
+                  onClick={() => setActiveId(c.id)}
+                  className={cn(
+                    "flex w-full items-center gap-3 border-b border-white/5 px-3 py-3 text-start transition-colors hover:bg-primary-600/10 active:bg-primary-600/15",
+                    activeId === c.id && "bg-primary-600/15"
+                  )}
+                >
+                  <ChatAvatar conversation={c} myId={myId} size={48} />
+                  <div className="min-w-0 flex-1">
+                    <div className="flex items-baseline justify-between gap-2">
+                      <p className="truncate text-sm font-bold text-white">{conversationName(c, myId)}</p>
+                      {c.lastMessage && <span className="shrink-0 text-[11px] text-lunex-gray">{listTime(c.lastMessageAt)}</span>}
+                    </div>
+                    <div className="mt-0.5 flex items-center justify-between gap-2">
+                      <p className="truncate text-xs text-lunex-gray">{c.lastMessage ? c.lastMessage.text : "لا توجد رسائل بعد"}</p>
+                      {c.unreadCount > 0 && (
+                        <span className="flex min-w-[1.25rem] shrink-0 items-center justify-center rounded-full bg-primary-500 px-1.5 text-[11px] font-bold leading-5 text-white">
+                          {c.unreadCount > 9 ? "9+" : c.unreadCount}
+                        </span>
+                      )}
+                    </div>
+                  </div>
+                </button>
+              ))
+            )}
+          </div>
         </div>
 
-        <div className={cn("panel flex h-[calc(100dvh-12rem-env(safe-area-inset-bottom))] min-h-[20rem] flex-col overflow-hidden lg:h-[72vh]", !active && "hidden lg:flex")}>
+        <div className={cn("flex min-h-0 flex-1 flex-col overflow-hidden lg:panel lg:h-[72vh] lg:flex-none", !active && "hidden lg:flex")}>
           {!active ? (
             <div className="flex flex-1 flex-col items-center justify-center gap-2 p-10 text-center text-lunex-gray">
               <MessageCircle className="h-10 w-10" />
@@ -366,15 +514,33 @@ function MessagesPageInner() {
             </div>
           ) : (
             <>
-              <div className="flex items-center gap-3 border-b border-white/10 p-3">
+              <div className="flex shrink-0 items-center gap-1 border-b border-white/10 bg-background/95 px-2 pb-2 pt-[max(0.5rem,env(safe-area-inset-top))] lg:gap-2 lg:bg-transparent lg:p-3">
                 <Button variant="ghost" size="icon" className="lg:hidden" onClick={() => setActiveId(null)} aria-label="رجوع">
                   <ArrowRight className="h-5 w-5" />
                 </Button>
-                <ChatAvatar conversation={active} myId={myId} size={36} />
-                <div className="min-w-0 flex-1">
-                  <p className="truncate font-display font-bold text-white">{conversationName(active, myId)}</p>
-                  {active.isGroup && <p className="truncate text-xs text-lunex-gray">{active.members.map((m) => m.displayName).join("، ")}</p>}
-                </div>
+                {peer ? (
+                  <Link
+                    href={`/profile/${encodeURIComponent(peer.username)}`}
+                    aria-label={`الملف الشخصي لـ ${peer.displayName}`}
+                    className="flex min-w-0 flex-1 items-center gap-3 rounded-xl px-1 py-0.5 transition-colors hover:bg-white/5"
+                  >
+                    <ChatAvatar conversation={active} myId={myId} size={38} />
+                    <div className="min-w-0 flex-1">
+                      <p className="truncate font-display font-bold text-white">{conversationName(active, myId)}</p>
+                      <p className="truncate text-xs text-lunex-gray">
+                        <bdi dir="ltr">@{peer.username}</bdi>
+                      </p>
+                    </div>
+                  </Link>
+                ) : (
+                  <div className="flex min-w-0 flex-1 items-center gap-3 px-1">
+                    <ChatAvatar conversation={active} myId={myId} size={38} />
+                    <div className="min-w-0 flex-1">
+                      <p className="truncate font-display font-bold text-white">{conversationName(active, myId)}</p>
+                      {active.isGroup && <p className="truncate text-xs text-lunex-gray">{active.members.map((m) => m.displayName).join("، ")}</p>}
+                    </div>
+                  </div>
+                )}
                 {peer && (
                   <Button
                     variant="ghost"
@@ -449,10 +615,14 @@ function MessagesPageInner() {
                         )}
                         {!row.mine && (
                           <div className="w-7 shrink-0" aria-hidden={!row.last}>
-                            {row.last && row.sender && <PersonAvatar person={row.sender} size={28} />}
+                            {row.last && row.sender && (
+                              <Link href={`/profile/${encodeURIComponent(row.sender.username)}`} aria-label={`الملف الشخصي لـ ${row.sender.displayName}`} className="block rounded-full">
+                                <PersonAvatar person={row.sender} size={28} />
+                              </Link>
+                            )}
                           </div>
                         )}
-                        <div className={cn("max-w-[78%] rounded-2xl px-3 py-1.5 text-sm", row.mine ? "bg-lunex-gradient text-white" : "bg-white/5 text-lunex-gray")}>
+                        <div className={cn("max-w-[82%] rounded-2xl px-3 py-1.5 text-sm", row.mine ? "bg-lunex-gradient text-white" : "bg-white/5 text-lunex-gray")}>
                           {row.first && !row.mine && active.isGroup && row.sender && (
                             <p className="mb-0.5 text-[11px] font-semibold text-primary-300">{row.sender.displayName}</p>
                           )}
@@ -463,13 +633,13 @@ function MessagesPageInner() {
                                 onChange={(e) => setEditing({ id: editing.id, text: e.target.value })}
                                 onKeyDown={(e) => {
                                   if (e.key === "Escape") setEditing(null);
-                                  if (e.key === "Enter" && !e.shiftKey) {
+                                  if (e.key === "Enter" && !e.shiftKey && !coarsePointer.current) {
                                     e.preventDefault();
                                     void saveEdit();
                                   }
                                 }}
                                 rows={Math.min(6, Math.max(2, editing.text.split("\n").length))}
-                                maxLength={4000}
+                                maxLength={MAX_MESSAGE}
                                 autoFocus
                                 aria-label="نص الرسالة"
                                 className="block w-full min-w-[12rem] resize-none rounded-lg bg-black/25 p-2 text-base text-white outline-none sm:text-sm"
@@ -495,30 +665,69 @@ function MessagesPageInner() {
                 )}
               </div>
 
-              <div className="shrink-0 border-t border-white/10 p-2.5 pb-[max(0.625rem,env(safe-area-inset-bottom))] sm:p-3">
-                <MuteNotice className="mb-2" />
-                {error && <p className="mb-2 text-xs text-red-400" role="alert">{error}</p>}
-                {peerBlocked && peer ? (
-                  <div className="flex items-center justify-between gap-3 rounded-xl bg-white/5 p-3 text-sm text-lunex-gray">
-                    <span>حظرت {peer.displayName}. ألغِ الحظر إن أردت المراسلة من جديد.</span>
-                    <Button size="sm" variant="secondary" onClick={() => void toggleBlock(peer)}>إلغاء الحظر</Button>
-                  </div>
-                ) : (
-                <form onSubmit={send} className="flex items-center gap-2">
-                  <Input
-                    value={draft}
-                    onChange={(e) => setDraft(e.target.value)}
-                    placeholder="اكتب رسالتك..."
-                    className="h-11 flex-1 text-base"
-                    maxLength={2000}
-                    disabled={mute.muted}
-                    aria-label="نص الرسالة"
-                  />
-                  <Button type="submit" size="icon" className="h-11 w-11 shrink-0" aria-label="إرسال" disabled={!draft.trim() || sending || mute.muted}>
-                    {sending ? <Loader2 className="h-4 w-4 animate-spin" /> : <Send className="h-4 w-4" />}
-                  </Button>
-                </form>
-                )}
+              <div className="shrink-0 border-t border-white/10 bg-background/95 pb-[var(--sab,0px)] lg:bg-transparent">
+                <div className="p-2 sm:p-3">
+                  <MuteNotice className="mb-2" />
+                  {error && <p className="mb-2 text-xs text-red-400" role="alert">{error}</p>}
+                  {peerBlocked && peer ? (
+                    <div className="flex items-center justify-between gap-3 rounded-xl bg-white/5 p-3 text-sm text-lunex-gray">
+                      <span>حظرت {peer.displayName}. ألغِ الحظر إن أردت المراسلة من جديد.</span>
+                      <Button size="sm" variant="secondary" onClick={() => void toggleBlock(peer)}>إلغاء الحظر</Button>
+                    </div>
+                  ) : (
+                    <form
+                      onSubmit={(e) => {
+                        e.preventDefault();
+                        void submit();
+                      }}
+                      className="flex items-end gap-1.5"
+                    >
+                      <Button
+                        type="button"
+                        variant="ghost"
+                        size="icon"
+                        className="h-11 w-11 shrink-0 rounded-full"
+                        onMouseDown={(e) => e.preventDefault()}
+                        onClick={() => setEmojiOpen((open) => !open)}
+                        aria-label={emojiOpen ? "لوحة المفاتيح" : "الرموز التعبيرية"}
+                        aria-pressed={emojiOpen}
+                        disabled={mute.muted}
+                      >
+                        {emojiOpen ? <Keyboard className="h-5 w-5" /> : <Smile className="h-5 w-5" />}
+                      </Button>
+                      <Textarea
+                        ref={inputRef}
+                        value={draft}
+                        onChange={(e) => setDraft(e.target.value)}
+                        onKeyDown={(e) => {
+                          if (e.key === "Enter" && !e.shiftKey && !e.nativeEvent.isComposing && !coarsePointer.current) {
+                            e.preventDefault();
+                            void submit();
+                          }
+                        }}
+                        rows={1}
+                        placeholder="اكتب رسالتك..."
+                        maxLength={MAX_MESSAGE}
+                        disabled={mute.muted}
+                        autoComplete="off"
+                        inputMode={emojiOpen ? "none" : "text"}
+                        aria-label="نص الرسالة"
+                        className="min-h-[2.75rem] flex-1 resize-none overflow-y-auto rounded-2xl py-[0.6875rem] text-base leading-[1.375rem] sm:text-base"
+                      />
+                      <Button
+                        type="submit"
+                        size="icon"
+                        className="h-11 w-11 shrink-0 rounded-full"
+                        onMouseDown={(e) => e.preventDefault()}
+                        aria-label="إرسال"
+                        disabled={!draft.trim() || sending || mute.muted}
+                      >
+                        {sending ? <Loader2 className="h-4 w-4 animate-spin" /> : <Send className="h-4 w-4" />}
+                      </Button>
+                    </form>
+                  )}
+                </div>
+                {emojiOpen && !peerBlocked && <EmojiPanel onPick={pickEmoji} />}
               </div>
             </>
           )}

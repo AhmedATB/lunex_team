@@ -6,12 +6,16 @@ import { BottomNav } from "./bottom-nav";
 import { Footer } from "./footer";
 import { Ticker } from "./ticker";
 import { PendingMain } from "./pending-main";
+import { HideOnRoutes } from "./hide-on-routes";
 import { SparkleField } from "@/components/effects/sparkle-field";
 import { NeonBackdrop } from "@/components/neon-backdrop";
 import { MagicCursor } from "@/components/effects/magic-cursor";
 import { ScrollPerformanceGuard } from "@/components/effects/scroll-performance-guard";
 import { ToastHost } from "@/components/ui/toast-host";
 import { ProgressWatcher } from "@/components/effects/progress-watcher";
+
+/** Pages that show none of the site's frame beyond the header on a wide screen. */
+const CHAT_ROUTES = ["/messages"];
 
 export function AppShell({ children, initialStyle }: { children: ReactNode; initialStyle: StyleId }) {
   return (
@@ -50,8 +54,13 @@ export function AppShell({ children, initialStyle }: { children: ReactNode; init
           }}
         />
       </div>
-      <Header />
-      <Ticker />
+      {/* The chat is an app of its own: on a phone it fills the screen (no header), and it never carries the news strip, footer or bottom bar. */}
+      <HideOnRoutes prefixes={CHAT_ROUTES} below="lg">
+        <Header />
+      </HideOnRoutes>
+      <HideOnRoutes prefixes={CHAT_ROUTES}>
+        <Ticker />
+      </HideOnRoutes>
       <div className="flex flex-1">
         <Suspense fallback={null}>
           <Sidebar />
@@ -60,10 +69,14 @@ export function AppShell({ children, initialStyle }: { children: ReactNode; init
           <PendingMain>{children}</PendingMain>
         </main>
       </div>
-      <Footer />
-      <Suspense fallback={null}>
-        <BottomNav />
-      </Suspense>
+      <HideOnRoutes prefixes={CHAT_ROUTES}>
+        <Footer />
+      </HideOnRoutes>
+      <HideOnRoutes prefixes={CHAT_ROUTES}>
+        <Suspense fallback={null}>
+          <BottomNav />
+        </Suspense>
+      </HideOnRoutes>
     </div>
   );
 }
