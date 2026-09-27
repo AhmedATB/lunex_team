@@ -1,5 +1,5 @@
 import { Suspense } from "react";
-import type { Metadata } from "next";
+import type { Metadata, Viewport } from "next";
 import { Cairo, Tajawal, Baloo_Bhaijaan_2 } from "next/font/google";
 import "./globals.css";
 import { NavigationProgress } from "@/components/navigation-progress";
@@ -34,6 +34,9 @@ const baloo = Baloo_Bhaijaan_2({
   variable: "--font-baloo",
   weight: ["500", "600", "700", "800"],
 });
+
+/** The phone's address bar and status bar take the site's dark ground. */
+export const viewport: Viewport = { themeColor: "#09090B" };
 
 export const metadata: Metadata = {
   metadataBase: new URL(SITE_URL),
