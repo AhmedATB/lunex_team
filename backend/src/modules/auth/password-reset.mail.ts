@@ -22,13 +22,13 @@ export function passwordResetMail(to: string, link: string): OutgoingMail {
   ].join("\n");
   const safe = escapeHtml(link);
   const html = `<!doctype html><html lang="ar" dir="rtl"><body style="margin:0;padding:24px;background:#0d0b14;font-family:Tahoma,Arial,sans-serif;color:#e8e6ef">
-<div style="max-width:480px;margin:auto;background:#161222;border:1px solid #2a2340;border-radius:16px;padding:28px">
-<h2 style="margin:0 0 12px;font-size:20px">استعادة كلمة المرور</h2>
-<p style="line-height:1.8;color:#b9b4cc;margin:0 0 20px">وصلنا طلب لاستعادة كلمة المرور لهذا الحساب. لاختيار كلمة مرور جديدة اضغط الزر:</p>
-<p style="margin:0 0 20px"><a href="${safe}" style="display:inline-block;background:#7c5cff;color:#fff;text-decoration:none;padding:12px 24px;border-radius:12px;font-weight:bold">اختيار كلمة مرور جديدة</a></p>
-<p style="line-height:1.8;color:#b9b4cc;font-size:13px;margin:0 0 8px">الرابط يعمل مرة واحدة فقط وينتهي بعد ${minutes} دقيقة.</p>
-<p style="line-height:1.8;color:#b9b4cc;font-size:13px;margin:0 0 16px">إذا لم يكن الطلب منك فتجاهل هذه الرسالة؛ لن يتغير شيء في الحساب.</p>
-<p style="line-height:1.6;color:#7d7796;font-size:12px;margin:0;word-break:break-all">إن لم يعمل الزر انسخ هذا الرابط إلى المتصفح:<br>${safe}</p>
+<div dir="rtl" style="direction:rtl;text-align:right;max-width:480px;margin:auto;background:#161222;border:1px solid #2a2340;border-radius:16px;padding:28px">
+<h2 dir="rtl" style="direction:rtl;text-align:right;margin:0 0 12px;font-size:20px">استعادة كلمة المرور</h2>
+<p dir="rtl" style="direction:rtl;text-align:right;line-height:1.8;color:#b9b4cc;margin:0 0 20px">وصلنا طلب لاستعادة كلمة المرور لهذا الحساب. لاختيار كلمة مرور جديدة اضغط الزر:</p>
+<p dir="rtl" style="direction:rtl;text-align:right;margin:0 0 20px"><a href="${safe}" style="display:inline-block;background:#7c5cff;color:#fff;text-decoration:none;padding:12px 24px;border-radius:12px;font-weight:bold">اختيار كلمة مرور جديدة</a></p>
+<p dir="rtl" style="direction:rtl;text-align:right;line-height:1.8;color:#b9b4cc;font-size:13px;margin:0 0 8px">الرابط يعمل مرة واحدة فقط وينتهي بعد ${minutes} دقيقة.</p>
+<p dir="rtl" style="direction:rtl;text-align:right;line-height:1.8;color:#b9b4cc;font-size:13px;margin:0 0 16px">إذا لم يكن الطلب منك فتجاهل هذه الرسالة؛ لن يتغير شيء في الحساب.</p>
+<p dir="rtl" style="direction:rtl;text-align:right;line-height:1.6;color:#7d7796;font-size:12px;margin:0;word-break:break-all">إن لم يعمل الزر انسخ هذا الرابط إلى المتصفح:<br>${safe}</p>
 </div></body></html>`;
   return { to, subject: "استعادة كلمة المرور — LUNEX TEAM", text, html };
 }
