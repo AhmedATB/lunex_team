@@ -15,6 +15,8 @@ interface WireChapter {
   views: number;
   isPublished: boolean;
   scheduledFor?: string;
+  /** Staff override of the lock: true = always locked, false = always open, null = automatic. */
+  manualLock?: boolean | null;
   teamId: string;
 }
 
@@ -48,6 +50,7 @@ export function useSeriesChapters(seriesId: string | undefined, slug: string | u
             views: c.views,
             isPublished: c.isPublished,
             scheduledFor: c.scheduledFor,
+            manualLock: c.manualLock,
             teamId: c.teamId,
           })),
         });

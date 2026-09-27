@@ -24,6 +24,8 @@ interface RealChapterRow {
   title: string;
   isPublished: boolean;
   scheduledFor: string | null;
+  /** Staff override of the lock: true = always locked, false = always open, null = automatic. */
+  manualLock: boolean | null;
   createdAt: string;
 }
 
@@ -86,6 +88,7 @@ export default function ReaderPage() {
         views: 0,
         isPublished: c.isPublished,
         scheduledFor: c.scheduledFor ?? undefined,
+        manualLock: c.manualLock,
         teamId: c.teamId,
       }))
     : [];
