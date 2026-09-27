@@ -1,8 +1,8 @@
 "use client";
 
 import { useEffect } from "react";
-import { BookOpenCheck, Coins, MessageCircle, Lock } from "lucide-react";
-import { CONTACT_DISCORD_URL } from "@/lib/site";
+import { BookOpenCheck, Coins, MessageCircle, Lock, Send } from "lucide-react";
+import { CONTACT_DISCORD_URL, CONTACT_TELEGRAM_URL } from "@/lib/site";
 import { useSession } from "@/store/session";
 import { useWallet } from "@/store/wallet";
 import { Button } from "@/components/ui/button";
@@ -10,7 +10,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Progress } from "@/components/ui/progress";
 
-/** Sizes offered when asking for coins; the price of a pack is agreed on Discord, where the coins are added to the account. */
+/** Sizes offered when asking for coins; the price of a pack is agreed on Discord or Telegram, where the coins are added to the account. */
 const COIN_PACKS = [100, 550, 1200];
 
 export default function StorePage() {
@@ -81,7 +81,7 @@ export default function StorePage() {
         </CardHeader>
         <CardContent className="space-y-4">
           <p className="text-sm leading-relaxed text-lunex-gray">
-            فتح الفصل الواحد يكلّف <span className="font-bold text-white">{price} عملة</span>. تحصل على العملات بالتواصل معنا على ديسكورد، ونضيفها
+            فتح الفصل الواحد يكلّف <span className="font-bold text-white">{price} عملة</span>. تحصل على العملات بالتواصل معنا على ديسكورد أو تيليجرام، ونضيفها
             إلى حسابك بعد الدفع. لا يوجد دفع داخل الموقع.
           </p>
           <div className="grid grid-cols-3 gap-3">
@@ -95,11 +95,18 @@ export default function StorePage() {
               </div>
             ))}
           </div>
-          <Button asChild className="w-full">
-            <a href={CONTACT_DISCORD_URL} target="_blank" rel="noopener noreferrer">
-              <MessageCircle className="h-4 w-4" /> اطلب العملات عبر ديسكورد
-            </a>
-          </Button>
+          <div className="flex flex-col gap-2 sm:flex-row">
+            <Button asChild className="w-full sm:flex-1">
+              <a href={CONTACT_DISCORD_URL} target="_blank" rel="noopener noreferrer">
+                <MessageCircle className="h-4 w-4" /> اطلب العملات عبر ديسكورد
+              </a>
+            </Button>
+            <Button asChild variant="secondary" className="w-full sm:flex-1">
+              <a href={CONTACT_TELEGRAM_URL} target="_blank" rel="noopener noreferrer">
+                <Send className="h-4 w-4" /> اطلب العملات عبر تيليجرام
+              </a>
+            </Button>
+          </div>
           <p className="text-xs text-lunex-gray">الأسعار وطرق الدفع المتاحة تُحدَّد عند التواصل. اذكر اسم المستخدم الخاص بك بالضبط.</p>
         </CardContent>
       </Card>
