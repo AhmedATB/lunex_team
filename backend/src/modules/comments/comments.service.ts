@@ -18,6 +18,8 @@ import { MAX_COMMENT_LENGTH, type CreateCommentDto, type UpdateCommentDto } from
 import { CommentsRepository } from "./comments.repository";
 
 const LIST_LIMIT = 300;
+const REPLIES_LIMIT = 1500;
+const NOTICE_EXCERPT = 90;
 const LATEST_MAX = 30;
 const QUEUE_LIMIT = 100;
 const MINUTE_MS = 60_000;
@@ -42,6 +44,7 @@ interface CommentRow {
   id: string;
   seriesId: string;
   userId: string;
+  parentId: string | null;
   content: string;
   isSpoiler: boolean;
   isPinned: boolean;
@@ -59,8 +62,9 @@ export class CommentsService {
   ) {}
 
   async listForSeries(seriesId: string, viewerId: string | undefined) {
-    const rows = await this.repo.listForSeries(seriesId, LIST_LIMIT);
-    return { comments: await this.toDtos(rows, viewerId) };
+    const roots = await this.repo.listForSeries(seriesId, LIST_LIMIT);
+    const replies = await this.repo.listReplies(roots.map((r) => r.id), REPLIES_LIMIT);
+    return { comments: await this.toDtos([...roots, ...replies], viewerId) };
   }
 
   async latest(limit: number) {
@@ -78,6 +82,9 @@ export class CommentsService {
     }
 
     const content = this.validContent(dto.content);
+    const target = dto.parentId ? await this.requireReplyTarget(dto.parentId, dto.seriesId) : null;
+    // One level of replies: answering a reply files the answer under the same top-level comment, as an answer to that person.
+    const threadId = target ? (target.parentId ?? target.id) : null;
     const now = Date.now();
 
     if ((await this.repo.countByAuthorSince(userId, new Date(now - MINUTE_MS))) >= MAX_PER_MINUTE) {
@@ -86,12 +93,13 @@ export class CommentsService {
     if ((await this.repo.countByAuthorSince(userId, new Date(now - HOUR_MS))) >= MAX_PER_HOUR) {
       throw new HttpException({ code: "comment_rate_limited", message: "Comment limit reached for this hour." }, HttpStatus.TOO_MANY_REQUESTS);
     }
-    if (await this.repo.findRecentDuplicate(userId, dto.seriesId, content, new Date(now - DUPLICATE_WINDOW_MS))) {
+    if (await this.repo.findRecentDuplicate(userId, dto.seriesId, content, new Date(now - DUPLICATE_WINDOW_MS), threadId)) {
       throw new ConflictException({ code: "duplicate_comment", message: "You already posted this comment." });
     }
 
-    const row = await this.repo.create({ seriesId: dto.seriesId, userId, content, isSpoiler: dto.isSpoiler ?? false });
+    const row = await this.repo.create({ seriesId: dto.seriesId, userId, content, isSpoiler: dto.isSpoiler ?? false, ...(threadId ? { parentId: threadId } : {}) });
     await this.progress.awardComment(userId); // experience for the comment; never fails the comment itself
+    if (target) await this.tellOfReply(target, row);
     return (await this.toDtos([row], userId))[0];
   }
 
@@ -125,6 +133,7 @@ export class CommentsService {
     }
     if (dto.isPinned !== undefined) {
       if (!isStaff) throw new ForbiddenException({ code: "insufficient_permissions", message: "Only staff can pin comments." });
+      if (comment.parentId) throw new BadRequestException({ code: "reply_cannot_be_pinned", message: "Only a top-level comment can be pinned." });
       patch.isPinned = dto.isPinned;
     }
     if (Object.keys(patch).length === 0) return (await this.toDtos([comment], actorId))[0];
@@ -212,6 +221,28 @@ export class CommentsService {
     await this.repo.writeAuditLog({ actorId: actor.id, action: "comment.reports_dismissed", target: id, ip: ctx.ip });
   }
 
+  /** The comment being answered: it must exist, be visible, and be on the same work as the answer. */
+  private async requireReplyTarget(parentId: string, seriesId: string) {
+    const target = await this.repo.findById(parentId);
+    if (!target || target.deletedAt || target.seriesId !== seriesId) {
+      throw new NotFoundException({ code: "comment_not_found", message: "The comment you are replying to no longer exists." });
+    }
+    return target;
+  }
+
+  /** Tells the person answered (never the writer themselves). A notification failing never fails the reply. */
+  private async tellOfReply(target: { userId: string; seriesId: string }, reply: CommentRow) {
+    if (target.userId === reply.userId) return;
+    try {
+      const slug = await this.repo.seriesSlug(target.seriesId);
+      const name = reply.user.displayName ?? reply.user.username;
+      const excerpt = reply.content.length > NOTICE_EXCERPT ? `${reply.content.slice(0, NOTICE_EXCERPT - 1).trimEnd()}…` : reply.content;
+      await this.notifications.notify(target.userId, "reply", "رد جديد على تعليقك", `${name}: ${excerpt}`, slug ? `/series/${encodeURIComponent(slug)}` : undefined);
+    } catch {
+      // the reply is already posted
+    }
+  }
+
   private validContent(raw: string): string {
     const content = cleanCommentText(raw);
     if (content === null) throw new BadRequestException({ code: "empty_comment", message: "A comment can't be empty." });
@@ -264,6 +295,7 @@ export class CommentsService {
       return {
         id: row.id,
         seriesId: row.seriesId,
+        parentId: row.parentId,
         content: fixTanween(row.content),
         isSpoiler: row.isSpoiler,
         isPinned: row.isPinned,

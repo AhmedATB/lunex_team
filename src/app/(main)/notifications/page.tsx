@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useMemo, useState } from "react";
 import Link from "next/link";
-import { Bell, BookOpen, CheckCheck, Coins, Loader2, Newspaper, ShieldAlert, Sparkles, Users } from "lucide-react";
+import { Bell, BookOpen, CheckCheck, Coins, Loader2, MessageCircle, Newspaper, ShieldAlert, Sparkles, Users } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
 import { NOTIFICATIONS_CHANGED } from "@/components/layout/notifications-bell";
 import { groupByPeriod } from "@/lib/notification-groups";
@@ -19,6 +19,7 @@ const ICONS: Record<string, { icon: LucideIcon; tone: string }> = {
   coins: { icon: Coins, tone: "bg-amber-500/15 text-amber-300" },
   team: { icon: Users, tone: "bg-fuchsia-500/15 text-fuchsia-300" },
   moderation: { icon: ShieldAlert, tone: "bg-red-500/15 text-red-300" },
+  reply: { icon: MessageCircle, tone: "bg-teal-500/15 text-teal-300" },
 };
 
 interface Page {

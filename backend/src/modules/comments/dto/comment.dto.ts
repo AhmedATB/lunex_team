@@ -19,6 +19,11 @@ export class CreateCommentDto {
   @IsOptional()
   @IsBoolean()
   isSpoiler?: boolean;
+
+  /** Makes this a reply to that comment (a top-level one, or another reply — the server files it under the top-level comment either way). */
+  @IsOptional()
+  @Matches(SERIES_ID_PATTERN, { message: "parentId is not valid" })
+  parentId?: string;
 }
 
 /** Which field may be changed depends on who is asking — CommentsService decides. */

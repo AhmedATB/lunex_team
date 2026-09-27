@@ -3,7 +3,7 @@
 import { useEffect, useState } from "react";
 import Image from "next/image";
 import Link from "next/link";
-import { ThumbsUp, ThumbsDown, Pin, PinOff, Send, Pencil, Trash2, EyeOff, AlertTriangle, AlertCircle, Check, X, Flag, Loader2 } from "lucide-react";
+import { ThumbsUp, ThumbsDown, Pin, PinOff, Send, Pencil, Trash2, EyeOff, AlertTriangle, AlertCircle, Check, X, Flag, Loader2, Reply, ChevronDown } from "lucide-react";
 import type { Comment, User } from "@/lib/types";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
@@ -40,6 +40,19 @@ import { MuteNotice } from "@/components/moderation/mute-notice";
 const REPORT_REASONS = ["محتوى غير مناسب", "تحرش أو إساءة", "معلومات مضللة", "سبام", "أخرى"];
 const STAFF_ROLES = new Set(["owner", "super_administrator", "moderator"]);
 
+/** A reply that names a person ("@name") shows the name in colour and as one left-to-right piece, so the "@" stays in front of it inside Arabic text. */
+function withMentions(text: string) {
+  return text.split(/(@[A-Za-z0-9_]{2,32})/).map((part, i) =>
+    i % 2 === 1 ? (
+      <bdi key={i} dir="ltr" className="font-medium text-primary-300">
+        {part}
+      </bdi>
+    ) : (
+      part
+    )
+  );
+}
+
 /** What a comment row reads off its author — satisfied by a mock `User` and by a real account's public author alike. */
 interface Person {
   id: string;
@@ -69,6 +82,11 @@ export function CommentSection({
   const [reportedIds, setReportedIds] = useState<Set<string>>(new Set());
   const [busy, setBusy] = useState<string | null>(null);
   const [actionError, setActionError] = useState("");
+  /** The reply being written: to which comment, under which top-level comment, and the text so far. */
+  const [reply, setReply] = useState<{ to: string; thread: string; text: string } | null>(null);
+  /** Threads the reader opened or folded by hand; a thread of two replies or fewer is open until folded, a longer one is folded until opened. */
+  const [openThreads, setOpenThreads] = useState<Set<string>>(new Set());
+  const [foldedThreads, setFoldedThreads] = useState<Set<string>>(new Set());
 
   const currentUserId = useSession((s) => s.currentUserId);
   const viewerRole = useSession((s) => s.user?.role);
@@ -115,6 +133,26 @@ export function CommentSection({
 
   const mute = useMuteStatus();
 
+  // Top-level comments, and under each one its replies, oldest first (a conversation reads downwards).
+  const roots = comments.filter((c) => !c.parentId);
+  const repliesOf = new Map<string, CommentRow[]>();
+  for (const c of comments) {
+    if (c.parentId) repliesOf.set(c.parentId, [...(repliesOf.get(c.parentId) ?? []), c]);
+  }
+  for (const list of repliesOf.values()) list.sort((a, b) => +new Date(a.createdAt) - +new Date(b.createdAt));
+  const isThreadOpen = (id: string, count: number) => openThreads.has(id) || (count <= 2 && !foldedThreads.has(id));
+
+  function toggleThread(id: string, open: boolean) {
+    const add = (s: Set<string>) => new Set(s).add(id);
+    const drop = (s: Set<string>) => {
+      const next = new Set(s);
+      next.delete(id);
+      return next;
+    };
+    setOpenThreads(open ? drop : add);
+    setFoldedThreads(open ? add : drop);
+  }
+
   function replaceServerRow(updated: ServerComment) {
     const row = serverToRow(updated);
     setServerRows((rows) => rows.map((r) => (r.id === row.id ? row : r)));
@@ -134,6 +172,43 @@ export function CommentSection({
     commentsStore.notePostedOnServer(currentUser.id);
     setDraft("");
     setDraftIsSpoiler(false);
+  }
+
+  function startReply(c: CommentRow, person: Person) {
+    if (!currentUserId) {
+      setActionError("سجّل الدخول للرد على التعليقات.");
+      return;
+    }
+    setActionError("");
+    if (reply?.to === c.id) {
+      setReply(null);
+      return;
+    }
+    // Answering a reply names the person, since the answer sits in the same thread as everybody else's.
+    setReply({ to: c.id, thread: c.parentId ?? c.id, text: c.parentId ? `@${person.username} ` : "" });
+  }
+
+  async function sendReply() {
+    if (!reply || !reply.text.trim() || !currentUser || mute.muted || busy) return;
+    setActionError("");
+    setBusy("reply");
+    const res = await commentApi<ServerComment>("POST", "", { seriesId, content: reply.text, parentId: reply.to });
+    setBusy(null);
+    if (!res.ok || !res.body) {
+      setActionError(commentErrorMessage(res));
+      return;
+    }
+    setServerRows((rows) => [serverToRow(res.body as ServerComment), ...rows]);
+    commentsStore.notePostedOnServer(currentUser.id);
+    // Show the answer where it landed, even if the thread was folded.
+    const thread = reply.thread;
+    setOpenThreads((s) => new Set(s).add(thread));
+    setFoldedThreads((s) => {
+      const next = new Set(s);
+      next.delete(thread);
+      return next;
+    });
+    setReply(null);
   }
 
   function startEdit(c: Comment) {
@@ -174,7 +249,7 @@ export function CommentSection({
       setActionError(commentErrorMessage(res));
       return;
     }
-    setServerRows((rows) => rows.filter((r) => r.id !== c.id));
+    setServerRows((rows) => rows.filter((r) => r.id !== c.id && r.parentId !== c.id));
   }
 
   async function patch(c: CommentRow, body: { isPinned?: boolean; isSpoiler?: boolean }) {
@@ -253,6 +328,218 @@ export function CommentSection({
     return reportedIds.has(id) || Boolean(currentUserId && commentsStore.reports[id]?.some((r) => r.reporterId === currentUserId));
   }
 
+  function renderComment(c: CommentRow, isReply = false) {
+      const user: Person | undefined =
+        c.server && c.author ? authorAsUser(c.author) : (userMap.get(c.userId) ?? db.users.find((u) => u.id === c.userId));
+      if (!user) return null;
+      const reaction = c.server ? (c.myReaction ?? undefined) : commentsStore.reactions[c.id];
+      const likes = c.server ? c.likes : c.likes + (reaction === "like" ? 1 : 0);
+      const dislikes = c.server ? c.dislikes : c.dislikes + (reaction === "dislike" ? 1 : 0);
+      const isOwn = c.userId === currentUserId;
+      const isEditing = editingId === c.id;
+      const isBlurred = c.isSpoiler && !revealedIds.has(c.id) && !isEditing;
+      const canModerate = c.server ? isStaff : canModerateMock;
+      const working = busy === c.id;
+      const replies = isReply ? [] : (repliesOf.get(c.id) ?? []);
+      const threadOpen = isThreadOpen(c.id, replies.length);
+
+      return (
+        <div key={c.id} className={cn(isReply ? "flex gap-2.5 py-2" : "panel panel-hover flex gap-3 p-4", working && "opacity-70")}>
+          <Link
+            href={`/profile/${encodeURIComponent(user.username)}`}
+            className={cn(
+              "relative shrink-0 overflow-hidden rounded-full ring-2 ring-white/10 transition-shadow hover:ring-primary-400/60",
+              isReply ? "h-7 w-7" : "h-9 w-9"
+            )}
+            aria-label={`الملف الشخصي لـ ${user.displayName}`}
+          >
+            <Image src={avatarSrcFor(user, avatarOverrides)} alt={user.displayName} fill sizes={isReply ? "28px" : "36px"} className="object-cover" />
+          </Link>
+          <div className="min-w-0 flex-1">
+            <div className="flex items-center gap-2">
+              <Link href={`/profile/${encodeURIComponent(user.username)}`} className="text-sm font-semibold text-white hover:text-primary-300">
+                {user.displayName}
+              </Link>
+              {c.isPinned && (
+                <Badge variant="outline" className="flex items-center gap-1 text-[10px]">
+                  <Pin className="h-2.5 w-2.5" /> مثبّت
+                </Badge>
+              )}
+              <p className="text-[11px] text-lunex-gray">
+                {timeAgo(c.createdAt)}
+                {c.editedAt && " · معدّل"}
+              </p>
+            </div>
+
+            {isEditing ? (
+              <div className="mt-2 space-y-2">
+                <Textarea value={editDraft} onChange={(e) => setEditDraft(e.target.value)} rows={2} maxLength={2000} />
+                <div className="flex justify-end gap-2">
+                  <Button size="sm" variant="ghost" onClick={() => setEditingId(null)}>
+                    <X className="h-3.5 w-3.5" /> إلغاء
+                  </Button>
+                  <Button size="sm" onClick={saveEdit} disabled={!editDraft.trim() || working}>
+                    <Check className="h-3.5 w-3.5" /> حفظ
+                  </Button>
+                </div>
+              </div>
+            ) : isBlurred ? (
+              <button
+                onClick={() => reveal(c.id)}
+                className="mt-1 flex w-full items-center gap-2 rounded-lg bg-black/30 px-3 py-2 text-start text-sm text-lunex-gray backdrop-blur-md transition-colors hover:bg-black/40"
+              >
+                <AlertTriangle className="h-3.5 w-3.5 shrink-0 text-amber-400" />
+                <span className="blur-sm select-none">{c.content}</span>
+                <span className="ms-auto shrink-0 whitespace-nowrap text-xs font-bold text-amber-300">حرق — اضغط للإظهار</span>
+              </button>
+            ) : (
+              <p className="mt-1 whitespace-pre-line text-sm text-lunex-gray">{withMentions(c.content)}</p>
+            )}
+
+            {!isEditing && (
+              <div className="mt-2 flex flex-wrap items-center gap-3">
+                <button
+                  onClick={() => react(c, "like")}
+                  disabled={c.server && isOwn}
+                  className={cn(
+                    "hover-pop flex items-center gap-1 text-xs transition-colors disabled:cursor-default disabled:opacity-60",
+                    reaction === "like" ? "text-primary-300" : "text-lunex-gray hover:text-white"
+                  )}
+                >
+                  <ThumbsUp className="h-3.5 w-3.5" /> {likes}
+                </button>
+                <button
+                  onClick={() => react(c, "dislike")}
+                  disabled={c.server && isOwn}
+                  className={cn(
+                    "hover-pop flex items-center gap-1 text-xs transition-colors disabled:cursor-default disabled:opacity-60",
+                    reaction === "dislike" ? "text-red-400" : "text-lunex-gray hover:text-white"
+                  )}
+                >
+                  <ThumbsDown className="h-3.5 w-3.5" /> {dislikes}
+                </button>
+                {c.server && (
+                <button
+                  onClick={() => startReply(c, user)}
+                  aria-expanded={reply?.to === c.id}
+                  className={cn(
+                    "flex items-center gap-1 py-1 text-xs transition-colors",
+                    reply?.to === c.id ? "text-primary-300" : "text-lunex-gray hover:text-white"
+                  )}
+                >
+                  <Reply className="h-3.5 w-3.5" /> رد
+                </button>
+              )}
+
+                {!isOwn && currentUserId && (
+                  hasReported(c.id) ? (
+                    <span className="flex items-center gap-1 text-xs text-lunex-gray/60">
+                      <Flag className="h-3 w-3" /> تم الإبلاغ
+                    </span>
+                  ) : (
+                    <DropdownMenu>
+                      <DropdownMenuTrigger asChild>
+                        <button className="flex items-center gap-1 text-xs text-lunex-gray hover:text-red-400">
+                          <Flag className="h-3 w-3" /> بلاغ
+                        </button>
+                      </DropdownMenuTrigger>
+                      <DropdownMenuContent align="start" className="w-48">
+                        <DropdownMenuLabel>سبب البلاغ</DropdownMenuLabel>
+                        {REPORT_REASONS.map((reason) => (
+                          <DropdownMenuItem key={reason} onClick={() => report(c, reason)}>
+                            {reason}
+                          </DropdownMenuItem>
+                        ))}
+                      </DropdownMenuContent>
+                    </DropdownMenu>
+                  )
+                )}
+
+                {isOwn && (
+                  <>
+                    <button
+                      onClick={() => startEdit(c)}
+                      className="flex items-center gap-1 text-xs text-lunex-gray hover:text-white"
+                    >
+                      <Pencil className="h-3 w-3" /> تعديل
+                    </button>
+                    <button
+                      onClick={() => remove(c)}
+                      className="flex items-center gap-1 text-xs text-lunex-gray hover:text-red-400"
+                    >
+                      <Trash2 className="h-3 w-3" /> حذف
+                    </button>
+                  </>
+                )}
+
+                {canModerate && !isOwn && (
+                  <>
+                    <button
+                      onClick={() => patch(c, { isPinned: !c.isPinned })}
+                      className="flex items-center gap-1 text-xs text-lunex-gray hover:text-white"
+                    >
+                      {c.isPinned ? <PinOff className="h-3 w-3" /> : <Pin className="h-3 w-3" />}
+                      {c.isPinned ? "إلغاء التثبيت" : "تثبيت"}
+                    </button>
+                    <button
+                      onClick={() => patch(c, { isSpoiler: !c.isSpoiler })}
+                      className="flex items-center gap-1 text-xs text-lunex-gray hover:text-white"
+                    >
+                      <EyeOff className="h-3 w-3" /> {c.isSpoiler ? "إلغاء التشويش" : "تشويش (حرق)"}
+                    </button>
+                    <button
+                      onClick={() => remove(c)}
+                      className="flex items-center gap-1 text-xs text-lunex-gray hover:text-red-400"
+                    >
+                      <Trash2 className="h-3 w-3" /> حذف
+                    </button>
+                  </>
+                )}
+              </div>
+            )}
+
+            {reply?.to === c.id && (
+              <div className="mt-3 space-y-2">
+                <MuteNotice />
+                <Textarea
+                  value={reply.text}
+                  onChange={(e) => setReply({ ...reply, text: e.target.value })}
+                  placeholder={`ردك على ${user.displayName}...`}
+                  rows={2}
+                  maxLength={2000}
+                  disabled={mute.muted}
+                  autoFocus
+                  aria-label={`ردك على ${user.displayName}`}
+                />
+                <div className="flex justify-end gap-2">
+                  <Button size="sm" variant="ghost" onClick={() => setReply(null)}>
+                    <X className="h-3.5 w-3.5" /> إلغاء
+                  </Button>
+                  <Button size="sm" onClick={sendReply} disabled={!reply.text.trim() || mute.muted || busy === "reply"}>
+                    {busy === "reply" ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Send className="h-3.5 w-3.5" />} نشر الرد
+                  </Button>
+                </div>
+              </div>
+            )}
+
+            {replies.length > 0 && (
+              <div className="mt-2">
+                <button
+                  onClick={() => toggleThread(c.id, threadOpen)}
+                  aria-expanded={threadOpen}
+                  className="flex items-center gap-1 py-1 text-xs font-semibold text-primary-300 hover:text-primary-200"
+                >
+                  <ChevronDown className={cn("h-3.5 w-3.5 transition-transform", threadOpen && "rotate-180")} />
+                  {threadOpen ? "إخفاء الردود" : `عرض الردود (${replies.length})`}
+                </button>
+                {threadOpen && <div className="mt-1 space-y-1 border-s border-white/10 ps-3 sm:ps-4">{replies.map((r) => renderComment(r, true))}</div>}
+              </div>
+            )}
+          </div>
+        </div>
+      );
+  }
+
   return (
     <div className="space-y-4">
       <GuestPrompt text="التعليق للأعضاء فقط." />
@@ -296,163 +583,7 @@ export function CommentSection({
       )}
 
       <div className="space-y-3">
-        {comments.map((c) => {
-          const user: Person | undefined =
-            c.server && c.author ? authorAsUser(c.author) : (userMap.get(c.userId) ?? db.users.find((u) => u.id === c.userId));
-          if (!user) return null;
-          const reaction = c.server ? (c.myReaction ?? undefined) : commentsStore.reactions[c.id];
-          const likes = c.server ? c.likes : c.likes + (reaction === "like" ? 1 : 0);
-          const dislikes = c.server ? c.dislikes : c.dislikes + (reaction === "dislike" ? 1 : 0);
-          const isOwn = c.userId === currentUserId;
-          const isEditing = editingId === c.id;
-          const isBlurred = c.isSpoiler && !revealedIds.has(c.id) && !isEditing;
-          const canModerate = c.server ? isStaff : canModerateMock;
-          const working = busy === c.id;
-
-          return (
-            <div key={c.id} className={cn("panel panel-hover flex gap-3 p-4", working && "opacity-70")}>
-              <Link
-                href={`/profile/${encodeURIComponent(user.username)}`}
-                className="relative h-9 w-9 shrink-0 overflow-hidden rounded-full ring-2 ring-white/10 transition-shadow hover:ring-primary-400/60"
-                aria-label={`الملف الشخصي لـ ${user.displayName}`}
-              >
-                <Image src={avatarSrcFor(user, avatarOverrides)} alt={user.displayName} fill sizes="36px" className="object-cover" />
-              </Link>
-              <div className="min-w-0 flex-1">
-                <div className="flex items-center gap-2">
-                  <Link href={`/profile/${encodeURIComponent(user.username)}`} className="text-sm font-semibold text-white hover:text-primary-300">
-                    {user.displayName}
-                  </Link>
-                  {c.isPinned && (
-                    <Badge variant="outline" className="flex items-center gap-1 text-[10px]">
-                      <Pin className="h-2.5 w-2.5" /> مثبّت
-                    </Badge>
-                  )}
-                  <p className="text-[11px] text-lunex-gray">
-                    {timeAgo(c.createdAt)}
-                    {c.editedAt && " · معدّل"}
-                  </p>
-                </div>
-
-                {isEditing ? (
-                  <div className="mt-2 space-y-2">
-                    <Textarea value={editDraft} onChange={(e) => setEditDraft(e.target.value)} rows={2} maxLength={2000} />
-                    <div className="flex justify-end gap-2">
-                      <Button size="sm" variant="ghost" onClick={() => setEditingId(null)}>
-                        <X className="h-3.5 w-3.5" /> إلغاء
-                      </Button>
-                      <Button size="sm" onClick={saveEdit} disabled={!editDraft.trim() || working}>
-                        <Check className="h-3.5 w-3.5" /> حفظ
-                      </Button>
-                    </div>
-                  </div>
-                ) : isBlurred ? (
-                  <button
-                    onClick={() => reveal(c.id)}
-                    className="mt-1 flex w-full items-center gap-2 rounded-lg bg-black/30 px-3 py-2 text-start text-sm text-lunex-gray backdrop-blur-md transition-colors hover:bg-black/40"
-                  >
-                    <AlertTriangle className="h-3.5 w-3.5 shrink-0 text-amber-400" />
-                    <span className="blur-sm select-none">{c.content}</span>
-                    <span className="ms-auto shrink-0 whitespace-nowrap text-xs font-bold text-amber-300">حرق — اضغط للإظهار</span>
-                  </button>
-                ) : (
-                  <p className="mt-1 whitespace-pre-line text-sm text-lunex-gray">{c.content}</p>
-                )}
-
-                {!isEditing && (
-                  <div className="mt-2 flex flex-wrap items-center gap-3">
-                    <button
-                      onClick={() => react(c, "like")}
-                      disabled={c.server && isOwn}
-                      className={cn(
-                        "hover-pop flex items-center gap-1 text-xs transition-colors disabled:cursor-default disabled:opacity-60",
-                        reaction === "like" ? "text-primary-300" : "text-lunex-gray hover:text-white"
-                      )}
-                    >
-                      <ThumbsUp className="h-3.5 w-3.5" /> {likes}
-                    </button>
-                    <button
-                      onClick={() => react(c, "dislike")}
-                      disabled={c.server && isOwn}
-                      className={cn(
-                        "hover-pop flex items-center gap-1 text-xs transition-colors disabled:cursor-default disabled:opacity-60",
-                        reaction === "dislike" ? "text-red-400" : "text-lunex-gray hover:text-white"
-                      )}
-                    >
-                      <ThumbsDown className="h-3.5 w-3.5" /> {dislikes}
-                    </button>
-                    <button className="text-xs text-lunex-gray hover:text-white">رد</button>
-
-                    {!isOwn && currentUserId && (
-                      hasReported(c.id) ? (
-                        <span className="flex items-center gap-1 text-xs text-lunex-gray/60">
-                          <Flag className="h-3 w-3" /> تم الإبلاغ
-                        </span>
-                      ) : (
-                        <DropdownMenu>
-                          <DropdownMenuTrigger asChild>
-                            <button className="flex items-center gap-1 text-xs text-lunex-gray hover:text-red-400">
-                              <Flag className="h-3 w-3" /> بلاغ
-                            </button>
-                          </DropdownMenuTrigger>
-                          <DropdownMenuContent align="start" className="w-48">
-                            <DropdownMenuLabel>سبب البلاغ</DropdownMenuLabel>
-                            {REPORT_REASONS.map((reason) => (
-                              <DropdownMenuItem key={reason} onClick={() => report(c, reason)}>
-                                {reason}
-                              </DropdownMenuItem>
-                            ))}
-                          </DropdownMenuContent>
-                        </DropdownMenu>
-                      )
-                    )}
-
-                    {isOwn && (
-                      <>
-                        <button
-                          onClick={() => startEdit(c)}
-                          className="flex items-center gap-1 text-xs text-lunex-gray hover:text-white"
-                        >
-                          <Pencil className="h-3 w-3" /> تعديل
-                        </button>
-                        <button
-                          onClick={() => remove(c)}
-                          className="flex items-center gap-1 text-xs text-lunex-gray hover:text-red-400"
-                        >
-                          <Trash2 className="h-3 w-3" /> حذف
-                        </button>
-                      </>
-                    )}
-
-                    {canModerate && !isOwn && (
-                      <>
-                        <button
-                          onClick={() => patch(c, { isPinned: !c.isPinned })}
-                          className="flex items-center gap-1 text-xs text-lunex-gray hover:text-white"
-                        >
-                          {c.isPinned ? <PinOff className="h-3 w-3" /> : <Pin className="h-3 w-3" />}
-                          {c.isPinned ? "إلغاء التثبيت" : "تثبيت"}
-                        </button>
-                        <button
-                          onClick={() => patch(c, { isSpoiler: !c.isSpoiler })}
-                          className="flex items-center gap-1 text-xs text-lunex-gray hover:text-white"
-                        >
-                          <EyeOff className="h-3 w-3" /> {c.isSpoiler ? "إلغاء التشويش" : "تشويش (حرق)"}
-                        </button>
-                        <button
-                          onClick={() => remove(c)}
-                          className="flex items-center gap-1 text-xs text-lunex-gray hover:text-red-400"
-                        >
-                          <Trash2 className="h-3 w-3" /> حذف
-                        </button>
-                      </>
-                    )}
-                  </div>
-                )}
-              </div>
-            </div>
-          );
-        })}
+        {roots.map((c) => renderComment(c))}
         {comments.length === 0 && (
           <p className="py-8 text-center text-sm text-lunex-gray">كن أول من يعلّق على هذا العمل.</p>
         )}

@@ -468,6 +468,10 @@ model Comment {
   editedAt    DateTime?
   deletedAt   DateTime?
   deletedById String?
+  /// Set on a reply: the top-level comment it hangs under (one level only — a reply to a reply is stored under the same top-level comment).
+  parentId    String?
+  parent      Comment?  @relation("CommentReplies", fields: [parentId], references: [id], onDelete: Cascade)
+  replies     Comment[] @relation("CommentReplies")
 
   reactions CommentReaction[]
   reports   CommentReport[]
@@ -475,6 +479,7 @@ model Comment {
   @@index([seriesId, createdAt])
   @@index([userId, createdAt])
   @@index([deletedAt])
+  @@index([parentId, createdAt])
   @@map("comments")
 }
 

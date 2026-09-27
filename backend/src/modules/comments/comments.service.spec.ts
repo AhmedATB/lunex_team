@@ -41,6 +41,7 @@ function commentRow(id: string, userId: string, role = "reader", extra: Record<s
     id,
     seriesId: "series-1",
     userId,
+    parentId: null,
     content: "hello",
     isSpoiler: false,
     isPinned: false,
@@ -61,8 +62,8 @@ function build(users: Record<string, { role: string; isBanned?: boolean; bannedU
     findById: jest.fn(),
     countByAuthorSince: jest.fn().mockResolvedValue(0),
     findRecentDuplicate: jest.fn().mockResolvedValue(null),
-    create: jest.fn(async (d: { seriesId: string; userId: string; content: string; isSpoiler: boolean }) =>
-      commentRow("new", d.userId, "reader", { content: d.content, isSpoiler: d.isSpoiler })
+    create: jest.fn(async (d: { seriesId: string; userId: string; content: string; isSpoiler: boolean; parentId?: string }) =>
+      commentRow("new", d.userId, "reader", { content: d.content, isSpoiler: d.isSpoiler, parentId: d.parentId ?? null })
     ),
     update: jest.fn(async (id: string, patch: Record<string, unknown>) => commentRow(id, "author", "reader", patch)),
     hardDelete: jest.fn().mockResolvedValue(undefined),
@@ -75,6 +76,8 @@ function build(users: Record<string, { role: string; isBanned?: boolean; bannedU
     dismissReports: jest.fn().mockResolvedValue(undefined),
     reportedComments: jest.fn().mockResolvedValue([]),
     listForSeries: jest.fn().mockResolvedValue([]),
+    listReplies: jest.fn().mockResolvedValue([]),
+    seriesSlug: jest.fn().mockResolvedValue("moon-rose"),
     listLatest: jest.fn().mockResolvedValue([]),
     writeAuditLog: jest.fn().mockResolvedValue(undefined),
   };
@@ -314,3 +317,72 @@ describe("CommentsService reads", () => {
     expect(repo.listLatest).toHaveBeenLastCalledWith(1);
   });
 });
+
+describe("CommentsService replies", () => {
+  const top = () => commentRow("top", "other", "reader", { content: "the comment" });
+
+  it("files a reply under its comment, tells the person answered, and never says a word to someone answering themselves", async () => {
+    const { service, repo, notifications } = build(roster());
+    repo.findById.mockResolvedValue(top());
+    const reply = await service.create("author", { seriesId: "series-1", content: "  I agree ", parentId: "top" });
+    expect(repo.create).toHaveBeenCalledWith({ seriesId: "series-1", userId: "author", content: "I agree", isSpoiler: false, parentId: "top" });
+    expect(reply.parentId).toBe("top");
+    expect(notifications.notify).toHaveBeenCalledWith("other", "reply", "رد جديد على تعليقك", "author: I agree", "/series/moon-rose");
+
+    notifications.notify.mockClear();
+    repo.findById.mockResolvedValue(commentRow("mine", "author"));
+    await service.create("author", { seriesId: "series-1", content: "and another thing", parentId: "mine" });
+    expect(notifications.notify).not.toHaveBeenCalled();
+  });
+
+  it("files an answer to a reply under the same top-level comment (one level only), telling the person it answers", async () => {
+    const { service, repo, notifications } = build(roster());
+    repo.findById.mockResolvedValue(commentRow("r1", "other", "reader", { parentId: "top" }));
+    await service.create("author", { seriesId: "series-1", content: "thanks", parentId: "r1" });
+    expect(repo.create).toHaveBeenCalledWith(expect.objectContaining({ parentId: "top" }));
+    expect(repo.findRecentDuplicate).toHaveBeenCalledWith("author", "series-1", "thanks", expect.any(Date), "top");
+    expect(notifications.notify).toHaveBeenCalledWith("other", "reply", expect.any(String), expect.any(String), expect.any(String));
+  });
+
+  it("refuses a reply to a comment that is gone, removed, or on another work — and posts nothing", async () => {
+    const { service, repo } = build(roster());
+    repo.findById.mockResolvedValue(null);
+    await expect(service.create("author", { seriesId: "series-1", content: "hi", parentId: "nope" })).rejects.toMatchObject({ response: { code: "comment_not_found" } });
+    repo.findById.mockResolvedValue(commentRow("top", "other", "reader", { deletedAt: new Date() }));
+    await expect(service.create("author", { seriesId: "series-1", content: "hi", parentId: "top" })).rejects.toBeInstanceOf(NotFoundException);
+    repo.findById.mockResolvedValue(commentRow("top", "other", "reader", { seriesId: "series-2" }));
+    await expect(service.create("author", { seriesId: "series-1", content: "hi", parentId: "top" })).rejects.toBeInstanceOf(NotFoundException);
+    expect(repo.create).not.toHaveBeenCalled();
+  });
+
+  it("still posts the reply when the notification cannot be written", async () => {
+    const { service, repo, notifications } = build(roster());
+    repo.findById.mockResolvedValue(top());
+    notifications.notify.mockRejectedValue(new Error("db"));
+    await expect(service.create("author", { seriesId: "series-1", content: "hi", parentId: "top" })).resolves.toMatchObject({ parentId: "top" });
+  });
+
+  it("checks a reply against the same rules as a comment: a timed-out account cannot reply", async () => {
+    const { service, repo } = build({ ...roster(), muted: { role: "reader", mutedUntil: new Date(Date.now() + HOUR) } });
+    repo.findById.mockResolvedValue(top());
+    await expect(service.create("muted", { seriesId: "series-1", content: "hi", parentId: "top" })).rejects.toMatchObject({ response: { code: "account_muted" } });
+    expect(repo.create).not.toHaveBeenCalled();
+  });
+
+  it("lists the top-level comments with their replies, each reply carrying its parent", async () => {
+    const { service, repo } = build(roster());
+    repo.listForSeries.mockResolvedValue([top()]);
+    repo.listReplies.mockResolvedValue([commentRow("r1", "author", "reader", { parentId: "top" })]);
+    const { comments } = await service.listForSeries("series-1", undefined);
+    expect(repo.listReplies).toHaveBeenCalledWith(["top"], expect.any(Number));
+    expect(comments.map((c) => [c.id, c.parentId])).toEqual([["top", null], ["r1", "top"]]);
+  });
+
+  it("only lets staff pin a top-level comment, never a reply", async () => {
+    const { service, repo } = build(roster());
+    repo.findById.mockResolvedValue(commentRow("r1", "other", "reader", { parentId: "top" }));
+    await expect(service.update("mod", "r1", { isPinned: true })).rejects.toMatchObject({ response: { code: "reply_cannot_be_pinned" } });
+    expect(repo.update).not.toHaveBeenCalled();
+  });
+});
+

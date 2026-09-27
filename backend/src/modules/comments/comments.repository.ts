@@ -24,13 +24,30 @@ export class CommentsRepository {
     });
   }
 
+  /** The top-level comments of a work (replies are fetched for these, below). */
   listForSeries(seriesId: string, take: number) {
     return this.prisma.comment.findMany({
-      where: { seriesId, ...visible },
+      where: { seriesId, parentId: null, ...visible },
       orderBy: [{ isPinned: "desc" }, { createdAt: "desc" }],
       take,
       include: { user: { select: AUTHOR_SELECT } },
     });
+  }
+
+  /** The replies under these top-level comments, oldest first (a conversation reads downwards). */
+  listReplies(parentIds: string[], take: number) {
+    if (parentIds.length === 0) return Promise.resolve([]);
+    return this.prisma.comment.findMany({
+      where: { parentId: { in: parentIds }, ...visible },
+      orderBy: { createdAt: "asc" },
+      take,
+      include: { user: { select: AUTHOR_SELECT } },
+    });
+  }
+
+  /** The address of a work's page, for a link in a notification. */
+  async seriesSlug(seriesId: string): Promise<string | null> {
+    return (await this.prisma.series.findUnique({ where: { id: seriesId }, select: { slug: true } }))?.slug ?? null;
   }
 
   listLatest(take: number) {
@@ -64,14 +81,15 @@ export class CommentsRepository {
     return this.prisma.comment.count({ where: { userId, createdAt: { gte: since } } });
   }
 
-  findRecentDuplicate(userId: string, seriesId: string, content: string, since: Date) {
+  /** The same words from the same person in the same place (the same thread, for a reply) a moment ago. */
+  findRecentDuplicate(userId: string, seriesId: string, content: string, since: Date, parentId: string | null) {
     return this.prisma.comment.findFirst({
-      where: { userId, seriesId, content, createdAt: { gte: since }, ...visible },
+      where: { userId, seriesId, parentId, content, createdAt: { gte: since }, ...visible },
       select: { id: true },
     });
   }
 
-  create(data: { seriesId: string; userId: string; content: string; isSpoiler: boolean }) {
+  create(data: { seriesId: string; userId: string; content: string; isSpoiler: boolean; parentId?: string }) {
     return this.prisma.comment.create({ data, include: { user: { select: AUTHOR_SELECT } } });
   }
 

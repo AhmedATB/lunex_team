@@ -16,6 +16,8 @@ export interface CommentAuthor {
 export interface ServerComment {
   id: string;
   seriesId: string;
+  /** Set on a reply: the top-level comment it hangs under. */
+  parentId?: string | null;
   content: string;
   isSpoiler: boolean;
   isPinned: boolean;
@@ -44,6 +46,7 @@ export function serverToRow(c: ServerComment): CommentRow {
     id: c.id,
     seriesId: c.seriesId,
     userId: c.author.id,
+    parentId: c.parentId ?? undefined,
     content: c.content,
     likes: c.likes,
     dislikes: c.dislikes,
