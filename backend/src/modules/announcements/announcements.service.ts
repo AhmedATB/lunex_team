@@ -19,6 +19,8 @@ const clip = (text: string, max: number) => {
   const one = text.replace(/\s+/g, " ").trim();
   return one.length <= max ? one : `${one.slice(0, max - 1).trimEnd()}…`;
 };
+/** Telegram's limit for the caption of a photo (counted on the text, not the markup). */
+const TELEGRAM_CAPTION_MAX = 1024;
 const escapeHtml = (text: string) => text.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
 
 /**
@@ -89,7 +91,7 @@ export class AnnouncementsService implements OnModuleDestroy {
     const numbers = await this.repo.stillPublished(seriesId, published);
     if (numbers.length === 0) return;
 
-    const team = await this.repo.teamName(series.teamId);
+    const [team, genres] = await Promise.all([this.repo.teamName(series.teamId), this.repo.genres(seriesId)]);
     const name = series.titleAr || series.titleEn;
     const label = numbers.length === 1 ? `الفصل ${numbers[0]}` : `الفصول ${numbers[0]}–${numbers[numbers.length - 1]}`;
     const seriesUrl = `${this.site}/series/${encodeURIComponent(series.slug)}`;
@@ -99,7 +101,7 @@ export class AnnouncementsService implements OnModuleDestroy {
 
     await Promise.all([
       this.postDiscord({ name, label, link, cover, summary, team }),
-      this.postTelegram({ name, label, link, cover, summary, team }),
+      this.postTelegram({ name, label, link, cover, summary, team, synopsis: series.synopsis, genres }),
       this.pingIndexNow([...numbers.map((n) => `${seriesUrl}/${n}`), seriesUrl]),
     ]);
   }
@@ -124,18 +126,33 @@ export class AnnouncementsService implements OnModuleDestroy {
     await this.send("Discord", this.discord, body);
   }
 
-  private async postTelegram(p: { name: string; label: string; link: string; cover?: string; summary: string; team: string | null }) {
+  /**
+   * The channel's own look: a tag, the title, then the details in quote blocks — the chapter and genres, and the story in an
+   * expandable one (Telegram folds it after a few lines and the reader opens it) — then the link, the team and a wish. The story
+   * is cut to what fits the caption of a photo, which Telegram caps at 1024 characters.
+   */
+  private async postTelegram(p: { name: string; label: string; link: string; cover?: string; summary: string; team: string | null; synopsis: string; genres: string[] }) {
     if (!this.telegramToken || !this.telegramChat) return;
     const api = `https://api.telegram.org/bot${this.telegramToken}`;
-    const text = [
-      `<b>فصل جديد</b>`,
-      `<b>${escapeHtml(p.name)}</b> — ${escapeHtml(p.label)}`,
-      ...(p.summary ? [escapeHtml(p.summary)] : []),
-      ...(p.team ? [`الفريق: ${escapeHtml(p.team)}`] : []),
+    const genres = p.genres.length > 0 ? p.genres.join("، ") : null;
+    const fixed = ["#فصل_جديد", p.name, `الفصل: ${p.label}`, ...(genres ? [`التصنيف: ${genres}`] : []), "القصة: ", "اقرأ الآن", ...(p.team ? [`الفريق: ${p.team}`] : []), "مشاهدة ممتعة"];
+    const room = TELEGRAM_CAPTION_MAX - fixed.reduce((sum, line) => sum + line.length + 2, 0) - 20;
+    const story = room >= 80 ? clip(p.synopsis, room) : "";
+    const html = [
+      "#فصل_جديد",
+      `<b>${escapeHtml(p.name)}</b>`,
+      `<blockquote>${escapeHtml(`الفصل: ${p.label}`)}${genres ? `\n${escapeHtml(`التصنيف: ${genres}`)}` : ""}</blockquote>`,
+      ...(story ? [`<blockquote expandable>${escapeHtml(`القصة: ${story}`)}</blockquote>`] : []),
       `<a href="${escapeHtml(p.link)}">اقرأ الآن</a>`,
+      ...(p.team ? [`الفريق: ${escapeHtml(p.team)}`] : []),
+      "مشاهدة ممتعة",
     ].join("\n\n");
-    if (p.cover && (await this.send("Telegram", `${api}/sendPhoto`, { chat_id: this.telegramChat, photo: p.cover, caption: text, parse_mode: "HTML" }))) return;
-    await this.send("Telegram", `${api}/sendMessage`, { chat_id: this.telegramChat, text, parse_mode: "HTML" });
+    // The plain twin, for the rare Telegram that will not take the quote blocks.
+    const plain = ["#فصل_جديد", `${p.name} — ${p.label}`, ...(story ? [story] : []), p.link, ...(p.team ? [`الفريق: ${p.team}`] : [])].join("\n\n");
+
+    if (p.cover && (await this.send("Telegram", `${api}/sendPhoto`, { chat_id: this.telegramChat, photo: p.cover, caption: html, parse_mode: "HTML" }))) return;
+    if (await this.send("Telegram", `${api}/sendMessage`, { chat_id: this.telegramChat, text: html, parse_mode: "HTML" })) return;
+    await this.send("Telegram", `${api}/sendMessage`, { chat_id: this.telegramChat, text: plain });
   }
 
   /** Bing and the other IndexNow engines. Skipped where the site is not really online (a developer's machine). */

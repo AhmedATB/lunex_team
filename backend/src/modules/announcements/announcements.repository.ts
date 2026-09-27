@@ -12,6 +12,12 @@ export class AnnouncementsRepository {
     });
   }
 
+  /** The genres and themes of a work, in Arabic, as the team listed them. */
+  async genres(seriesId: string): Promise<string[]> {
+    const rows = await this.prisma.seriesTag.findMany({ where: { seriesId }, select: { tag: { select: { nameAr: true, group: true } } } });
+    return rows.map((r) => r.tag).filter((t) => t.group === "genre" && t.nameAr).map((t) => t.nameAr);
+  }
+
   async teamName(teamId: string | null): Promise<string | null> {
     if (!teamId) return null;
     return (await this.prisma.team.findUnique({ where: { id: teamId }, select: { name: true } }))?.name ?? null;
