@@ -91,7 +91,7 @@ export function ReaderToolbar({
         </Button>
 
         <Select value={String(chapter.number)} onValueChange={(v) => router.push(`/series/${seriesSlug}/${v}`)}>
-          <SelectTrigger className="w-36"><SelectValue /></SelectTrigger>
+          <SelectTrigger className="w-36 sm:w-48 [&>span]:block [&>span]:min-w-0 [&>span]:truncate"><SelectValue /></SelectTrigger>
           <SelectContent className="max-h-72">
             {chapters.map((c) => (
               <SelectItem key={c.id} value={String(c.number)}>{chapterLabel(c)}</SelectItem>

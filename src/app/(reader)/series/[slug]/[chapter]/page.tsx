@@ -9,6 +9,7 @@ import { ReaderViewer } from "@/components/reader/reader-viewer";
 import { NovelToolbar } from "@/components/reader/novel-toolbar";
 import { NovelViewer } from "@/components/reader/novel-viewer";
 import { ChapterGate } from "@/components/reader/chapter-gate";
+import { ChapterEndNav } from "@/components/reader/chapter-end-nav";
 import { CommentSection } from "@/components/series/comment-section";
 import { ReaderSkeleton } from "@/components/shared/skeletons";
 import { safeDecodeURIComponent, cn } from "@/lib/utils";
@@ -167,6 +168,7 @@ export default function ReaderPage() {
             nextChapter={nextChapter}
           />
         )}
+        <ChapterEndNav seriesSlug={series.slug} prevChapter={prevChapter} nextChapter={nextChapter} />
       </ChapterGate>
       <div className="container max-w-3xl space-y-4 py-8">
         <h2 className={cn("font-display text-lg font-bold", isNovel ? "text-foreground" : "text-white")}>
