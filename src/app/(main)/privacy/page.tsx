@@ -2,7 +2,7 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { CookieSettingsButton } from "@/components/consent/cookie-settings-button";
 import { LegalList, LegalPage, LegalSection, Strong } from "@/components/legal/legal";
-import { CONTACT_DISCORD_URL } from "@/lib/site";
+import { CONTACT_DISCORD_URL, CONTACT_TELEGRAM_URL } from "@/lib/site";
 
 export const metadata: Metadata = {
   title: "سياسة الخصوصية",
@@ -371,6 +371,15 @@ export default function PrivacyPage() {
             className="font-medium text-primary-300 underline-offset-2 hover:underline"
           >
             Discord الرسمي للفريق
+          </a>{" "}
+          أو{" "}
+          <a
+            href={CONTACT_TELEGRAM_URL}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="font-medium text-primary-300 underline-offset-2 hover:underline"
+          >
+            قناتنا على Telegram
           </a>
           .
         </p>

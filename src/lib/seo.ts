@@ -1,4 +1,4 @@
-import { CONTACT_DISCORD_URL, SITE_URL } from "@/lib/site";
+import { CONTACT_DISCORD_URL, CONTACT_TELEGRAM_URL, SITE_URL } from "@/lib/site";
 import type { Series, SeriesStatus, Team } from "@/lib/types";
 
 /**
@@ -100,7 +100,7 @@ export function websiteJsonLd() {
       url: `${SITE_URL}/`,
       logo: absoluteUrl("/brand/icon-square.png"),
       description: "منصة عربية لقراءة المانهوا والمانجا والمانها المترجمة، تنشرها فرق ترجمة عربية.",
-      sameAs: [CONTACT_DISCORD_URL],
+      sameAs: [CONTACT_DISCORD_URL, CONTACT_TELEGRAM_URL],
     },
   ];
 }

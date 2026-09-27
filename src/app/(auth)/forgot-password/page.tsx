@@ -9,7 +9,7 @@ import { Label } from "@/components/ui/label";
 import { Button } from "@/components/ui/button";
 import { getDeviceFingerprint } from "@/lib/device-fingerprint";
 import { fetchAndSolvePow } from "@/lib/pow-client";
-import { CONTACT_DISCORD_URL } from "@/lib/site";
+import { CONTACT_DISCORD_URL, CONTACT_TELEGRAM_URL } from "@/lib/site";
 import { TURNSTILE_ENABLED, turnstileErrorMessage } from "@/lib/turnstile";
 import { TurnstileBox } from "@/components/auth/turnstile-box";
 
@@ -77,6 +77,10 @@ export default function ForgotPasswordPage() {
               تواصل معنا على{" "}
               <a href={CONTACT_DISCORD_URL} target="_blank" rel="noopener noreferrer" className="text-primary-300 hover:text-primary-200">
                 Discord
+              </a>{" "}
+              أو{" "}
+              <a href={CONTACT_TELEGRAM_URL} target="_blank" rel="noopener noreferrer" className="text-primary-300 hover:text-primary-200">
+                Telegram
               </a>{" "}
               وسنساعدك في استعادة حسابك.
             </p>

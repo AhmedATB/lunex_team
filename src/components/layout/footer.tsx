@@ -2,6 +2,7 @@ import Link from "next/link";
 import Image from "next/image";
 import { CookieSettingsButton } from "@/components/consent/cookie-settings-button";
 import { ADS_ENABLED, SMARTLINK_URL, SPONSORED_LINK_REL } from "@/lib/ads";
+import { CONTACT_DISCORD_URL, CONTACT_TELEGRAM_URL } from "@/lib/site";
 
 export function Footer() {
   return (
@@ -44,6 +45,14 @@ export function Footer() {
         />
       </div>
       <div className="container mt-8 flex flex-col items-center gap-3 border-t border-white/10 pt-6 text-xs text-lunex-gray">
+        <nav aria-label="تواصل معنا" className="flex flex-wrap items-center justify-center gap-x-5 gap-y-2">
+          <a href={CONTACT_DISCORD_URL} target="_blank" rel="noopener noreferrer" className="py-2 transition-colors hover:text-primary-300">
+            Discord
+          </a>
+          <a href={CONTACT_TELEGRAM_URL} target="_blank" rel="noopener noreferrer" className="py-2 transition-colors hover:text-primary-300">
+            Telegram
+          </a>
+        </nav>
         <nav aria-label="روابط قانونية" className="flex flex-wrap items-center justify-center gap-x-5 gap-y-2">
           <Link href="/terms" className="py-2 transition-colors hover:text-primary-300">
             الشروط والأحكام

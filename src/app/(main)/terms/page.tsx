@@ -1,7 +1,7 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import { LegalList, LegalPage, LegalSection, Strong } from "@/components/legal/legal";
-import { CONTACT_DISCORD_URL } from "@/lib/site";
+import { CONTACT_DISCORD_URL, CONTACT_TELEGRAM_URL } from "@/lib/site";
 
 export const metadata: Metadata = {
   title: "الشروط والأحكام",
@@ -107,7 +107,7 @@ export default function TermsPage() {
         <p>
           يُسجَّل كل إجراء مع سببه ومدته والمشرف الذي اتخذه، ويصلك إشعار به. يمكن للإدارة رفع الإجراء قبل انتهاء مدته. وإن رأيت أن القرار
           خاطئ فتواصل معنا عبر{" "}
-          <a href={CONTACT_DISCORD_URL} target="_blank" rel="noopener noreferrer" className={linkClass}>خادم Discord الرسمي للفريق</a> وسنراجعه.
+          <a href={CONTACT_DISCORD_URL} target="_blank" rel="noopener noreferrer" className={linkClass}>خادم Discord الرسمي للفريق</a> أو <a href={CONTACT_TELEGRAM_URL} target="_blank" rel="noopener noreferrer" className={linkClass}>قناتنا على Telegram</a> وسنراجعه.
         </p>
       </LegalSection>
 
@@ -128,7 +128,7 @@ export default function TermsPage() {
       <LegalSection title="الإبلاغ عن انتهاك حقوق">
         <p>
           إن كنت صاحب حق أو تمثّله وترى أن محتوى في الموقع ينتهك حقوقك، فأرسل لنا عبر خادم{" "}
-          <a href={CONTACT_DISCORD_URL} target="_blank" rel="noopener noreferrer" className={linkClass}>Discord الرسمي للفريق</a> ما يلي:
+          <a href={CONTACT_DISCORD_URL} target="_blank" rel="noopener noreferrer" className={linkClass}>Discord الرسمي للفريق</a> أو <a href={CONTACT_TELEGRAM_URL} target="_blank" rel="noopener noreferrer" className={linkClass}>قناتنا على Telegram</a> ما يلي:
         </p>
         <LegalList>
           <li>وصفًا للعمل المحمي الذي تملك حقوقه.</li>
@@ -163,7 +163,7 @@ export default function TermsPage() {
       <LegalSection title="تواصل معنا">
         <p>
           لأي سؤال عن هذه الشروط، تواصل معنا عبر{" "}
-          <a href={CONTACT_DISCORD_URL} target="_blank" rel="noopener noreferrer" className={linkClass}>خادم Discord الرسمي للفريق</a>.
+          <a href={CONTACT_DISCORD_URL} target="_blank" rel="noopener noreferrer" className={linkClass}>خادم Discord الرسمي للفريق</a> أو <a href={CONTACT_TELEGRAM_URL} target="_blank" rel="noopener noreferrer" className={linkClass}>قناتنا على Telegram</a>.
         </p>
       </LegalSection>
     </LegalPage>
