@@ -1,4 +1,4 @@
-import { Body, Controller, Delete, Get, HttpCode, HttpStatus, Param, Post, Put, Query } from "@nestjs/common";
+import { Body, Controller, Delete, Get, HttpCode, HttpStatus, Param, Patch, Post, Put, Query } from "@nestjs/common";
 import { Throttle } from "@nestjs/throttler";
 import { CurrentUser } from "../../common/decorators/current-user.decorator";
 import type { AccessTokenPayload } from "../../common/guards/jwt-auth.guard";
@@ -61,6 +61,13 @@ export class MessagesController {
   @Throttle({ default: { limit: 30, ttl: 60_000 } })
   send(@Param("id") id: string, @Body() dto: SendMessageDto, @CurrentUser() actor: AccessTokenPayload) {
     return this.messages.send(actor.sub, id, dto);
+  }
+
+  @Patch(":id/messages/:messageId")
+  @HttpCode(HttpStatus.OK)
+  @Throttle({ default: { limit: 30, ttl: 60_000 } })
+  editMessage(@Param("id") id: string, @Param("messageId") messageId: string, @Body() dto: SendMessageDto, @CurrentUser() actor: AccessTokenPayload) {
+    return this.messages.editMessage(actor.sub, id, messageId, dto);
   }
 
   @Delete(":id/messages/:messageId")

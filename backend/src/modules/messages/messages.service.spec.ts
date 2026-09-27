@@ -34,8 +34,9 @@ function build(overrides: Record<string, unknown> = {}) {
     leave: jest.fn().mockResolvedValue(undefined),
     blockedAmong: jest.fn().mockResolvedValue([]),
     directPeer: jest.fn().mockResolvedValue(null),
-    findMessage: jest.fn().mockResolvedValue({ id: "m1", conversationId: "c1", senderId: "me" }),
+    findMessage: jest.fn().mockResolvedValue({ id: "m1", conversationId: "c1", senderId: "me", createdAt: new Date() }),
     deleteMessage: jest.fn().mockResolvedValue(undefined),
+    updateMessageText: jest.fn(async (id: string, text: string) => ({ id, senderId: "me", text, createdAt: new Date(), editedAt: new Date() })),
     addBlock: jest.fn().mockResolvedValue(undefined),
     removeBlock: jest.fn().mockResolvedValue(undefined),
     listBlocked: jest.fn().mockResolvedValue([{ createdAt: new Date("2026-09-26T00:00:00Z"), blocked: person("sara") }]),
@@ -197,3 +198,31 @@ describe("deleting a message", () => {
     await expect(service.deleteMessage("me", "c1", "m1")).rejects.toBeInstanceOf(NotFoundException);
   });
 });
+
+describe("editing a message", () => {
+  it("lets the writer correct their own message, and marks it edited", async () => {
+    const { service, repo } = build();
+    const edited = await service.editMessage("me", "c1", "m1", { text: "  النص الصحيح " });
+    expect(repo.updateMessageText).toHaveBeenCalledWith("m1", "النص الصحيح");
+    expect(edited).toMatchObject({ id: "m1", text: "النص الصحيح" });
+    expect(edited.editedAt).toBeInstanceOf(Date);
+  });
+
+  it("never lets anyone edit another person's message, or one from another conversation, and a blank text is refused", async () => {
+    const theirs = build({ findMessage: jest.fn().mockResolvedValue({ id: "m1", conversationId: "c1", senderId: "sara", createdAt: new Date() }) });
+    await expect(theirs.service.editMessage("me", "c1", "m1", { text: "x" })).rejects.toBeInstanceOf(ForbiddenException);
+    const elsewhere = build({ findMessage: jest.fn().mockResolvedValue({ id: "m1", conversationId: "c2", senderId: "me", createdAt: new Date() }) });
+    await expect(elsewhere.service.editMessage("me", "c1", "m1", { text: "x" })).rejects.toMatchObject({ response: { code: "message_not_found" } });
+    await expect(build().service.editMessage("me", "c1", "m1", { text: "   " })).rejects.toMatchObject({ response: { code: "empty_message" } });
+    expect(theirs.repo.updateMessageText).not.toHaveBeenCalled();
+  });
+
+  it("is only for a day after sending, only for members, and not while muted", async () => {
+    const old = build({ findMessage: jest.fn().mockResolvedValue({ id: "m1", conversationId: "c1", senderId: "me", createdAt: new Date(Date.now() - 25 * 3_600_000) }) });
+    await expect(old.service.editMessage("me", "c1", "m1", { text: "x" })).rejects.toMatchObject({ response: { code: "edit_window_closed" } });
+    await expect(build({ membership: jest.fn().mockResolvedValue(null) }).service.editMessage("me", "c1", "m1", { text: "x" })).rejects.toBeInstanceOf(NotFoundException);
+    const muted = build({ findActor: jest.fn().mockResolvedValue({ id: "me", isBanned: false, bannedUntil: null, mutedUntil: new Date(Date.now() + 3_600_000) }) });
+    await expect(muted.service.editMessage("me", "c1", "m1", { text: "x" })).rejects.toMatchObject({ response: { code: "muted" } });
+  });
+});
+

@@ -4,6 +4,8 @@ import { isEffectivelyBanned, isMuted } from "../moderation/moderation.util";
 import { MAX_OTHER_MEMBERS, type AddMembersDto, type CreateConversationDto, type ListMessagesQueryDto, type SendMessageDto } from "./dto/messages.dto";
 import { MessagesRepository } from "./messages.repository";
 
+/** A message can be corrected for a day, not rewritten weeks later (a reported message has to stay what it was). */
+const EDIT_WINDOW_MS = 24 * 60 * 60 * 1000;
 const LIST_LIMIT = 100;
 const DEFAULT_PAGE = 40;
 
@@ -96,7 +98,7 @@ export class MessagesService {
     const items = rows
       .slice(0, limit)
       .reverse()
-      .map((m) => ({ id: m.id, senderId: m.senderId, text: fixTanween(m.text), createdAt: m.createdAt }));
+      .map((m) => ({ id: m.id, senderId: m.senderId, text: fixTanween(m.text), createdAt: m.createdAt, editedAt: m.editedAt }));
     return { items, hasMore: rows.length > limit };
   }
 
@@ -111,7 +113,26 @@ export class MessagesService {
     const text = dto.text.trim();
     if (!text) throw new BadRequestException({ code: "empty_message", message: "Write something first." });
     const message = await this.repo.createMessage({ conversationId, senderId: actorId, text });
-    return { id: message.id, senderId: message.senderId, text: fixTanween(message.text), createdAt: message.createdAt };
+    return { id: message.id, senderId: message.senderId, text: fixTanween(message.text), createdAt: message.createdAt, editedAt: message.editedAt };
+  }
+
+  /** The writer corrects their own message (within a day); everyone in the chat sees the new text, marked as edited. */
+  async editMessage(actorId: string, conversationId: string, messageId: string, dto: SendMessageDto) {
+    const actor = await this.requireActor(actorId);
+    if (isMuted(actor)) {
+      throw new ForbiddenException({ code: "muted", message: "You are muted and cannot send messages right now." });
+    }
+    await this.requireMember(conversationId, actorId);
+    const message = await this.repo.findMessage(messageId);
+    if (!message || message.conversationId !== conversationId) throw new NotFoundException({ code: "message_not_found", message: "This message does not exist." });
+    if (message.senderId !== actorId) throw new ForbiddenException({ code: "insufficient_permissions", message: "You can only edit your own messages." });
+    if (Date.now() - message.createdAt.getTime() > EDIT_WINDOW_MS) {
+      throw new ForbiddenException({ code: "edit_window_closed", message: "A message can only be edited for a day after it was sent." });
+    }
+    const text = dto.text.trim();
+    if (!text) throw new BadRequestException({ code: "empty_message", message: "Write something first." });
+    const updated = await this.repo.updateMessageText(messageId, text);
+    return { id: updated.id, senderId: updated.senderId, text: fixTanween(updated.text), createdAt: updated.createdAt, editedAt: updated.editedAt };
   }
 
   async markRead(actorId: string, conversationId: string): Promise<void> {

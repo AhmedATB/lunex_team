@@ -3,7 +3,7 @@
 import { Suspense, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import Image from "next/image";
 import { useRouter, useSearchParams } from "next/navigation";
-import { ArrowRight, Ban, LogOut, Loader2, MessageCircle, Plus, Send, Trash2, UserCheck, UserPlus, Users } from "lucide-react";
+import { ArrowRight, Ban, LogOut, Loader2, MessageCircle, Pencil, Plus, Send, Trash2, UserCheck, UserPlus, Users } from "lucide-react";
 import { useSession } from "@/store/session";
 import { chatApi, conversationName, MESSAGES_CHANGED, type BlockedPerson, type ChatMessage, type Conversation, type Person } from "@/lib/messages-api";
 import { resolveAvatarUrl, cn } from "@/lib/utils";
@@ -49,6 +49,8 @@ function ChatAvatar({ conversation, myId, size }: { conversation: Conversation; 
 const RUN_GAP_MS = 5 * 60_000;
 const DAY_MS = 86_400_000;
 const startOfDay = (date: Date) => new Date(date.getFullYear(), date.getMonth(), date.getDate()).getTime();
+/** How long after sending a message can still be edited (the server enforces it; this only decides whether to offer the button). */
+const EDIT_WINDOW_MS = 24 * 60 * 60 * 1000;
 const clock = (iso: string) => new Intl.DateTimeFormat("ar", { timeStyle: "short" }).format(new Date(iso));
 
 function dayLabel(iso: string): string {
@@ -114,6 +116,8 @@ function MessagesPageInner() {
   const [hasOlder, setHasOlder] = useState(false);
   const [threadLoading, setThreadLoading] = useState(false);
   const [draft, setDraft] = useState("");
+  /** The message being corrected, and the text as it is being typed. */
+  const [editing, setEditing] = useState<{ id: string; text: string } | null>(null);
   const [sending, setSending] = useState(false);
   const [error, setError] = useState("");
   const [newChatOpen, setNewChatOpen] = useState(false);
@@ -247,6 +251,21 @@ function MessagesPageInner() {
     setDraft("");
     stickToBottom.current = true;
     setMessages((current) => (current.some((m) => m.id === result.body.id) ? current : [...current, result.body]));
+    void refreshList();
+  }
+
+  async function saveEdit() {
+    if (!activeId || !editing) return;
+    const text = editing.text.trim();
+    if (!text) return;
+    const result = await chatApi.editMessage(activeId, editing.id, text);
+    if (!result.ok) {
+      setError(result.message);
+      return;
+    }
+    setError("");
+    setMessages((current) => current.map((m) => (m.id === result.body.id ? result.body : m)));
+    setEditing(null);
     void refreshList();
   }
 
@@ -407,14 +426,26 @@ function MessagesPageInner() {
                       )}
                       <div className={cn("group flex items-end gap-2", row.mine ? "justify-end" : "justify-start", row.first ? "mt-2" : "mt-0.5")}>
                         {row.mine && (
-                          <button
-                            type="button"
-                            onClick={() => void removeMessage(row.message)}
-                            aria-label="حذف الرسالة"
-                            className="mb-1 rounded-full p-1 text-lunex-gray opacity-0 transition hover:text-red-400 focus:opacity-100 group-hover:opacity-100 [@media(hover:none)]:opacity-60"
-                          >
-                            <Trash2 className="h-3.5 w-3.5" />
-                          </button>
+                          <div className="mb-1 flex items-center">
+                            {Date.now() - new Date(row.message.createdAt).getTime() < EDIT_WINDOW_MS && (
+                              <button
+                                type="button"
+                                onClick={() => setEditing({ id: row.message.id, text: row.message.text })}
+                                aria-label="تعديل الرسالة"
+                                className="rounded-full p-1.5 text-lunex-gray opacity-0 transition hover:text-white focus:opacity-100 group-hover:opacity-100 [@media(hover:none)]:opacity-60"
+                              >
+                                <Pencil className="h-3.5 w-3.5" />
+                              </button>
+                            )}
+                            <button
+                              type="button"
+                              onClick={() => void removeMessage(row.message)}
+                              aria-label="حذف الرسالة"
+                              className="rounded-full p-1.5 text-lunex-gray opacity-0 transition hover:text-red-400 focus:opacity-100 group-hover:opacity-100 [@media(hover:none)]:opacity-60"
+                            >
+                              <Trash2 className="h-3.5 w-3.5" />
+                            </button>
+                          </div>
                         )}
                         {!row.mine && (
                           <div className="w-7 shrink-0" aria-hidden={!row.last}>
@@ -425,8 +456,38 @@ function MessagesPageInner() {
                           {row.first && !row.mine && active.isGroup && row.sender && (
                             <p className="mb-0.5 text-[11px] font-semibold text-primary-300">{row.sender.displayName}</p>
                           )}
-                          <p className="whitespace-pre-wrap break-words">{row.message.text}</p>
-                          {row.last && <p className="mt-0.5 text-[10px] opacity-70">{clock(row.message.createdAt)}</p>}
+                          {editing?.id === row.message.id ? (
+                            <div className="space-y-1.5">
+                              <textarea
+                                value={editing.text}
+                                onChange={(e) => setEditing({ id: editing.id, text: e.target.value })}
+                                onKeyDown={(e) => {
+                                  if (e.key === "Escape") setEditing(null);
+                                  if (e.key === "Enter" && !e.shiftKey) {
+                                    e.preventDefault();
+                                    void saveEdit();
+                                  }
+                                }}
+                                rows={Math.min(6, Math.max(2, editing.text.split("\n").length))}
+                                maxLength={4000}
+                                autoFocus
+                                aria-label="نص الرسالة"
+                                className="block w-full min-w-[12rem] resize-none rounded-lg bg-black/25 p-2 text-base text-white outline-none sm:text-sm"
+                              />
+                              <div className="flex justify-end gap-3 text-xs">
+                                <button type="button" onClick={() => setEditing(null)} className="py-1 opacity-80 hover:opacity-100">إلغاء</button>
+                                <button type="button" onClick={() => void saveEdit()} disabled={!editing.text.trim()} className="py-1 font-bold disabled:opacity-40">حفظ</button>
+                              </div>
+                            </div>
+                          ) : (
+                            <p className="whitespace-pre-wrap break-words">{row.message.text}</p>
+                          )}
+                          {row.last && (
+                            <p className="mt-0.5 text-[10px] opacity-70">
+                              {clock(row.message.createdAt)}
+                              {row.message.editedAt ? " · معدّلة" : ""}
+                            </p>
+                          )}
                         </div>
                       </div>
                     </div>

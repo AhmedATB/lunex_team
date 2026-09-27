@@ -106,7 +106,11 @@ export class MessagesRepository {
   }
 
   findMessage(id: string) {
-    return this.prisma.message.findUnique({ where: { id }, select: { id: true, conversationId: true, senderId: true } });
+    return this.prisma.message.findUnique({ where: { id }, select: { id: true, conversationId: true, senderId: true, createdAt: true } });
+  }
+
+  updateMessageText(id: string, text: string) {
+    return this.prisma.message.update({ where: { id }, data: { text, editedAt: new Date() } });
   }
 
   deleteMessage(id: string) {

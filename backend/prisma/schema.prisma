@@ -717,6 +717,8 @@ model Message {
   sender         User?        @relation(fields: [senderId], references: [id], onDelete: SetNull)
   text           String
   createdAt      DateTime     @default(now())
+  /// Set when the writer changed the text afterwards (the chat shows it as "edited").
+  editedAt       DateTime?
 
   @@index([conversationId, createdAt])
   @@map("messages")

@@ -12,6 +12,8 @@ export interface ChatMessage {
   senderId: string | null;
   text: string;
   createdAt: string;
+  /** Set once the writer changed the text afterwards. */
+  editedAt?: string | null;
 }
 
 export interface BlockedPerson extends Person {
@@ -36,6 +38,7 @@ const MESSAGES: Record<string, string> = {
   no_recipients: "اختر شخصًا آخر على الأقل.",
   too_many_members: "الحد الأقصى للمحادثة 20 شخصًا.",
   muted: "أنت مكتوم مؤقتًا ولا يمكنك إرسال رسائل الآن.",
+  edit_window_closed: "يمكن تعديل الرسالة خلال يوم واحد من إرسالها فقط.",
   conversation_not_found: "هذه المحادثة غير موجودة.",
   account_banned: "هذا الحساب محظور.",
   not_a_group: "يمكن إضافة الأشخاص إلى المجموعات فقط.",
@@ -45,7 +48,7 @@ const MESSAGES: Record<string, string> = {
   message_not_found: "هذه الرسالة غير موجودة.",
 };
 
-async function call<T>(path: string, method: "GET" | "POST" | "PUT" | "DELETE", body?: unknown): Promise<ApiResult<T>> {
+async function call<T>(path: string, method: "GET" | "POST" | "PUT" | "PATCH" | "DELETE", body?: unknown): Promise<ApiResult<T>> {
   try {
     const res = await fetch(path, {
       method,
@@ -80,6 +83,9 @@ export const chatApi = {
   addMembers: (id: string, usernames: string[]) => call<Conversation>(`/api/conversations/${encodeURIComponent(id)}/members`, "POST", { usernames }),
   leave: (id: string) => call<void>(`/api/conversations/${encodeURIComponent(id)}/members/me`, "DELETE"),
   /** Takes back a message the member wrote: it disappears for everyone in the chat. */
+  editMessage: (id: string, messageId: string, text: string) =>
+    call<ChatMessage>(`/api/conversations/${encodeURIComponent(id)}/messages/${encodeURIComponent(messageId)}`, "PATCH", { text }),
+
   deleteMessage: (id: string, messageId: string) => call<void>(`/api/conversations/${encodeURIComponent(id)}/messages/${encodeURIComponent(messageId)}`, "DELETE"),
   /** The people the member has blocked: neither can then message the other. */
   blocked: () => call<{ items: BlockedPerson[] }>("/api/conversations/blocks", "GET"),
