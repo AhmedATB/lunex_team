@@ -128,14 +128,14 @@ export class AnnouncementsService implements OnModuleDestroy {
 
   /**
    * The channel's own look: a tag, the title, then the details in quote blocks — the chapter and genres, and the story in an
-   * expandable one (Telegram folds it after a few lines and the reader opens it) — then the link, the team and a wish. The story
+   * expandable one (Telegram folds it after a few lines and the reader opens it) — then the team and "مشاهدة ممتعة" as the link to the chapter. The story
    * is cut to what fits the caption of a photo, which Telegram caps at 1024 characters.
    */
   private async postTelegram(p: { name: string; label: string; link: string; cover?: string; summary: string; team: string | null; synopsis: string; genres: string[] }) {
     if (!this.telegramToken || !this.telegramChat) return;
     const api = `https://api.telegram.org/bot${this.telegramToken}`;
     const genres = p.genres.length > 0 ? p.genres.join("، ") : null;
-    const fixed = ["#فصل_جديد", p.name, `الفصل: ${p.label}`, ...(genres ? [`التصنيف: ${genres}`] : []), "القصة: ", "اقرأ الآن", ...(p.team ? [`الفريق: ${p.team}`] : []), "مشاهدة ممتعة"];
+    const fixed = ["#فصل_جديد", p.name, `الفصل: ${p.label}`, ...(genres ? [`التصنيف: ${genres}`] : []), "القصة: ", ...(p.team ? [`الفريق: ${p.team}`] : []), "مشاهدة ممتعة"];
     const room = TELEGRAM_CAPTION_MAX - fixed.reduce((sum, line) => sum + line.length + 2, 0) - 20;
     const story = room >= 80 ? clip(p.synopsis, room) : "";
     const html = [
@@ -143,9 +143,8 @@ export class AnnouncementsService implements OnModuleDestroy {
       `<b>${escapeHtml(p.name)}</b>`,
       `<blockquote>${escapeHtml(`الفصل: ${p.label}`)}${genres ? `\n${escapeHtml(`التصنيف: ${genres}`)}` : ""}</blockquote>`,
       ...(story ? [`<blockquote expandable>${escapeHtml(`القصة: ${story}`)}</blockquote>`] : []),
-      `<a href="${escapeHtml(p.link)}">اقرأ الآن</a>`,
       ...(p.team ? [`الفريق: ${escapeHtml(p.team)}`] : []),
-      "مشاهدة ممتعة",
+      `<a href="${escapeHtml(p.link)}">مشاهدة ممتعة</a>`,
     ].join("\n\n");
     // The plain twin, for the rare Telegram that will not take the quote blocks.
     const plain = ["#فصل_جديد", `${p.name} — ${p.label}`, ...(story ? [story] : []), p.link, ...(p.team ? [`الفريق: ${p.team}`] : [])].join("\n\n");

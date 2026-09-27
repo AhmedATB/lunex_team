@@ -94,9 +94,10 @@ describe("announcing a chapter", () => {
     expect(caption.startsWith("#فصل_جديد\n\n<b>وردة القمر</b>")).toBe(true);
     expect(caption).toContain("<blockquote>الفصل: الفصل 7\nالتصنيف: خيالي، دراما</blockquote>");
     expect(caption).toContain("<blockquote expandable>القصة: قصة طويلة عن وردة</blockquote>");
-    expect(caption).toContain('<a href="https://lunexteam.com/series/moon-rose/7">اقرأ الآن</a>');
     expect(caption).toContain("الفريق: Nova &amp; Co");
-    expect(caption.endsWith("مشاهدة ممتعة")).toBe(true);
+    // the closing wish is the link to the chapter
+    expect(caption.endsWith('<a href="https://lunexteam.com/series/moon-rose/7">مشاهدة ممتعة</a>')).toBe(true);
+    expect(caption).not.toContain("اقرأ الآن");
     expect(calls("/sendMessage")).toHaveLength(0);
   });
 
