@@ -78,3 +78,8 @@ Cloudflare's checks are built for browsers; a server calling an API cannot solve
 ## Doing it by hand instead
 
 Everything above maps to the dashboard: *SSL/TLS → Edge Certificates* (HTTPS, TLS), *Security → WAF → Custom rules* (skip rule first, then block), *Security → WAF → Rate limiting rules*, *Caching → Cache Rules*. Keep the skip rule at the top of the custom rules list.
+
+## Headers the site itself sends (`next.config.ts`)
+
+`Strict-Transport-Security: max-age=15552000` (180 days, no subdomains, no preload) — hard to undo for a visitor's browser, so it stays that mild; `Permissions-Policy` denying camera, microphone, location, payment and USB; plus `X-Frame-Options: DENY`, `X-Content-Type-Options: nosniff` and a strict-origin-when-cross-origin referrer policy. **No Content-Security-Policy on purpose:** the ad network's scripts come from domains that change, so a policy tight enough to mean something would break the ads, and a loose one gives a false sense of safety. If the ads go, a CSP is the next step (Turnstile needs `challenges.cloudflare.com` in `script-src`, `frame-src` and `connect-src`).
+

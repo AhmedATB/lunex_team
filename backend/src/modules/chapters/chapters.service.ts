@@ -6,6 +6,7 @@ import { StorageService } from "../images/storage/storage.interface";
 import type { RequestContext } from "../../common/middleware/request-context.middleware";
 import { WalletService } from "../wallet/wallet.service";
 import { NotificationsService } from "../notifications/notifications.service";
+import { AnnouncementsService } from "../announcements/announcements.service";
 import { TeamActivityService } from "../team-activity/team-activity.service";
 import type { UnlockMethod } from "../wallet/wallet.repository";
 import { ChaptersRepository } from "./chapters.repository";
@@ -39,7 +40,8 @@ export class ChaptersService {
     private readonly wallet: WalletService,
     private readonly notifications: NotificationsService,
     private readonly catalog: CatalogService,
-    private readonly activity: TeamActivityService
+    private readonly activity: TeamActivityService,
+    private readonly announcements: AnnouncementsService
   ) {}
 
   private assertCanPublish(role: string) {
@@ -92,6 +94,8 @@ export class ChaptersService {
     }
     // Going live is what readers who follow the series want to hear about (never for a chapter already live).
     if (publishing) void this.notifications.chapterPublished(before.seriesId, before.number);
+    // ... and the outside world (Discord, Telegram, Bing): only for a chapter that is live now, not one scheduled for later.
+    if (publishing && !(before.scheduledFor && before.scheduledFor.getTime() > Date.now())) this.announcements.chapterPublished(before.seriesId, before.number);
     return updated;
   }
 

@@ -3,12 +3,13 @@ import type { CatalogService } from "../catalog/catalog.service";
 import type { ImagesService } from "../images/images.service";
 import type { StorageService } from "../images/storage/storage.interface";
 import type { NotificationsService } from "../notifications/notifications.service";
+import type { AnnouncementsService } from "../announcements/announcements.service";
 import type { TeamActivityService } from "../team-activity/team-activity.service";
 import type { WalletService } from "../wallet/wallet.service";
 import type { ChaptersRepository } from "./chapters.repository";
 import { ChaptersService } from "./chapters.service";
 
-function build(chapter: { isPublished: boolean; publishedAt: Date | null; teamId?: string | null } = { isPublished: false, publishedAt: null, teamId: "t1" }) {
+function build(chapter: { isPublished: boolean; publishedAt: Date | null; teamId?: string | null; scheduledFor?: Date | null } = { isPublished: false, publishedAt: null, teamId: "t1" }) {
   const repo = {
     findById: jest.fn(async () => ({ id: "c1", seriesId: "s1", number: 7, pages: [], ...chapter })),
     update: jest.fn(async (id: string, data: object) => ({ id, ...data })),
@@ -18,6 +19,7 @@ function build(chapter: { isPublished: boolean; publishedAt: Date | null; teamId
   const catalog = { invalidate: jest.fn() };
   const notifications = { chapterPublished: jest.fn(async () => undefined) };
   const activity = { record: jest.fn(async () => undefined) };
+  const announcements = { chapterPublished: jest.fn() };
   const service = new ChaptersService(
     repo as unknown as ChaptersRepository,
     {} as StorageService,
@@ -25,9 +27,10 @@ function build(chapter: { isPublished: boolean; publishedAt: Date | null; teamId
     {} as WalletService,
     notifications as unknown as NotificationsService,
     catalog as unknown as CatalogService,
-    activity as unknown as TeamActivityService
+    activity as unknown as TeamActivityService,
+    announcements as unknown as AnnouncementsService
   );
-  return { service, repo, catalog, notifications, activity };
+  return { service, repo, catalog, notifications, activity, announcements };
 }
 
 describe("publishing a chapter", () => {
@@ -52,6 +55,21 @@ describe("publishing a chapter", () => {
     const down = build({ isPublished: true, publishedAt: new Date("2026-01-01"), teamId: "t1" });
     await down.service.update("owner", "c1", { isPublished: false }, "boss");
     expect(down.activity.record).toHaveBeenCalledWith("t1", "chapter_unpublished", { actorId: "boss", detail: "7 من الوردة" });
+  });
+
+  it("announces a chapter that goes live to the outside world — not one already live, taken down, or scheduled for later", async () => {
+    const { service, announcements } = build();
+    await service.update("owner", "c1", { isPublished: true });
+    expect(announcements.chapterPublished).toHaveBeenCalledWith("s1", 7);
+
+    const live = build({ isPublished: true, publishedAt: new Date("2026-01-01") });
+    await live.service.update("owner", "c1", { isPublished: true });
+    await live.service.update("owner", "c1", { isPublished: false });
+    expect(live.announcements.chapterPublished).not.toHaveBeenCalled();
+
+    const later = build({ isPublished: false, publishedAt: null, teamId: "t1", scheduledFor: new Date(Date.now() + 3_600_000) });
+    await later.service.update("owner", "c1", { isPublished: true });
+    expect(later.announcements.chapterPublished).not.toHaveBeenCalled();
   });
 
   it("clears the time when a chapter is taken down", async () => {
