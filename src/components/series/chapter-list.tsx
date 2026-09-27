@@ -10,6 +10,7 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { timeAgo, formatNumber } from "@/lib/utils";
 import { useReadingProgress } from "@/store/reader-settings";
+import { fetchSeriesProgress, type ChapterProgress } from "@/lib/reading-position";
 import { isLockedByRule } from "@/lib/chapter-lock";
 import { lockRuleOf, useWallet } from "@/store/wallet";
 import { useToast } from "@/store/toast";
@@ -27,6 +28,9 @@ export function ChapterList({ seriesSlug, chapters, teamId }: { seriesSlug: stri
   const seriesId = chapters[0]?.seriesId;
   const lastRead = useReadingProgress((s) => (seriesId ? s.getProgress(seriesId) : undefined));
   const router = useRouter();
+  // Which chapters were actually read (not just "at or before the furthest one opened" — opening chapter 100 must
+  // never mark 1–99 as read) and, for the one still in progress, how far into it.
+  const [chapterProgress, setChapterProgress] = useState<Record<string, ChapterProgress>>({});
   // What is locked follows the server's rule and this member's opened chapters (the server refuses the pages itself).
   const wallet = useWallet((s) => s.wallet);
   const lockRule = lockRuleOf(wallet);
@@ -41,6 +45,20 @@ export function ChapterList({ seriesSlug, chapters, teamId }: { seriesSlug: stri
 
   const [ready, setReady] = useState(false);
   useEffect(() => setReady(true), []);
+
+  useEffect(() => {
+    if (!seriesId || !currentUserId) {
+      setChapterProgress({});
+      return;
+    }
+    let cancelled = false;
+    fetchSeriesProgress(seriesId).then((map) => {
+      if (!cancelled) setChapterProgress(map);
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, [seriesId, currentUserId]);
 
   const { isGlobalAdmin, isLeader, isAssistantLeader } = getTeamAuthRoles(team, currentUser, store.memberRoleOverrides);
   const customRoles = getEffectiveCustomRoles(
@@ -113,21 +131,34 @@ export function ChapterList({ seriesSlug, chapters, teamId }: { seriesSlug: stri
           const locked = seriesId
             ? isLockedByRule(c.number, latestNumber, lockRule, manualLock) && !openedChapters.has(c.id) && !readsEverything
             : false;
+          // "مقروء" is now this specific chapter's own record, never "at or before the furthest one opened" — jumping
+          // straight to a later chapter must never make the ones under it look read.
+          const chapterProgressRow = chapterProgress[c.id];
+          const finishedChapter = Boolean(chapterProgressRow?.finished);
+          const inProgressChapter = !finishedChapter && (chapterProgressRow?.fraction ?? 0) >= 0.02;
           return (
             <div
               key={c.id}
               className="group relative flex items-center justify-between gap-3 border-b border-white/5 px-4 py-3 text-sm transition-colors last:border-0 hover:bg-primary-600/10"
             >
               <span className="absolute inset-y-0 start-0 w-0.5 scale-y-0 bg-lunex-gradient transition-transform duration-300 group-hover:scale-y-100" />
+              {inProgressChapter && (
+                <span className="absolute inset-x-0 bottom-0 h-0.5 bg-white/10" aria-hidden>
+                  <span className="block h-full bg-lunex-gradient" style={{ width: `${Math.round((chapterProgressRow?.fraction ?? 0) * 100)}%` }} />
+                </span>
+              )}
               <Link href={`/series/${seriesSlug}/${c.number}`} className="absolute inset-0" aria-label={chapterLabel(c)} />
               <div className="pointer-events-none min-w-0">
                 <p className="flex items-center gap-1.5 truncate font-medium text-white">
                   {locked && <Lock className="h-3.5 w-3.5 shrink-0 text-amber-300" aria-label="فصل مقفل" />}
-                  {lastRead !== undefined && c.number <= lastRead && (
-                    <CheckCircle2 className="h-3.5 w-3.5 shrink-0 text-primary-400" aria-label="مقروء" />
-                  )}
+                  {finishedChapter && <CheckCircle2 className="h-3.5 w-3.5 shrink-0 text-primary-400" aria-label="مقروء" />}
                   {chapterLabel(c)}
                   {!c.isPublished && <Badge variant="secondary" className="text-[10px]">مسودة</Badge>}
+                  {inProgressChapter && (
+                    <span className="shrink-0 text-[10px] font-bold tabular-nums text-primary-300" dir="ltr" aria-label={`قرأت ${Math.round((chapterProgressRow?.fraction ?? 0) * 100)}٪`}>
+                      {Math.round((chapterProgressRow?.fraction ?? 0) * 100)}٪
+                    </span>
+                  )}
                   {lastRead === c.number && (
                     <span className="ms-2 rounded-full bg-primary-500/20 px-2 py-0.5 text-[10px] text-primary-300 shadow-[0_0_10px_rgba(168,85,247,0.4)]">
                       آخر قراءة

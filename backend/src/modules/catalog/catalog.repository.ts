@@ -209,6 +209,7 @@ export class CatalogRepository {
       this.prisma.chapter.deleteMany({ where: { seriesId: id } }),
       this.prisma.bookmark.deleteMany({ where: { seriesId: id } }),
       this.prisma.readingProgress.deleteMany({ where: { seriesId: id } }),
+      this.prisma.chapterProgress.deleteMany({ where: { seriesId: id } }),
       this.prisma.chapterView.deleteMany({ where: { seriesId: id } }),
       this.prisma.seriesRating.deleteMany({ where: { seriesId: id } }),
       this.prisma.series.delete({ where: { id } }),

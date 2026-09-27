@@ -104,6 +104,9 @@ export class ProgressService {
     if (now.getTime() - view.createdAt.getTime() < MIN_READ_SECONDS * 1000) return this.declined("too_fast", userId, now);
 
     const forward = await this.repo.advanceCompleted(userId, chapter.seriesId, chapter.number);
+    // Marked per chapter, not just for the series' furthest one: opening chapter 100 directly must never
+    // make 1–99 look read, so this specific chapter is the only one that gets its checkmark from this call.
+    await this.repo.markChapterFinished(userId, chapter.id, chapter.seriesId, chapter.number);
     const outcome = await this.apply(userId, { type: "chapter", forward }, now);
     const progress = await this.snapshot(userId, now);
     return {
@@ -125,6 +128,26 @@ export class ProgressService {
     } catch (err) {
       this.logger.warn(`comment experience failed: ${err instanceof Error ? err.message : err}`);
     }
+  }
+
+  /** Where the reader left off, right now — the browser calls this every so often while a chapter is open. */
+  async savePosition(userId: string, chapterId: string, fraction: number): Promise<void> {
+    const chapter = await this.repo.findPublishedChapter(chapterId);
+    if (!chapter) throw new NotFoundException({ code: "chapter_not_found", message: "Chapter not found." });
+    await this.repo.savePosition(userId, chapter.id, chapter.seriesId, chapter.number, fraction);
+  }
+
+  /** Resuming a chapter: where to scroll to (0 for one already finished — nothing to resume there). */
+  async position(userId: string, chapterId: string): Promise<{ fraction: number; finished: boolean }> {
+    const row = await this.repo.getChapterProgress(userId, chapterId);
+    const finished = Boolean(row?.finishedAt);
+    return { fraction: finished ? 0 : (row?.fraction ?? 0), finished };
+  }
+
+  /** Every chapter of a work the reader has touched: what the chapter list shows a checkmark or an in-progress bar for. */
+  async seriesProgress(userId: string, seriesId: string): Promise<{ items: { chapterId: string; fraction: number; finished: boolean }[] }> {
+    const rows = await this.repo.listChapterProgress(userId, seriesId);
+    return { items: rows.map((r) => ({ chapterId: r.chapterId, fraction: r.finishedAt ? 1 : r.fraction, finished: Boolean(r.finishedAt) })) };
   }
 
   /** A series was rated for the first time. Never throws, like awardComment. */

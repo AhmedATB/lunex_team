@@ -145,4 +145,34 @@ export class ProgressRepository {
   countBookmarks(userId: string) {
     return this.prisma.bookmark.count({ where: { userId } });
   }
+
+  getChapterProgress(userId: string, chapterId: string) {
+    return this.prisma.chapterProgress.findUnique({ where: { userId_chapterId: { userId, chapterId } }, select: { fraction: true, finishedAt: true } });
+  }
+
+  listChapterProgress(userId: string, seriesId: string) {
+    return this.prisma.chapterProgress.findMany({ where: { userId, seriesId }, select: { chapterId: true, fraction: true, finishedAt: true } });
+  }
+
+  /** Where the reader left off in this chapter. Ignored once the chapter is finished — resuming a finished chapter starts at the top. */
+  async savePosition(userId: string, chapterId: string, seriesId: string, number: number, fraction: number): Promise<void> {
+    const existing = await this.getChapterProgress(userId, chapterId);
+    if (existing?.finishedAt) return;
+    await this.prisma.chapterProgress.upsert({
+      where: { userId_chapterId: { userId, chapterId } },
+      update: { fraction },
+      create: { userId, chapterId, seriesId, number, fraction },
+    });
+  }
+
+  /** The chapter is done. Idempotent: a chapter already finished keeps its original `finishedAt`. */
+  async markChapterFinished(userId: string, chapterId: string, seriesId: string, number: number): Promise<void> {
+    const existing = await this.getChapterProgress(userId, chapterId);
+    if (existing?.finishedAt) return;
+    await this.prisma.chapterProgress.upsert({
+      where: { userId_chapterId: { userId, chapterId } },
+      update: { fraction: 1, finishedAt: new Date() },
+      create: { userId, chapterId, seriesId, number, fraction: 1, finishedAt: new Date() },
+    });
+  }
 }

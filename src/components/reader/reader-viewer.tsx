@@ -7,6 +7,7 @@ import { ChevronLeft, ChevronRight, Lock } from "lucide-react";
 import { useReaderSettings, useReadingProgress } from "@/store/reader-settings";
 import { useReaderChrome } from "@/store/reader-chrome";
 import { useProgress } from "@/store/progress";
+import { fetchPosition, savePosition } from "@/lib/reading-position";
 import { ProtectedImage } from "@/components/reader/protected-image";
 import { ProtectedPage } from "@/components/reader/protected-page";
 import { Button } from "@/components/ui/button";
@@ -34,6 +35,13 @@ export function ReaderViewer({
   // Page images are issued only to signed-in readers (they carry the reader's id for leak tracing), so a visitor without an account gets a prompt, not a blank page.
   const [loginRequired, setLoginRequired] = useState(false);
   const containerRef = useRef<HTMLDivElement>(null);
+  /** Always the current chapter's real id, read from inside listeners whose own effect does not depend on it. */
+  const realChapterIdRef = useRef<string | null>(null);
+  /** The position last measured, so leaving mid-chapter can flush it even between the periodic sends. */
+  const currentFractionRef = useRef(0);
+  const lastSentRef = useRef<{ at: number; fraction: number }>({ at: 0, fraction: -1 });
+  /** Set once this chapter's saved position has been applied (or found not to exist) — so a later effect run never fights the reader's own scrolling. */
+  const restoredRef = useRef(false);
 
   // A chapter uploaded through the real pipeline (admin/chapters) has a
   // matching real backend Chapter for this series+number; older/demo
@@ -82,8 +90,69 @@ export function ReaderViewer({
     fetch(`/api/catalog/chapters/${encodeURIComponent(realChapterId)}/view`, { method: "POST", keepalive: true }).catch(() => {});
   }, [realChapterId]);
 
+  useEffect(() => {
+    realChapterIdRef.current = realChapterId;
+  }, [realChapterId]);
+
   const isReal = Boolean(realChapterId) && realPageCount > 0;
   const pageCount = isReal ? realPageCount : chapter.pages;
+
+  /** Sends the current position, at most every few seconds unless `force` (leaving the chapter, or the tab is being hidden). */
+  const sendPosition = useCallback((fraction: number, force = false) => {
+    const id = realChapterIdRef.current;
+    if (!id) return;
+    const now = Date.now();
+    const last = lastSentRef.current;
+    if (!force && now - last.at < 2_500 && Math.abs(fraction - last.fraction) < 0.02) return;
+    lastSentRef.current = { at: now, fraction };
+    savePosition(id, fraction);
+  }, []);
+
+  // Leaving this chapter for another (the reader route reuses the same component instance) flushes its last position first.
+  useEffect(() => {
+    restoredRef.current = false;
+    return () => sendPosition(currentFractionRef.current, true);
+  }, [chapter.id, sendPosition]);
+
+  // Closing the tab, or switching away from it, flushes the position the same way.
+  useEffect(() => {
+    const flush = () => sendPosition(currentFractionRef.current, true);
+    const onHide = () => document.visibilityState === "hidden" && flush();
+    document.addEventListener("visibilitychange", onHide);
+    window.addEventListener("beforeunload", flush);
+    return () => {
+      document.removeEventListener("visibilitychange", onHide);
+      window.removeEventListener("beforeunload", flush);
+    };
+  }, [sendPosition]);
+
+  // Resume where the reader left off — skipped for a chapter already finished (nothing to resume there) and for one
+  // barely started or already at its end (opening at the top, as usual, reads better than a barely-there restore).
+  useEffect(() => {
+    if (!realChapterId || !checkedReal || restoredRef.current) return;
+    let cancelled = false;
+    fetchPosition(realChapterId).then((saved) => {
+      if (cancelled || restoredRef.current) return;
+      restoredRef.current = true;
+      if (!saved || saved.finished || saved.fraction < 0.02 || saved.fraction > 0.95) return;
+      if (mode !== "vertical") {
+        if (pageCount > 1) setPageIndex(Math.round(saved.fraction * (pageCount - 1)));
+        return;
+      }
+      // A moment for the pages around the target to lay out (each starts at a placeholder height and settles once its real aspect ratio loads).
+      setTimeout(() => {
+        if (cancelled) return;
+        const el = containerRef.current;
+        if (!el) return;
+        const rect = el.getBoundingClientRect();
+        const total = rect.height - window.innerHeight;
+        if (total > 0) window.scrollTo({ top: rect.top + window.scrollY + saved.fraction * total });
+      }, 700);
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, [realChapterId, checkedReal, mode, pageCount]);
 
   const pages = useMemo(
     () =>
@@ -135,16 +204,23 @@ export function ReaderViewer({
       if (!el) return;
       const rect = el.getBoundingClientRect();
       const total = rect.height - window.innerHeight;
-      if (total <= 0) {
-        setScrollProgress(1);
-        return;
-      }
-      setScrollProgress(Math.min(1, Math.max(0, -rect.top / total)));
+      const value = total <= 0 ? 1 : Math.min(1, Math.max(0, -rect.top / total));
+      setScrollProgress(value);
+      currentFractionRef.current = value;
+      sendPosition(value);
     }
     onScroll();
     window.addEventListener("scroll", onScroll, { passive: true });
     return () => window.removeEventListener("scroll", onScroll);
-  }, [mode]);
+  }, [mode, sendPosition]);
+
+  // A page turned in the paged/horizontal modes is this chapter's new position, the same as a scroll in the vertical one.
+  useEffect(() => {
+    if (mode === "vertical" || pageCount <= 0) return;
+    const value = pageCount > 1 ? pageIndex / (pageCount - 1) : 1;
+    currentFractionRef.current = value;
+    sendPosition(value);
+  }, [mode, pageIndex, pageCount, sendPosition]);
 
   const progress = mode === "vertical" ? scrollProgress : pageCount ? (pageIndex + 1) / pageCount : 0;
 

@@ -86,6 +86,7 @@ model User {
   coinTransactions CoinTransaction[]
   bookmarks        Bookmark[]
   readingProgress  ReadingProgress[]
+  chapterProgress  ChapterProgress[]
   chapterViews     ChapterView[]
   seriesRatings    SeriesRating[]
   sanctions        Sanction[]
@@ -421,6 +422,28 @@ model ReadingProgress {
   @@unique([userId, seriesId])
   @@index([userId, lastReadAt])
   @@map("reading_progress")
+}
+
+/// Where a reader left off inside one chapter, and whether they actually finished it. Separate from `ReadingProgress`
+/// (the furthest chapter *opened* in a series, for "continue reading"): this is per chapter, so opening chapter 100
+/// directly never marks 1–99 as read, and reopening a chapter resumes at the same spot. `finishedAt` is set only
+/// through the same checks as `ProgressService.completeChapter` (opened, and for long enough) — once set, `fraction`
+/// is no longer touched, so a finished chapter always reopens at the top. Plain `seriesId`/`chapterId`, like
+/// `ChapterView`: cleaned up when the series itself is deleted, not on a single chapter's.
+model ChapterProgress {
+  id         String    @id @default(uuid())
+  userId     String
+  user       User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  chapterId  String
+  seriesId   String
+  number     Float
+  fraction   Float     @default(0)
+  finishedAt DateTime?
+  updatedAt  DateTime  @updatedAt
+
+  @@unique([userId, chapterId])
+  @@index([userId, seriesId])
+  @@map("chapter_progress")
 }
 
 /// One moderation action against an account: a warning (no effect on its own),

@@ -14,6 +14,10 @@ function build(opts: { view?: Date | null; forward?: boolean; state?: ProgressSt
     findPublishedChapter: jest.fn(async (id: string) => (id === "c1" ? { id: "c1", seriesId: "s1", number: 5 } : null)),
     findRecentView: jest.fn(async (_chapterId: string, _userId: string, _sinceDay: Date) => (opts.view === null ? null : { createdAt: opts.view ?? new Date(NOW.getTime() - 60_000) })),
     advanceCompleted: jest.fn(async () => opts.forward ?? true),
+    markChapterFinished: jest.fn().mockResolvedValue(undefined),
+    savePosition: jest.fn().mockResolvedValue(undefined),
+    getChapterProgress: jest.fn(),
+    listChapterProgress: jest.fn().mockResolvedValue([]),
     getState: jest.fn(async () => ({ ...state })),
     transact: jest.fn(async (_id: string, change: (s: ProgressState) => { next: ProgressState; result: unknown }) => {
       const { next, result } = change({ ...state });
@@ -37,6 +41,24 @@ describe("finishing a chapter", () => {
     expect(result.progress).toMatchObject({ xp: 20, chaptersRead: 1, streak: 1, todayXp: 20, level: 1 });
     expect(result.progress.achievements).toContain("first_chapter");
     expect(repo.advanceCompleted).toHaveBeenCalledWith("u1", "s1", 5);
+    expect(repo.markChapterFinished).toHaveBeenCalledWith("u1", "c1", "s1", 5);
+  });
+
+  it("marks only the chapter actually finished — never anything else, whatever the series' own furthest-finished mark is", async () => {
+    const { service, repo } = build({ forward: false }); // the series had already gone further than this chapter
+    await service.completeChapter("u1", "c1", NOW);
+    expect(repo.markChapterFinished).toHaveBeenCalledTimes(1);
+    expect(repo.markChapterFinished).toHaveBeenCalledWith("u1", "c1", "s1", 5);
+  });
+
+  it("does not mark a declined chapter finished", async () => {
+    const notOpened = build({ view: null });
+    await notOpened.service.completeChapter("u1", "c1", NOW);
+    expect(notOpened.repo.markChapterFinished).not.toHaveBeenCalled();
+
+    const tooFast = build({ view: new Date(NOW.getTime() - 5_000) });
+    await tooFast.service.completeChapter("u1", "c1", NOW);
+    expect(tooFast.repo.markChapterFinished).not.toHaveBeenCalled();
   });
 
   it("refuses a chapter that does not exist", async () => {
@@ -127,3 +149,46 @@ describe("the reader's own numbers", () => {
     expect((await service.snapshot("u1", NOW)).bestStreak).toBe(6);
   });
 });
+
+describe("resuming a chapter", () => {
+  it("saves where the reader left off, against the chapter's own series and number", async () => {
+    const { service, repo } = build();
+    await service.savePosition("u1", "c1", 0.42);
+    expect(repo.savePosition).toHaveBeenCalledWith("u1", "c1", "s1", 5, 0.42);
+  });
+
+  it("refuses a position for a chapter that does not exist, and saves nothing", async () => {
+    const { service, repo } = build();
+    await expect(service.savePosition("u1", "nope", 0.5)).rejects.toBeInstanceOf(NotFoundException);
+    expect(repo.savePosition).not.toHaveBeenCalled();
+  });
+
+  it("reports where to resume — nothing for a chapter never opened, and nothing (not the old fraction) for one already finished", async () => {
+    const fresh = build();
+    fresh.repo.getChapterProgress.mockResolvedValue(null);
+    expect(await fresh.service.position("u1", "c1")).toEqual({ fraction: 0, finished: false });
+
+    const partial = build();
+    partial.repo.getChapterProgress.mockResolvedValue({ fraction: 0.6, finishedAt: null });
+    expect(await partial.service.position("u1", "c1")).toEqual({ fraction: 0.6, finished: false });
+
+    const done = build();
+    done.repo.getChapterProgress.mockResolvedValue({ fraction: 0.8, finishedAt: new Date() });
+    expect(await done.service.position("u1", "c1")).toEqual({ fraction: 0, finished: true });
+  });
+
+  it("lists a work's chapters as the reader has them: finished ones read as fully done, others by their own fraction", async () => {
+    const { service, repo } = build();
+    repo.listChapterProgress.mockResolvedValue([
+      { chapterId: "c1", fraction: 0.35, finishedAt: null },
+      { chapterId: "c2", fraction: 0.9, finishedAt: new Date() },
+    ]);
+    expect(await service.seriesProgress("u1", "s1")).toEqual({
+      items: [
+        { chapterId: "c1", fraction: 0.35, finished: false },
+        { chapterId: "c2", fraction: 1, finished: true },
+      ],
+    });
+  });
+});
+
