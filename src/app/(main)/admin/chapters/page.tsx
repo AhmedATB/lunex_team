@@ -22,6 +22,9 @@ import {
 import { timeAgo } from "@/lib/utils";
 import type { SeriesType } from "@/lib/types";
 import { chapterLabel } from "@/lib/chapter-label";
+import { chapterApi } from "@/lib/chapter-api";
+import { imageProblem } from "@/lib/series-api";
+import { useToast } from "@/store/toast";
 
 interface RealChapter {
   id: string;
@@ -40,6 +43,8 @@ interface Row {
   teamId: string;
   number: number;
   title: string;
+  /** How many pictures it has (only real chapters, which can have one replaced). */
+  pageCount: number;
   contentLabel: string;
   isPublished: boolean;
   at: string;
@@ -83,6 +88,7 @@ export default function AdminChaptersPage() {
       teamId: c.teamId,
       number: c.number,
       title: c.title,
+      pageCount: 0,
       contentLabel: c.content ? `${c.content.trim().split(/\s+/).length} كلمة` : `${c.pages} صفحة`,
       isPublished: c.isPublished,
       at: c.releasedAt,
@@ -94,6 +100,7 @@ export default function AdminChaptersPage() {
       teamId: c.teamId,
       number: c.number,
       title: c.title,
+      pageCount: c.pages.length,
       contentLabel: `${c.pages.length} صفحة`,
       isPublished: c.isPublished,
       at: c.createdAt,
@@ -231,6 +238,7 @@ export default function AdminChaptersPage() {
                       <span>{r.contentLabel}</span>
                       <span>· {timeAgo(r.at)}</span>
                     </div>
+                    {r.isReal && r.pageCount > 0 && <ReplacePageDialog chapterId={r.id} label={chapterLabel(r)} pageCount={r.pageCount} onDone={loadRealChapters} />}
                   </div>
                 </li>
               ))}
@@ -246,6 +254,7 @@ export default function AdminChaptersPage() {
                 <th className="p-3 text-start font-medium">المحتوى</th>
                 <th className="p-3 text-start font-medium">الحالة</th>
                 <th className="p-3 text-start font-medium">تاريخ النشر</th>
+                <th className="p-3"></th>
               </tr>
             </thead>
             <tbody>
@@ -281,16 +290,80 @@ export default function AdminChaptersPage() {
                     )}
                   </td>
                   <td className="p-3 text-lunex-gray">{timeAgo(r.at)}</td>
+                  <td className="p-3 text-end">
+                    {r.isReal && r.pageCount > 0 && <ReplacePageDialog chapterId={r.id} label={chapterLabel(r)} pageCount={r.pageCount} onDone={loadRealChapters} />}
+                  </td>
                 </tr>
               ))}
               {rows.length === 0 && (
-                <tr><td colSpan={6} className="p-8 text-center text-lunex-gray">لا توجد فصول مطابقة.</td></tr>
+                <tr><td colSpan={7} className="p-8 text-center text-lunex-gray">لا توجد فصول مطابقة.</td></tr>
               )}
             </tbody>
           </table>
         </CardContent>
       </Card>
     </div>
+  );
+}
+
+/** Fixing one page of a chapter without redoing it: which page, and the new picture from the device. */
+function ReplacePageDialog({ chapterId, label, pageCount, onDone }: { chapterId: string; label: string; pageCount: number; onDone: () => void }) {
+  const [open, setOpen] = useState(false);
+  const [page, setPage] = useState("1");
+  const [file, setFile] = useState<File | null>(null);
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState("");
+
+  function close(next: boolean) {
+    setOpen(next);
+    if (!next) {
+      setPage("1");
+      setFile(null);
+      setError("");
+    }
+  }
+
+  async function submit(e: React.FormEvent) {
+    e.preventDefault();
+    const number = Number(page);
+    if (!Number.isInteger(number) || number < 1 || number > pageCount) return setError(`اكتب رقم صفحة من 1 إلى ${pageCount}.`);
+    if (!file) return setError("اختر الصورة الجديدة من جهازك.");
+    const problem = imageProblem(file);
+    if (problem) return setError(problem);
+    setBusy(true);
+    setError("");
+    const result = await chapterApi.replacePage(chapterId, number, file);
+    setBusy(false);
+    if (!result.ok) return setError(result.message);
+    useToast.getState().push({ title: "تم استبدال الصفحة", description: `${label} — صفحة ${number}` });
+    close(false);
+    onDone();
+  }
+
+  return (
+    <Dialog open={open} onOpenChange={close}>
+      <DialogTrigger asChild>
+        <Button type="button" size="sm" variant="ghost" className="text-primary-300">استبدال صفحة</Button>
+      </DialogTrigger>
+      <DialogContent>
+        <DialogHeader><DialogTitle>استبدال صفحة — {label}</DialogTitle></DialogHeader>
+        <form onSubmit={submit} className="space-y-3 pt-2">
+          <div className="space-y-1.5">
+            <Label htmlFor="replace-page-number">رقم الصفحة (من 1 إلى {pageCount})</Label>
+            <Input id="replace-page-number" type="number" inputMode="numeric" min={1} max={pageCount} value={page} onChange={(e) => setPage(e.target.value)} />
+          </div>
+          <div className="space-y-1.5">
+            <Label htmlFor="replace-page-file">الصورة الجديدة (من جهازك)</Label>
+            <Input id="replace-page-file" type="file" accept="image/jpeg,image/png,image/webp,image/gif" onChange={(e) => setFile(e.target.files?.[0] ?? null)} className="h-auto py-2" />
+            <p className="text-xs text-lunex-gray">تحلّ محل الصفحة نفسها بنفس رقمها. الصورة الطويلة لا تُقسَّم هنا، فارفعها بحجم صفحة واحدة.</p>
+          </div>
+          {error && <p className="text-sm text-red-400" role="alert">{error}</p>}
+          <Button type="submit" className="w-full" disabled={busy || !file}>
+            {busy ? "جاري الاستبدال..." : "استبدال الصفحة"}
+          </Button>
+        </form>
+      </DialogContent>
+    </Dialog>
   );
 }
 

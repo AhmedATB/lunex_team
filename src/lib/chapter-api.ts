@@ -30,6 +30,13 @@ export const chapterApi = {
     return callForm<{ pages: number }>(`/api/chapters/${encodeURIComponent(chapterId)}/pages`, form);
   },
 
+  /** A picture from the device in place of one page of the chapter (the same page number; a long strip is not cut). */
+  replacePage: (chapterId: string, pageNumber: number, file: File) => {
+    const form = new FormData();
+    form.append("file", file);
+    return callForm<{ pageNumber: number }>(`/api/chapters/${encodeURIComponent(chapterId)}/pages/${pageNumber}`, form, "PUT");
+  },
+
   setPublished: (chapterId: string, isPublished: boolean) => call<unknown>(`/api/chapters/${encodeURIComponent(chapterId)}`, "PATCH", { isPublished }),
 
   remove: (chapterId: string) => call<void>(`/api/chapters/${encodeURIComponent(chapterId)}`, "DELETE"),

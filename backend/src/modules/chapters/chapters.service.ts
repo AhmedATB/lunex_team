@@ -126,6 +126,28 @@ export class ChaptersService {
   }
 
   /**
+   * Puts a new picture in place of page `pageNumber` — a page that was wrong, blurry or badly typeset — without redoing the
+   * chapter. Same chapter, same number; one picture is one page (a strip is not cut, or the numbers after it would shift). The
+   * old picture stays in storage, but no reader is sent to it once this returns.
+   */
+  async replacePage(role: string, chapterId: string, pageNumber: number, file: Express.Multer.File | undefined) {
+    this.assertCanPublish(role);
+    await this.get(chapterId);
+    if (!file) {
+      throw new BadRequestException({ code: "missing_file", message: "No image file was uploaded." });
+    }
+    if (!(await this.repo.findPage(chapterId, pageNumber))) {
+      throw new NotFoundException({ code: "page_not_found", message: "Page not found in this chapter." });
+    }
+    const [slice] = await this.prepare(file.buffer, false);
+    const storageKey = `chapters/${randomUUID()}.webp`;
+    const { checksum } = await this.storage.put(storageKey, slice.data);
+    const asset = await this.repo.createAsset({ storageKey, checksum, mimeType: "image/webp", width: slice.width, height: slice.height });
+    await this.repo.updatePageAsset(chapterId, pageNumber, asset.id);
+    return { pageNumber };
+  }
+
+  /**
    * The admin upload: like {@link uploadPage}, but a long picture (a webtoon strip) is cut into several pages and a very
    * wide one is shrunk. Answers how many pages the picture became, so the caller numbers the next one after them.
    */

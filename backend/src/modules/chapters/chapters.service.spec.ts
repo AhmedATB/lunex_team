@@ -1,6 +1,7 @@
 import { ForbiddenException } from "@nestjs/common";
 import type { CatalogService } from "../catalog/catalog.service";
 import type { ImagesService } from "../images/images.service";
+import sharp from "sharp";
 import type { StorageService } from "../images/storage/storage.interface";
 import type { NotificationsService } from "../notifications/notifications.service";
 import type { AnnouncementsService } from "../announcements/announcements.service";
@@ -95,5 +96,42 @@ describe("publishing a chapter", () => {
     await expect(service.update("reader", "c1", { isPublished: true })).rejects.toBeInstanceOf(ForbiddenException);
     await service.remove("owner", "c1");
     expect(catalog.invalidate).toHaveBeenCalledTimes(1);
+  });
+});
+
+describe("replacing one page", () => {
+  const picture = () => sharp({ create: { width: 60, height: 90, channels: 3, background: "#7c3aed" } }).png().toBuffer().then((buffer) => ({ buffer, mimetype: "image/png" }) as Express.Multer.File);
+
+  function setup(pageExists = true) {
+    const repo = {
+      findById: jest.fn(async () => ({ id: "c1", seriesId: "s1", number: 7, pages: [] })),
+      findPage: jest.fn(async () => (pageExists ? { id: "p1", chapterId: "c1", pageNumber: 3, assetId: "old" } : null)),
+      createAsset: jest.fn(async () => ({ id: "new-asset" })),
+      updatePageAsset: jest.fn(async () => ({})),
+    };
+    const storage = { put: jest.fn(async () => ({ checksum: "sum" })) };
+    const service = new ChaptersService(repo as unknown as ChaptersRepository, storage as unknown as StorageService, {} as ImagesService, {} as WalletService, {} as NotificationsService, {} as CatalogService, {} as TeamActivityService, {} as AnnouncementsService);
+    return { service, repo, storage };
+  }
+
+  it("stores the new picture as a WebP and points the same page number at it", async () => {
+    const { service, repo, storage } = setup();
+    expect(await service.replacePage("uploader", "c1", 3, await picture())).toEqual({ pageNumber: 3 });
+    expect(storage.put).toHaveBeenCalledWith(expect.stringMatching(/^chapters\/.+\.webp$/), expect.any(Buffer));
+    expect(repo.createAsset).toHaveBeenCalledWith(expect.objectContaining({ mimeType: "image/webp" }));
+    expect(repo.updatePageAsset).toHaveBeenCalledWith("c1", 3, "new-asset");
+  });
+
+  it("is for the people who publish, needs a file, and refuses a page the chapter does not have", async () => {
+    await expect(setup().service.replacePage("reader", "c1", 3, await picture())).rejects.toBeInstanceOf(ForbiddenException);
+    await expect(setup().service.replacePage("uploader", "c1", 3, undefined)).rejects.toMatchObject({ response: { code: "missing_file" } });
+    await expect(setup(false).service.replacePage("uploader", "c1", 9, await picture())).rejects.toMatchObject({ response: { code: "page_not_found" } });
+  });
+
+  it("changes nothing when the file cannot be read as a picture", async () => {
+    const { service, repo, storage } = setup();
+    await expect(service.replacePage("uploader", "c1", 3, { buffer: Buffer.from("not a picture"), mimetype: "image/png" } as Express.Multer.File)).rejects.toBeDefined();
+    expect(storage.put).not.toHaveBeenCalled();
+    expect(repo.updatePageAsset).not.toHaveBeenCalled();
   });
 });

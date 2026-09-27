@@ -64,6 +64,11 @@ export class ChaptersRepository {
     return this.prisma.chapterPage.create({ data });
   }
 
+  /** Points page `pageNumber` at another picture (the old one is left where it is; no reader is sent to it any more). */
+  updatePageAsset(chapterId: string, pageNumber: number, assetId: string) {
+    return this.prisma.chapterPage.update({ where: { chapterId_pageNumber: { chapterId, pageNumber } }, data: { assetId } });
+  }
+
   createAsset(data: { storageKey: string; checksum: string; mimeType: string; width: number; height: number }) {
     return this.prisma.imageAsset.create({ data });
   }

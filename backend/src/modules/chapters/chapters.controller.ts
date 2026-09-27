@@ -1,4 +1,5 @@
 import {
+  BadRequestException,
   Body,
   Controller,
   Delete,
@@ -9,6 +10,7 @@ import {
   Param,
   Patch,
   Post,
+  Put,
   Query,
   Req,
   UploadedFile,
@@ -96,6 +98,22 @@ export class ChaptersController {
   ) {
     // A long picture becomes several pages from `pageNumber` on; the answer says how many, so the next upload starts after them.
     return this.chapters.uploadPages(actor.role, chapterId, dto.pageNumber, file);
+  }
+
+  /** Replaces one page's picture (multipart `file`); for the people who publish. */
+  @Put(":id/pages/:pageNumber")
+  @HttpCode(HttpStatus.OK)
+  @Throttle({ default: { limit: 60, ttl: 60_000 } })
+  @UseInterceptors(FileInterceptor("file", { storage: memoryStorage(), limits: { fileSize: MAX_PAGE_UPLOAD_BYTES } }))
+  replacePage(
+    @Param("id") chapterId: string,
+    @Param("pageNumber") pageNumber: string,
+    @UploadedFile() file: Express.Multer.File | undefined,
+    @CurrentUser() actor: AccessTokenPayload
+  ) {
+    const number = Number(pageNumber);
+    if (!Number.isInteger(number) || number < 1) throw new BadRequestException({ code: "invalid_page_number", message: "The page number must be a whole number from 1." });
+    return this.chapters.replacePage(actor.role, chapterId, number, file);
   }
 
   /**
