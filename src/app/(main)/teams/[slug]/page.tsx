@@ -65,7 +65,7 @@ export default function TeamDetailPage() {
   return (
     <div className="container space-y-8 py-6">
       <div
-        className="relative overflow-hidden rounded-2xl border border-white/10 p-8"
+        className="relative overflow-hidden rounded-2xl border border-white/10 p-5 sm:p-8"
         style={{ background: `linear-gradient(135deg, ${team.color}33, transparent)` }}
       >
         <div className="pointer-events-none absolute inset-0 opacity-70">
@@ -74,7 +74,7 @@ export default function TeamDetailPage() {
         </div>
         <div className="relative flex flex-col items-center gap-4 text-center sm:flex-row sm:text-start">
           <div
-            className="magic-border art-glow shine relative flex h-20 w-20 shrink-0 items-center justify-center overflow-hidden rounded-2xl font-display text-3xl font-black text-white"
+            className="magic-border art-glow shine relative flex h-16 w-16 shrink-0 items-center justify-center overflow-hidden rounded-2xl font-display text-2xl font-black text-white sm:h-20 sm:w-20 sm:text-3xl"
             style={team.logoUrl ? undefined : { background: `linear-gradient(135deg, ${team.color}, #C084FC)` }}
           >
             {team.logoUrl ? (
@@ -85,7 +85,7 @@ export default function TeamDetailPage() {
           </div>
           <div className="flex-1">
             <div className="flex flex-wrap items-center justify-center gap-2 sm:justify-start">
-              <h1 className="font-display text-3xl font-black text-white">{team.name}</h1>
+              <h1 className="font-display text-2xl font-black text-white sm:text-3xl">{team.name}</h1>
               <Badge variant={team.recruiting ? "success" : "secondary"}>
                 {team.recruiting ? "يستقبل طلبات انضمام" : "مكتمل العدد"}
               </Badge>
@@ -97,7 +97,8 @@ export default function TeamDetailPage() {
             </div>
             <p className="mt-2 max-w-xl text-sm text-lunex-gray">{team.description}</p>
           </div>
-          <div className="flex gap-2">
+          {/* Wraps on a narrow phone instead of overflowing past the card's edge (its overflow-hidden, needed for the blobs above, was clipping whichever button ran off). */}
+          <div className="flex flex-wrap justify-center gap-2 sm:flex-nowrap sm:justify-start">
             <TeamDashboardLink teamId={team.id} teamSlug={team.slug} leaderId={team.leaderId} />
             <ApplyToJoin team={team} />
             {currentUserId && currentUserId !== team.leaderId && (
