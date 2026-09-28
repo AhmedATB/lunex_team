@@ -35,11 +35,18 @@ export class CommentsController {
   @Get()
   @HttpCode(HttpStatus.OK)
   @Throttle({ default: { limit: 120, ttl: 60_000 } })
-  list(@Query("seriesId") seriesId: string | undefined, @CurrentUser() viewer: AccessTokenPayload | undefined) {
+  list(
+    @Query("seriesId") seriesId: string | undefined,
+    @Query("chapterId") chapterId: string | undefined,
+    @CurrentUser() viewer: AccessTokenPayload | undefined
+  ) {
     if (!seriesId || !SERIES_ID_PATTERN.test(seriesId)) {
       throw new BadRequestException({ code: "invalid_series_id", message: "A valid seriesId is required." });
     }
-    return this.comments.listForSeries(seriesId, viewer?.sub);
+    if (chapterId !== undefined && !SERIES_ID_PATTERN.test(chapterId)) {
+      throw new BadRequestException({ code: "invalid_chapter_id", message: "chapterId is not valid." });
+    }
+    return this.comments.listForSeries(seriesId, viewer?.sub, chapterId);
   }
 
   @Public()

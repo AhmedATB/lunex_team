@@ -18,6 +18,9 @@ export interface ServerComment {
   seriesId: string;
   /** Set on a reply: the top-level comment it hangs under. */
   parentId?: string | null;
+  /** Set on a comment written at the end of a chapter (its number is what the work's page marks it with). */
+  chapterId?: string | null;
+  chapterNumber?: number | null;
   content: string;
   isSpoiler: boolean;
   isPinned: boolean;
@@ -36,6 +39,8 @@ export interface ServerComment {
  * routes an action to the API instead of the device-local store.
  */
 export type CommentRow = Comment & {
+  /** The number of the chapter it was written under (real accounts' comments only). */
+  chapterNumber?: number;
   server?: true;
   author?: CommentAuthor;
   myReaction?: Reaction | null;
@@ -47,6 +52,8 @@ export function serverToRow(c: ServerComment): CommentRow {
     seriesId: c.seriesId,
     userId: c.author.id,
     parentId: c.parentId ?? undefined,
+    chapterId: c.chapterId ?? undefined,
+    chapterNumber: c.chapterNumber ?? undefined,
     content: c.content,
     likes: c.likes,
     dislikes: c.dislikes,
@@ -65,9 +72,11 @@ export function authorAsUser(a: CommentAuthor) {
   return { id: a.id, username: a.username, displayName: a.displayName, avatarSeed: a.id, avatarVersion: a.avatarVersion };
 }
 
-export async function fetchSeriesComments(seriesId: string): Promise<CommentRow[] | null> {
+/** A work's comments, or only those written under one chapter (`chapterId`). */
+export async function fetchSeriesComments(seriesId: string, chapterId?: string): Promise<CommentRow[] | null> {
   try {
-    const res = await fetch(`/api/comments?seriesId=${encodeURIComponent(seriesId)}`, { cache: "no-store" });
+    const chapter = chapterId ? `&chapterId=${encodeURIComponent(chapterId)}` : "";
+    const res = await fetch(`/api/comments?seriesId=${encodeURIComponent(seriesId)}${chapter}`, { cache: "no-store" });
     if (!res.ok) return null;
     const body: { comments: ServerComment[] } = await res.json();
     return body.comments.map(serverToRow);
@@ -121,6 +130,7 @@ const ERRORS: Record<string, string> = {
   insufficient_permissions: "لا تملك صلاحية لهذا الإجراء.",
   cannot_moderate_higher_rank: "لا يمكنك حذف تعليق من رتبته أعلى منك.",
   comment_not_found: "هذا التعليق لم يعد موجودًا.",
+  chapter_not_found: "هذا الفصل غير موجود.",
   cannot_react_own: "لا يمكنك التفاعل مع تعليقك.",
   cannot_report_own: "لا يمكنك الإبلاغ عن تعليقك.",
 };

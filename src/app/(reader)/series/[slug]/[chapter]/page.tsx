@@ -182,10 +182,15 @@ export default function ReaderPage() {
         />
       </ChapterGate>
       <div className="container max-w-3xl space-y-4 py-8">
-        <h2 className={cn("font-display text-lg font-bold", isNovel ? "text-foreground" : "text-white")}>
-          التعليقات على الفصل
-        </h2>
-        <CommentSection seriesId={series.id} teamId={series.teamId} initialComments={comments} users={db.users} />
+        <CommentSection
+          seriesId={series.id}
+          teamId={series.teamId}
+          initialComments={comments}
+          users={db.users}
+          chapter={{ id: chapter.id, number: chapter.number }}
+          heading="التعليقات على الفصل"
+          headingClassName={cn("text-lg", isNovel ? "text-foreground" : "text-white")}
+        />
       </div>
     </div>
   );

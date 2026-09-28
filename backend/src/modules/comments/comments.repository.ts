@@ -24,10 +24,10 @@ export class CommentsRepository {
     });
   }
 
-  /** The top-level comments of a work (replies are fetched for these, below). */
-  listForSeries(seriesId: string, take: number) {
+  /** The top-level comments of a work — or of one of its chapters (replies are fetched for these, below). */
+  listForSeries(seriesId: string, take: number, chapterId?: string) {
     return this.prisma.comment.findMany({
-      where: { seriesId, parentId: null, ...visible },
+      where: { seriesId, parentId: null, ...(chapterId ? { chapterId } : {}), ...visible },
       orderBy: [{ isPinned: "desc" }, { createdAt: "desc" }],
       take,
       include: { user: { select: AUTHOR_SELECT } },
@@ -43,6 +43,11 @@ export class CommentsRepository {
       take,
       include: { user: { select: AUTHOR_SELECT } },
     });
+  }
+
+  /** A published chapter, to check a comment written under it really belongs to it. */
+  findPublishedChapter(id: string) {
+    return this.prisma.chapter.findFirst({ where: { id, isPublished: true }, select: { id: true, seriesId: true, number: true } });
   }
 
   /** The address of a work's page, for a link in a notification. */
@@ -81,15 +86,15 @@ export class CommentsRepository {
     return this.prisma.comment.count({ where: { userId, createdAt: { gte: since } } });
   }
 
-  /** The same words from the same person in the same place (the same thread, for a reply) a moment ago. */
-  findRecentDuplicate(userId: string, seriesId: string, content: string, since: Date, parentId: string | null) {
+  /** The same words from the same person in the same place (the same chapter and thread) a moment ago. */
+  findRecentDuplicate(userId: string, seriesId: string, content: string, since: Date, parentId: string | null, chapterId: string | null) {
     return this.prisma.comment.findFirst({
-      where: { userId, seriesId, parentId, content, createdAt: { gte: since }, ...visible },
+      where: { userId, seriesId, parentId, chapterId, content, createdAt: { gte: since }, ...visible },
       select: { id: true },
     });
   }
 
-  create(data: { seriesId: string; userId: string; content: string; isSpoiler: boolean; parentId?: string }) {
+  create(data: { seriesId: string; userId: string; content: string; isSpoiler: boolean; parentId?: string; chapterId?: string; chapterNumber?: number }) {
     return this.prisma.comment.create({ data, include: { user: { select: AUTHOR_SELECT } } });
   }
 

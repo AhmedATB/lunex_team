@@ -1,4 +1,5 @@
 import { Injectable } from "@nestjs/common";
+import { Prisma } from "@prisma/client";
 import { PrismaService } from "../../prisma/prisma.service";
 import { usernameKey } from "../users/username.util";
 
@@ -71,15 +72,20 @@ export class AuthRepository {
 
   /** `isNew` lets the caller notify the user on a genuinely new device, without a second query — `upsert` alone doesn't say which branch it took. */
   async upsertDevice(userId: string, fingerprintHash: string) {
-    const existing = await this.prisma.device.findUnique({
-      where: { userId_fingerprintHash: { userId, fingerprintHash } },
-    });
-    const device = await this.prisma.device.upsert({
-      where: { userId_fingerprintHash: { userId, fingerprintHash } },
-      update: {},
-      create: { userId, fingerprintHash },
-    });
-    return { device, isNew: !existing };
+    const where = { userId_fingerprintHash: { userId, fingerprintHash } };
+    const existing = await this.prisma.device.findUnique({ where });
+    try {
+      const device = await this.prisma.device.upsert({ where, update: {}, create: { userId, fingerprintHash } });
+      return { device, isNew: !existing };
+    } catch (err) {
+      // Two requests from a device seen for the first time (a browser coming back fires several at once) both tried to create it:
+      // the loser finds the winner's row instead of failing.
+      if (err instanceof Prisma.PrismaClientKnownRequestError && err.code === "P2002") {
+        const device = await this.prisma.device.findUnique({ where });
+        if (device) return { device, isNew: false };
+      }
+      throw err;
+    }
   }
 
   createSession(params: {
@@ -96,11 +102,18 @@ export class AuthRepository {
     return this.prisma.session.findUnique({ where: { refreshTokenHash } });
   }
 
-  revokeSession(id: string) {
+  /** `rotated` marks a session consumed by a refresh (see `Session.rotatedAt`); a logout leaves it unset. */
+  revokeSession(id: string, rotated = false) {
+    const now = new Date();
     return this.prisma.session.update({
       where: { id },
-      data: { revoked: true, revokedAt: new Date() },
+      data: { revoked: true, revokedAt: now, ...(rotated ? { rotatedAt: now } : {}) },
     });
+  }
+
+  /** Whether some session of this family can still be used — the family has not been logged out, banned or revoked as a whole. */
+  async hasLiveSessionInFamily(familyId: string): Promise<boolean> {
+    return (await this.prisma.session.count({ where: { familyId, revoked: false, expiresAt: { gt: new Date() } } })) > 0;
   }
 
   revokeSessionFamily(familyId: string) {

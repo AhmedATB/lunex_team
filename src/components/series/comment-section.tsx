@@ -3,7 +3,7 @@
 import { useEffect, useState } from "react";
 import Image from "next/image";
 import Link from "next/link";
-import { ThumbsUp, ThumbsDown, Pin, PinOff, Send, Pencil, Trash2, EyeOff, AlertTriangle, AlertCircle, Check, X, Flag, Loader2, Reply, ChevronDown } from "lucide-react";
+import { ThumbsUp, ThumbsDown, Pin, PinOff, Send, Pencil, Trash2, EyeOff, AlertTriangle, AlertCircle, Check, X, Flag, Loader2, Reply, ChevronDown, BookOpen } from "lucide-react";
 import type { Comment, User } from "@/lib/types";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
@@ -62,17 +62,31 @@ interface Person {
   avatarVersion?: string | null;
 }
 
+type View = "latest" | "top" | "chapters";
+
 export function CommentSection({
   seriesId,
   teamId,
   initialComments,
   users,
+  chapter,
+  seriesSlug,
+  heading,
+  headingClassName,
 }: {
   seriesId: string;
   teamId: string;
   initialComments: Comment[];
   users: User[];
+  /** Set on a chapter's own page: only this chapter's comments are shown, and what is written there belongs to it. */
+  chapter?: { id: string; number: number };
+  /** On the work's page: lets the "فصل N" mark of a comment link to that chapter. */
+  seriesSlug?: string;
+  /** A title with the number of comments, shown above them. */
+  heading?: string;
+  headingClassName?: string;
 }) {
+  const [view, setView] = useState<View>("latest");
   const [draft, setDraft] = useState("");
   const [draftIsSpoiler, setDraftIsSpoiler] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
@@ -118,23 +132,35 @@ export function CommentSection({
   // Real accounts' comments come from the server (re-fetched when who is looking changes, so each carries the viewer's own reaction).
   useEffect(() => {
     let cancelled = false;
-    fetchSeriesComments(seriesId).then((rows) => {
+    fetchSeriesComments(seriesId, chapter?.id).then((rows) => {
       if (!cancelled && rows) setServerRows(rows);
     });
     return () => {
       cancelled = true;
     };
-  }, [seriesId, currentUserId]);
+  }, [seriesId, chapter?.id, currentUserId]);
 
-  const comments: CommentRow[] = [...serverRows, ...mergeComments(initialComments, commentsStore, seriesId)].sort((a, b) => {
+  // A chapter's page shows only what was written under that chapter; the work's page shows everything.
+  const comments: CommentRow[] = [...serverRows, ...(chapter ? [] : mergeComments(initialComments, commentsStore, seriesId))].sort((a, b) => {
     if (a.isPinned !== b.isPinned) return a.isPinned ? -1 : 1;
     return +new Date(b.createdAt) - +new Date(a.createdAt);
   });
 
   const mute = useMuteStatus();
 
-  // Top-level comments, and under each one its replies, oldest first (a conversation reads downwards).
-  const roots = comments.filter((c) => !c.parentId);
+  // Top-level comments in the order asked for, and under each one its replies, oldest first (a conversation reads downwards).
+  const newest = (a: CommentRow, b: CommentRow) => +new Date(b.createdAt) - +new Date(a.createdAt);
+  let roots = comments.filter((c) => !c.parentId);
+  if (view === "top") {
+    roots = [...roots].sort((a, b) => (a.isPinned !== b.isPinned ? (a.isPinned ? -1 : 1) : b.likes - a.likes || newest(a, b)));
+  } else if (view === "chapters") {
+    roots = roots.filter((c) => c.chapterNumber !== undefined).sort((a, b) => (b.chapterNumber ?? 0) - (a.chapterNumber ?? 0) || newest(a, b));
+  }
+  const views: { id: View; label: string }[] = [
+    { id: "latest", label: "الأحدث" },
+    { id: "top", label: "الأكثر" },
+    ...(chapter ? [] : [{ id: "chapters" as const, label: "الفصول" }]),
+  ];
   const repliesOf = new Map<string, CommentRow[]>();
   for (const c of comments) {
     if (c.parentId) repliesOf.set(c.parentId, [...(repliesOf.get(c.parentId) ?? []), c]);
@@ -162,7 +188,7 @@ export function CommentSection({
     if (!draft.trim() || !currentUser || mute.muted || busy) return;
     setActionError("");
     setBusy("post");
-    const res = await commentApi<ServerComment>("POST", "", { seriesId, content: draft, isSpoiler: draftIsSpoiler });
+    const res = await commentApi<ServerComment>("POST", "", { seriesId, content: draft, isSpoiler: draftIsSpoiler, ...(chapter ? { chapterId: chapter.id } : {}) });
     setBusy(null);
     if (!res.ok || !res.body) {
       setActionError(commentErrorMessage(res));
@@ -356,10 +382,25 @@ export function CommentSection({
             <Image src={avatarSrcFor(user, avatarOverrides)} alt={user.displayName} fill sizes={isReply ? "28px" : "36px"} className="object-cover" />
           </Link>
           <div className="min-w-0 flex-1">
-            <div className="flex items-center gap-2">
+            <div className="flex flex-wrap items-center gap-x-2 gap-y-1">
               <Link href={`/profile/${encodeURIComponent(user.username)}`} className="text-sm font-semibold text-white hover:text-primary-300">
                 {user.displayName}
               </Link>
+              {!isReply && !chapter && c.chapterNumber !== undefined && (
+                seriesSlug ? (
+                  <Link
+                    href={`/series/${encodeURIComponent(seriesSlug)}/${c.chapterNumber}`}
+                    className="inline-flex items-center gap-1 rounded-full border border-primary-400/40 bg-primary-500/10 px-2 py-0.5 text-[10px] font-bold text-primary-300 transition-colors hover:bg-primary-500/20"
+                    aria-label={`كُتب تحت الفصل ${c.chapterNumber}`}
+                  >
+                    <BookOpen className="h-2.5 w-2.5" /> فصل {c.chapterNumber}
+                  </Link>
+                ) : (
+                  <span className="inline-flex items-center gap-1 rounded-full border border-primary-400/40 bg-primary-500/10 px-2 py-0.5 text-[10px] font-bold text-primary-300">
+                    <BookOpen className="h-2.5 w-2.5" /> فصل {c.chapterNumber}
+                  </span>
+                )
+              )}
               {c.isPinned && (
                 <Badge variant="outline" className="flex items-center gap-1 text-[10px]">
                   <Pin className="h-2.5 w-2.5" /> مثبّت
@@ -542,6 +583,27 @@ export function CommentSection({
 
   return (
     <div className="space-y-4">
+      {heading && (
+        <h2 className={cn("font-display font-bold", headingClassName)}>
+          {heading} ({comments.length})
+        </h2>
+      )}
+      {comments.length > 0 && (
+        <div role="tablist" aria-label="ترتيب التعليقات" className="inline-flex rounded-full border border-white/10 bg-white/5 p-1 text-xs font-bold">
+          {views.map((v) => (
+            <button
+              key={v.id}
+              type="button"
+              role="tab"
+              aria-selected={view === v.id}
+              onClick={() => setView(v.id)}
+              className={cn("rounded-full px-4 py-1.5 transition-colors", view === v.id ? "bg-primary-500/25 text-primary-200" : "text-lunex-gray hover:text-white")}
+            >
+              {v.label}
+            </button>
+          ))}
+        </div>
+      )}
       <GuestPrompt text="التعليق للأعضاء فقط." />
       {currentUser && (
         <div className="flex gap-3">
@@ -553,7 +615,7 @@ export function CommentSection({
             <Textarea
               value={draft}
               onChange={(e) => setDraft(e.target.value)}
-              placeholder="شارك رأيك حول هذا العمل..."
+              placeholder={chapter ? "شارك رأيك حول هذا الفصل..." : "شارك رأيك حول هذا العمل..."}
               rows={2}
               maxLength={2000}
               disabled={mute.muted}
@@ -584,8 +646,10 @@ export function CommentSection({
 
       <div className="space-y-3">
         {roots.map((c) => renderComment(c))}
-        {comments.length === 0 && (
-          <p className="py-8 text-center text-sm text-lunex-gray">كن أول من يعلّق على هذا العمل.</p>
+        {roots.length === 0 && (
+          <p className="py-8 text-center text-sm text-lunex-gray">
+            {view === "chapters" ? "لا توجد تعليقات على الفصول بعد." : comments.length > 0 ? "لا توجد تعليقات هنا." : chapter ? "كن أول من يعلّق على هذا الفصل." : "كن أول من يعلّق على هذا العمل."}
+          </p>
         )}
       </div>
     </div>

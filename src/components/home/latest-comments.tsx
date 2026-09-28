@@ -52,7 +52,7 @@ export function LatestComments({
           return (
             <Link
               key={c.id}
-              href={`/series/${series.slug}`}
+              href={c.chapterNumber !== undefined ? `/series/${series.slug}/${c.chapterNumber}` : `/series/${series.slug}`}
               className="panel panel-hover flex gap-3 p-4 transition-colors hover:border-primary-400/30"
             >
               <div className="relative h-9 w-9 shrink-0 overflow-hidden rounded-full ring-2 ring-white/10">
@@ -62,6 +62,11 @@ export function LatestComments({
                 <p className="text-sm">
                   <span className="font-semibold text-white">{user.displayName}</span>{" "}
                   <span className="text-lunex-gray">على {series.titleAr}</span>
+                  {c.chapterNumber !== undefined && (
+                    <span className="ms-1.5 inline-flex items-center rounded-full border border-primary-400/40 bg-primary-500/10 px-2 py-0.5 align-middle text-[10px] font-bold text-primary-300">
+                      فصل {c.chapterNumber}
+                    </span>
+                  )}
                 </p>
                 {c.isSpoiler ? (
                   <p className="mt-1 flex items-center gap-1 text-sm text-lunex-gray">

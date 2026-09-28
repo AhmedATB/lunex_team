@@ -210,8 +210,15 @@ export default function SeriesDetailPage() {
             <h2 className="section-title font-display text-xl font-bold text-white">الفصول ({chapters.length})</h2>
             <ChapterList seriesSlug={series.slug} chapters={chapters} teamId={series.teamId} />
 
-            <h2 className="section-title pt-4 font-display text-xl font-bold text-white">التعليقات ({comments.length})</h2>
-            <CommentSection seriesId={series.id} teamId={series.teamId} initialComments={comments} users={db.users} />
+            <CommentSection
+              seriesId={series.id}
+              teamId={series.teamId}
+              initialComments={comments}
+              users={db.users}
+              seriesSlug={series.slug}
+              heading="التعليقات"
+              headingClassName="section-title pt-4 text-xl text-white"
+            />
           </FadeIn>
 
           <FadeIn className="space-y-4">

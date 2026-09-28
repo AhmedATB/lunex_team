@@ -13,6 +13,49 @@ import { backendIdentity } from "@/lib/client-ip";
 
 const REFRESH_MARGIN_MS = 30_000; // refresh proactively, not just after the token has already died
 const BACKEND_URL = process.env.BACKEND_URL ?? "http://localhost:4000";
+/** How long one refresh's answer is shared with the other requests of the same burst. */
+const SHARE_REFRESH_MS = 10_000;
+
+type SessionTokensBody = { accessToken: string; refreshToken: string; expiresIn: number };
+type RefreshOutcome = { kind: "ok"; tokens: SessionTokensBody } | { kind: "ended" } | { kind: "unreachable" };
+const sharedRefreshes = new Map<string, { at: number; outcome: Promise<RefreshOutcome> }>();
+
+/**
+ * Asks the backend to rotate a refresh token — once per token, however many requests carry it. A browser coming back after its access
+ * token died fires a page and several data requests together; each used to rotate the same refresh token on its own, which cost a
+ * session per request and, whenever one landed after another, looked like a stolen token being replayed and ended the session (the
+ * visitor was signed out for no reason). Now the first request asks and the others in the same burst take its answer.
+ */
+function refreshOnce(request: NextRequest, refreshToken: string): Promise<RefreshOutcome> {
+  const now = Date.now();
+  for (const [key, entry] of sharedRefreshes) if (now - entry.at > SHARE_REFRESH_MS) sharedRefreshes.delete(key);
+  const shared = sharedRefreshes.get(refreshToken);
+  if (shared) return shared.outcome;
+
+  const outcome = (async (): Promise<RefreshOutcome> => {
+    try {
+      const res = await fetch(`${BACKEND_URL}/v1/auth/refresh`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          "User-Agent": "LunexTeamBFF/1.0 (+server-to-server)",
+          ...backendIdentity((name) => request.headers.get(name)),
+        },
+        body: JSON.stringify({ refreshToken }),
+        cache: "no-store",
+      });
+      // Refresh token invalid/expired/reuse-detected — the session is genuinely over, not a transient failure.
+      if (!res.ok) return { kind: "ended" };
+      return { kind: "ok", tokens: (await res.json()) as SessionTokensBody };
+    } catch {
+      return { kind: "unreachable" };
+    }
+  })();
+  sharedRefreshes.set(refreshToken, { at: now, outcome });
+  // A backend that could not be reached is not an answer worth sharing: the next request asks again.
+  void outcome.then((o) => o.kind === "unreachable" && sharedRefreshes.delete(refreshToken));
+  return outcome;
+}
 
 /**
  * Silent refresh, running before every page/API request: if the access
@@ -63,44 +106,28 @@ export async function middleware(request: NextRequest) {
   const needsRefresh = !expiresAtMs || Date.now() > expiresAtMs - REFRESH_MARGIN_MS;
   if (!needsRefresh) return NextResponse.next();
 
-  try {
-    const res = await fetch(`${BACKEND_URL}/v1/auth/refresh`, {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        "User-Agent": "LunexTeamBFF/1.0 (+server-to-server)",
-        ...backendIdentity((name) => request.headers.get(name)),
-      },
-      body: JSON.stringify({ refreshToken }),
-      cache: "no-store",
-    });
+  const outcome = await refreshOnce(request, refreshToken);
 
-    if (!res.ok) {
-      // Refresh token invalid/expired/reuse-detected — the session is
-      // genuinely over, not a transient failure. Clear cookies so the app
-      // renders as logged-out instead of stuck retrying a dead token.
-      const response = mustSignIn ? turnAway(request) : NextResponse.next();
-      clearSessionCookies(response);
-      return response;
-    }
-
-    const tokens: { accessToken: string; refreshToken: string; expiresIn: number } = await res.json();
-
-    // Mutating request.cookies also mutates the shared request.headers
-    // Cookie header (see RequestCookies.set in Next's edge-runtime cookies
-    // implementation) — passing that same Headers instance into next({request})
-    // is what makes downstream Server Components see the fresh token on THIS request.
-    request.cookies.set(ACCESS_TOKEN_COOKIE, tokens.accessToken);
-
-    const response = NextResponse.next({ request: { headers: request.headers } });
-    setSessionCookies(response, tokens);
+  if (outcome.kind === "ended") {
+    // Clear cookies so the app renders as logged-out instead of stuck retrying a dead token.
+    const response = mustSignIn ? turnAway(request) : NextResponse.next();
+    clearSessionCookies(response);
     return response;
-  } catch {
-    // Backend unreachable — fail open on this one request rather than
-    // logging everyone out over a transient network blip; the next request
-    // retries the same refresh.
+  }
+  if (outcome.kind === "unreachable") {
+    // Backend unreachable — fail open on this one request rather than logging everyone out over a transient network blip;
+    // the next request retries the same refresh.
     return NextResponse.next();
   }
+
+  // Mutating request.cookies also mutates the shared request.headers Cookie header (see RequestCookies.set in Next's edge-runtime
+  // cookies implementation) — passing that same Headers instance into next({request}) is what makes downstream Server Components
+  // see the fresh token on THIS request.
+  request.cookies.set(ACCESS_TOKEN_COOKIE, outcome.tokens.accessToken);
+
+  const response = NextResponse.next({ request: { headers: request.headers } });
+  setSessionCookies(response, outcome.tokens);
+  return response;
 }
 
 export const config = {

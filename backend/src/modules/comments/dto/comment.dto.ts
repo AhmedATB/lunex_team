@@ -20,6 +20,11 @@ export class CreateCommentDto {
   @IsBoolean()
   isSpoiler?: boolean;
 
+  /** The chapter this comment is written under (its page), or nothing for a comment on the work itself. */
+  @IsOptional()
+  @Matches(SERIES_ID_PATTERN, { message: "chapterId is not valid" })
+  chapterId?: string;
+
   /** Makes this a reply to that comment (a top-level one, or another reply — the server files it under the top-level comment either way). */
   @IsOptional()
   @Matches(SERIES_ID_PATTERN, { message: "parentId is not valid" })

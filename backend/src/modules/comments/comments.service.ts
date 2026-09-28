@@ -45,6 +45,8 @@ interface CommentRow {
   seriesId: string;
   userId: string;
   parentId: string | null;
+  chapterId: string | null;
+  chapterNumber: number | null;
   content: string;
   isSpoiler: boolean;
   isPinned: boolean;
@@ -61,8 +63,9 @@ export class CommentsService {
     private readonly progress: ProgressService
   ) {}
 
-  async listForSeries(seriesId: string, viewerId: string | undefined) {
-    const roots = await this.repo.listForSeries(seriesId, LIST_LIMIT);
+  /** A work's comments — all of them (those under chapters carry the chapter's number), or only one chapter's when `chapterId` is given. */
+  async listForSeries(seriesId: string, viewerId: string | undefined, chapterId?: string) {
+    const roots = await this.repo.listForSeries(seriesId, LIST_LIMIT, chapterId);
     const replies = await this.repo.listReplies(roots.map((r) => r.id), REPLIES_LIMIT);
     return { comments: await this.toDtos([...roots, ...replies], viewerId) };
   }
@@ -85,6 +88,8 @@ export class CommentsService {
     const target = dto.parentId ? await this.requireReplyTarget(dto.parentId, dto.seriesId) : null;
     // One level of replies: answering a reply files the answer under the same top-level comment, as an answer to that person.
     const threadId = target ? (target.parentId ?? target.id) : null;
+    // A reply stays where its comment is; a new comment under a chapter must name a real, published chapter of this very work.
+    const chapter = target ? (target.chapterId ? { id: target.chapterId, number: target.chapterNumber } : null) : dto.chapterId ? await this.requireChapter(dto.chapterId, dto.seriesId) : null;
     const now = Date.now();
 
     if ((await this.repo.countByAuthorSince(userId, new Date(now - MINUTE_MS))) >= MAX_PER_MINUTE) {
@@ -93,11 +98,18 @@ export class CommentsService {
     if ((await this.repo.countByAuthorSince(userId, new Date(now - HOUR_MS))) >= MAX_PER_HOUR) {
       throw new HttpException({ code: "comment_rate_limited", message: "Comment limit reached for this hour." }, HttpStatus.TOO_MANY_REQUESTS);
     }
-    if (await this.repo.findRecentDuplicate(userId, dto.seriesId, content, new Date(now - DUPLICATE_WINDOW_MS), threadId)) {
+    if (await this.repo.findRecentDuplicate(userId, dto.seriesId, content, new Date(now - DUPLICATE_WINDOW_MS), threadId, chapter?.id ?? null)) {
       throw new ConflictException({ code: "duplicate_comment", message: "You already posted this comment." });
     }
 
-    const row = await this.repo.create({ seriesId: dto.seriesId, userId, content, isSpoiler: dto.isSpoiler ?? false, ...(threadId ? { parentId: threadId } : {}) });
+    const row = await this.repo.create({
+      seriesId: dto.seriesId,
+      userId,
+      content,
+      isSpoiler: dto.isSpoiler ?? false,
+      ...(threadId ? { parentId: threadId } : {}),
+      ...(chapter ? { chapterId: chapter.id, ...(chapter.number !== null ? { chapterNumber: chapter.number } : {}) } : {}),
+    });
     await this.progress.awardComment(userId); // experience for the comment; never fails the comment itself
     if (target) await this.tellOfReply(target, row);
     return (await this.toDtos([row], userId))[0];
@@ -221,6 +233,15 @@ export class CommentsService {
     await this.repo.writeAuditLog({ actorId: actor.id, action: "comment.reports_dismissed", target: id, ip: ctx.ip });
   }
 
+  /** The chapter a comment is written under: it must be published and belong to this work. */
+  private async requireChapter(chapterId: string, seriesId: string) {
+    const chapter = await this.repo.findPublishedChapter(chapterId);
+    if (!chapter || chapter.seriesId !== seriesId) {
+      throw new NotFoundException({ code: "chapter_not_found", message: "This chapter does not exist." });
+    }
+    return { id: chapter.id, number: chapter.number as number | null };
+  }
+
   /** The comment being answered: it must exist, be visible, and be on the same work as the answer. */
   private async requireReplyTarget(parentId: string, seriesId: string) {
     const target = await this.repo.findById(parentId);
@@ -231,13 +252,13 @@ export class CommentsService {
   }
 
   /** Tells the person answered (never the writer themselves). A notification failing never fails the reply. */
-  private async tellOfReply(target: { userId: string; seriesId: string }, reply: CommentRow) {
+  private async tellOfReply(target: { userId: string; seriesId: string; chapterNumber: number | null }, reply: CommentRow) {
     if (target.userId === reply.userId) return;
     try {
       const slug = await this.repo.seriesSlug(target.seriesId);
       const name = reply.user.displayName ?? reply.user.username;
       const excerpt = reply.content.length > NOTICE_EXCERPT ? `${reply.content.slice(0, NOTICE_EXCERPT - 1).trimEnd()}…` : reply.content;
-      await this.notifications.notify(target.userId, "reply", "رد جديد على تعليقك", `${name}: ${excerpt}`, slug ? `/series/${encodeURIComponent(slug)}` : undefined);
+      await this.notifications.notify(target.userId, "reply", "رد جديد على تعليقك", `${name}: ${excerpt}`, slug ? `/series/${encodeURIComponent(slug)}${target.chapterNumber !== null ? `/${target.chapterNumber}` : ""}` : undefined);
     } catch {
       // the reply is already posted
     }
@@ -296,6 +317,8 @@ export class CommentsService {
         id: row.id,
         seriesId: row.seriesId,
         parentId: row.parentId,
+        chapterId: row.chapterId,
+        chapterNumber: row.chapterNumber,
         content: fixTanween(row.content),
         isSpoiler: row.isSpoiler,
         isPinned: row.isPinned,

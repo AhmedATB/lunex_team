@@ -14,6 +14,12 @@ import { PASSWORD_RESET_TTL_MINUTES, passwordResetMail } from "./password-reset.
 
 const ACCESS_TOKEN_TTL = "10m";
 const REFRESH_TOKEN_TTL_MS = 7 * 24 * 60 * 60 * 1000; // 7 days
+/**
+ * A browser that comes back after its 10-minute access token died sends a page and several data requests at once, all carrying the
+ * same refresh token. The first rotates it; the others arrive holding a token that was consumed a moment ago. Within this window that
+ * is a race, not a theft, so they are let through instead of ending the session.
+ */
+const REFRESH_RACE_LEEWAY_MS = 15_000;
 /** Asking twice within this window sends one mail: a stuck finger (or someone mail-bombing an inbox) costs nothing. */
 const RESET_MAIL_COOLDOWN_MS = 2 * 60 * 1000;
 
@@ -156,19 +162,27 @@ export class AuthService {
       throw new UnauthorizedException({ code: "invalid_refresh_token", message: "Session not found." });
     }
     if (session.revoked) {
-      await this.repo.revokeSessionFamily(session.familyId);
-      await this.repo.writeAuditLog({
-        actorId: session.userId,
-        action: "session.reuse_detected",
-        ip: ctx.ip,
-      });
-      throw new UnauthorizedException({ code: "session_reuse_detected", message: "Session revoked for security." });
+      // Consumed by a refresh seconds ago, and its family is still alive (not logged out or banned since): a request that raced the
+      // refresh that consumed it. Anything else — an old token, or one from a family that has ended — is a replay.
+      const raced =
+        session.rotatedAt !== null &&
+        Date.now() - session.rotatedAt.getTime() < REFRESH_RACE_LEEWAY_MS &&
+        (await this.repo.hasLiveSessionInFamily(session.familyId));
+      if (!raced) {
+        await this.repo.revokeSessionFamily(session.familyId);
+        await this.repo.writeAuditLog({
+          actorId: session.userId,
+          action: "session.reuse_detected",
+          ip: ctx.ip,
+        });
+        throw new UnauthorizedException({ code: "session_reuse_detected", message: "Session revoked for security." });
+      }
     }
     if (session.expiresAt < new Date()) {
       throw new UnauthorizedException({ code: "refresh_token_expired", message: "Please log in again." });
     }
 
-    await this.repo.revokeSession(session.id);
+    if (!session.revoked) await this.repo.revokeSession(session.id, true);
     const user = await this.repo.findUserById(session.userId);
     if (!user) {
       throw new UnauthorizedException({ code: "user_not_found", message: "Account no longer exists." });

@@ -169,6 +169,10 @@ model Session {
   createdAt        DateTime  @default(now())
   expiresAt        DateTime
   revokedAt        DateTime?
+  /// Set only when this session was consumed by a refresh (rotated into the next one) — as opposed to logged out, banned or revoked
+  /// with its family. It is what lets a second request of the same browser that raced the first one (both carried this token) still
+  /// get in for a few seconds instead of being taken for a stolen-token replay.
+  rotatedAt        DateTime?
 
   @@index([familyId])
   @@map("sessions")
@@ -495,11 +499,17 @@ model Comment {
   parentId    String?
   parent      Comment?  @relation("CommentReplies", fields: [parentId], references: [id], onDelete: Cascade)
   replies     Comment[] @relation("CommentReplies")
+  /// Set on a comment written at the end of a chapter: it belongs to that chapter (shown there, and marked with its number on the
+  /// work's page). Null for a comment on the work itself. A reply takes its comment's chapter. `chapterNumber` is copied at writing time so
+  /// the label survives without a lookup (and outlives the chapter). Plain id, not a relation, like other catalogue references here.
+  chapterId     String?
+  chapterNumber Float?
 
   reactions CommentReaction[]
   reports   CommentReport[]
 
   @@index([seriesId, createdAt])
+  @@index([seriesId, chapterId, createdAt])
   @@index([userId, createdAt])
   @@index([deletedAt])
   @@index([parentId, createdAt])

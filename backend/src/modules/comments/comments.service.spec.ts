@@ -42,6 +42,8 @@ function commentRow(id: string, userId: string, role = "reader", extra: Record<s
     seriesId: "series-1",
     userId,
     parentId: null,
+    chapterId: null,
+    chapterNumber: null,
     content: "hello",
     isSpoiler: false,
     isPinned: false,
@@ -62,8 +64,8 @@ function build(users: Record<string, { role: string; isBanned?: boolean; bannedU
     findById: jest.fn(),
     countByAuthorSince: jest.fn().mockResolvedValue(0),
     findRecentDuplicate: jest.fn().mockResolvedValue(null),
-    create: jest.fn(async (d: { seriesId: string; userId: string; content: string; isSpoiler: boolean; parentId?: string }) =>
-      commentRow("new", d.userId, "reader", { content: d.content, isSpoiler: d.isSpoiler, parentId: d.parentId ?? null })
+    create: jest.fn(async (d: { seriesId: string; userId: string; content: string; isSpoiler: boolean; parentId?: string; chapterId?: string; chapterNumber?: number }) =>
+      commentRow("new", d.userId, "reader", { content: d.content, isSpoiler: d.isSpoiler, parentId: d.parentId ?? null, chapterId: d.chapterId ?? null, chapterNumber: d.chapterNumber ?? null })
     ),
     update: jest.fn(async (id: string, patch: Record<string, unknown>) => commentRow(id, "author", "reader", patch)),
     hardDelete: jest.fn().mockResolvedValue(undefined),
@@ -78,6 +80,7 @@ function build(users: Record<string, { role: string; isBanned?: boolean; bannedU
     listForSeries: jest.fn().mockResolvedValue([]),
     listReplies: jest.fn().mockResolvedValue([]),
     seriesSlug: jest.fn().mockResolvedValue("moon-rose"),
+    findPublishedChapter: jest.fn(async (id: string) => (id === "ch-6" ? { id: "ch-6", seriesId: "series-1", number: 6 } : id === "ch-x" ? { id: "ch-x", seriesId: "series-2", number: 1 } : null)),
     listLatest: jest.fn().mockResolvedValue([]),
     writeAuditLog: jest.fn().mockResolvedValue(undefined),
   };
@@ -340,7 +343,7 @@ describe("CommentsService replies", () => {
     repo.findById.mockResolvedValue(commentRow("r1", "other", "reader", { parentId: "top" }));
     await service.create("author", { seriesId: "series-1", content: "thanks", parentId: "r1" });
     expect(repo.create).toHaveBeenCalledWith(expect.objectContaining({ parentId: "top" }));
-    expect(repo.findRecentDuplicate).toHaveBeenCalledWith("author", "series-1", "thanks", expect.any(Date), "top");
+    expect(repo.findRecentDuplicate).toHaveBeenCalledWith("author", "series-1", "thanks", expect.any(Date), "top", null);
     expect(notifications.notify).toHaveBeenCalledWith("other", "reply", expect.any(String), expect.any(String), expect.any(String));
   });
 
@@ -383,6 +386,58 @@ describe("CommentsService replies", () => {
     repo.findById.mockResolvedValue(commentRow("r1", "other", "reader", { parentId: "top" }));
     await expect(service.update("mod", "r1", { isPinned: true })).rejects.toMatchObject({ response: { code: "reply_cannot_be_pinned" } });
     expect(repo.update).not.toHaveBeenCalled();
+  });
+});
+
+describe("comments under a chapter", () => {
+  it("files a comment under the chapter it is written at, remembering its number, and says where it sits", async () => {
+    const { service, repo } = build(roster());
+    const dto = await service.create("author", { seriesId: "series-1", content: "great chapter", chapterId: "ch-6" });
+    expect(repo.create).toHaveBeenCalledWith({ seriesId: "series-1", userId: "author", content: "great chapter", isSpoiler: false, chapterId: "ch-6", chapterNumber: 6 });
+    expect(dto).toMatchObject({ chapterId: "ch-6", chapterNumber: 6 });
+  });
+
+  it("leaves a comment on the work itself with no chapter", async () => {
+    const { service, repo } = build(roster());
+    const dto = await service.create("author", { seriesId: "series-1", content: "great work" });
+    expect(repo.create).toHaveBeenCalledWith({ seriesId: "series-1", userId: "author", content: "great work", isSpoiler: false });
+    expect(dto).toMatchObject({ chapterId: null, chapterNumber: null });
+  });
+
+  it("refuses a chapter that does not exist, is not published, or belongs to another work — and posts nothing", async () => {
+    const { service, repo } = build(roster());
+    await expect(service.create("author", { seriesId: "series-1", content: "hi", chapterId: "nope" })).rejects.toMatchObject({ response: { code: "chapter_not_found" } });
+    await expect(service.create("author", { seriesId: "series-1", content: "hi", chapterId: "ch-x" })).rejects.toMatchObject({ response: { code: "chapter_not_found" } });
+    expect(repo.create).not.toHaveBeenCalled();
+  });
+
+  it("keeps a reply in its comment's chapter, whatever chapter the request names", async () => {
+    const { service, repo } = build(roster());
+    repo.findById.mockResolvedValue(commentRow("top", "other", "reader", { chapterId: "ch-6", chapterNumber: 6 }));
+    await service.create("author", { seriesId: "series-1", content: "agreed", parentId: "top", chapterId: "ch-x" });
+    expect(repo.create).toHaveBeenCalledWith(expect.objectContaining({ parentId: "top", chapterId: "ch-6", chapterNumber: 6 }));
+    expect(repo.findPublishedChapter).not.toHaveBeenCalled();
+  });
+
+  it("does not take the same words in two chapters for a duplicate", async () => {
+    const { service, repo } = build(roster());
+    await service.create("author", { seriesId: "series-1", content: "🔥🔥", chapterId: "ch-6" });
+    expect(repo.findRecentDuplicate).toHaveBeenCalledWith("author", "series-1", "🔥🔥", expect.any(Date), null, "ch-6");
+  });
+
+  it("lists one chapter's comments when asked, and the whole work's otherwise", async () => {
+    const { service, repo } = build(roster());
+    await service.listForSeries("series-1", undefined, "ch-6");
+    expect(repo.listForSeries).toHaveBeenCalledWith("series-1", expect.any(Number), "ch-6");
+    await service.listForSeries("series-1", undefined);
+    expect(repo.listForSeries).toHaveBeenLastCalledWith("series-1", expect.any(Number), undefined);
+  });
+
+  it("sends the person answered to the chapter itself when the comment was written under one", async () => {
+    const { service, repo, notifications } = build(roster());
+    repo.findById.mockResolvedValue(commentRow("top", "other", "reader", { chapterId: "ch-6", chapterNumber: 6 }));
+    await service.create("author", { seriesId: "series-1", content: "agreed", parentId: "top" });
+    expect(notifications.notify).toHaveBeenCalledWith("other", "reply", expect.any(String), expect.any(String), "/series/moon-rose/6");
   });
 });
 
