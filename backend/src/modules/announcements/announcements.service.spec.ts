@@ -8,7 +8,20 @@ const CHAPTER_ROLE = "1472481779662196736";
 const SERIES_ROLE = "1474536152697671874";
 const TELEGRAM = { TELEGRAM_BOT_TOKEN: "123:token", TELEGRAM_CHAT_ID: "@lunex" };
 
-function build(settings: Record<string, string> = {}, options: { published?: number[]; state?: string; synopsis?: string; genres?: string[]; thumbnail?: { id: string; thumbnailAssetId: string } } = {}) {
+const TEAM_HOOK = "https://discord.com/api/webhooks/789/team-server";
+
+function build(
+  settings: Record<string, string> = {},
+  options: {
+    published?: number[];
+    state?: string;
+    synopsis?: string;
+    genres?: string[];
+    thumbnail?: { id: string; thumbnailAssetId: string };
+    teamWebhook?: string | null;
+    teamRoleId?: string | null;
+  } = {}
+) {
   const repo = {
     findSeries: jest.fn(async () => ({
       id: "s1",
@@ -25,6 +38,7 @@ function build(settings: Record<string, string> = {}, options: { published?: num
     genres: jest.fn(async () => options.genres ?? ["خيالي", "دراما"]),
     stillPublished: jest.fn(async (_id: string, numbers: number[]) => options.published ?? [...numbers].sort((a, b) => a - b)),
     latestThumbnail: jest.fn(async () => options.thumbnail ?? null),
+    teamDiscord: jest.fn(async () => (options.teamWebhook ? { webhookUrl: options.teamWebhook, roleId: options.teamRoleId ?? null } : null)),
   };
   const config = { get: (key: string) => ({ FRONTEND_URL: "https://lunexteam.com/", ...settings })[key] } as unknown as ConfigService;
   return { service: new AnnouncementsService(repo as unknown as AnnouncementsRepository, config), repo };
@@ -96,6 +110,60 @@ describe("announcing a chapter", () => {
     await publishAndWait(plain.service, "s1", 7);
     expect(bodyOf(calls("discord.com")[0]).embeds[0].image).toBeUndefined();
     expect(bodyOf(calls("/sendPhoto")[0]).photo).toContain("/series/s1/cover");
+  });
+
+  it("also posts to the work's own team server when the team set a webhook — the same embed, pinging no one when it set no role", async () => {
+    const { service } = build({ DISCORD_WEBHOOK_URL: HOOK }, { teamWebhook: TEAM_HOOK });
+    await publishAndWait(service, "s1", 7);
+    const posts = calls("discord.com");
+    expect(posts.map((p) => String(p[0])).sort()).toEqual([HOOK, TEAM_HOOK].sort());
+    const teamPost = posts.find((p) => String(p[0]) === TEAM_HOOK);
+    const teamBody = bodyOf(teamPost!);
+    expect(teamBody.content).toBeUndefined();
+    expect(teamBody.allowed_mentions).toEqual({ parse: [] });
+    expect(teamBody.embeds[0]).toMatchObject({ title: "الفصل 7 — وردة القمر" });
+    // the site's own room still got its usual ping
+    expect(bodyOf(posts.find((p) => String(p[0]) === HOOK)!).content).toBe(`<@&${CHAPTER_ROLE}>`);
+  });
+
+  it("pings the team's own role on the team's own server — never the site's role", async () => {
+    const teamRole = "1200000000000000001";
+    const { service } = build({ DISCORD_WEBHOOK_URL: HOOK }, { teamWebhook: TEAM_HOOK, teamRoleId: teamRole });
+    await publishAndWait(service, "s1", 7);
+    const teamBody = bodyOf(calls("discord.com").find((p) => String(p[0]) === TEAM_HOOK)!);
+    expect(teamBody.content).toBe(`<@&${teamRole}>`);
+    expect(teamBody.allowed_mentions).toEqual({ parse: [], roles: [teamRole] });
+    // the site's room is unaffected — still its own role, never the team's
+    expect(bodyOf(calls("discord.com").find((p) => String(p[0]) === HOOK)!).content).toBe(`<@&${CHAPTER_ROLE}>`);
+  });
+
+  it("pings no one on the team's server when the saved role id is not a real Discord id", async () => {
+    const { service } = build({}, { teamWebhook: TEAM_HOOK, teamRoleId: "not-a-role" });
+    await publishAndWait(service, "s1", 7);
+    const teamBody = bodyOf(calls("discord.com")[0]);
+    expect(teamBody.content).toBeUndefined();
+    expect(teamBody.allowed_mentions).toEqual({ parse: [] });
+  });
+
+  it("posts to the team's server alone when the site's own chapters room is not configured", async () => {
+    const { service } = build({}, { teamWebhook: TEAM_HOOK });
+    await publishAndWait(service, "s1", 7);
+    expect(calls("discord.com")).toHaveLength(1);
+    expect(String(calls("discord.com")[0][0])).toBe(TEAM_HOOK);
+  });
+
+  it("never sends to a team's saved address that is not really a Discord webhook", async () => {
+    const { service } = build({ DISCORD_WEBHOOK_URL: HOOK }, { teamWebhook: "https://evil.example/steal" });
+    await publishAndWait(service, "s1", 7);
+    expect(calls("discord.com")).toHaveLength(1);
+    expect(calls("evil.example")).toHaveLength(0);
+  });
+
+  it("does not fail the whole announcement when the team's own server is down", async () => {
+    fetchMock.mockImplementation(async (url) => new Response("{}", { status: String(url).includes("team-server") ? 500 : 200 }));
+    const { service } = build({ DISCORD_WEBHOOK_URL: HOOK }, { teamWebhook: TEAM_HOOK });
+    await expect(publishAndWait(service, "s1", 7)).resolves.toBeUndefined();
+    expect(calls("discord.com")).toHaveLength(2);
   });
 
   it("takes another role from the settings, and pings nobody when the setting is not a role id", async () => {
@@ -220,6 +288,24 @@ describe("announcing a new work", () => {
         { name: "الفريق", value: "Nova & Co", inline: true },
       ],
     });
+  });
+
+  it("also posts a new work to the team's own server, unpinged, alongside the site's works room", async () => {
+    const { service } = build({ DISCORD_NEW_SERIES_WEBHOOK_URL: SERIES_HOOK }, { teamWebhook: TEAM_HOOK });
+    await addAndWait(service, "s1");
+    const posts = calls("discord.com");
+    expect(posts.map((p) => String(p[0])).sort()).toEqual([SERIES_HOOK, TEAM_HOOK].sort());
+    const teamBody = bodyOf(posts.find((p) => String(p[0]) === TEAM_HOOK)!);
+    expect(teamBody.content).toBeUndefined();
+    expect(teamBody.embeds[0]).toMatchObject({ title: "عمل جديد — وردة القمر" });
+  });
+
+  it("pings the team's own role for a new work too, when it set one", async () => {
+    const teamRole = "1200000000000000002";
+    const { service } = build({}, { teamWebhook: TEAM_HOOK, teamRoleId: teamRole });
+    await addAndWait(service, "s1");
+    const teamBody = bodyOf(calls("discord.com")[0]);
+    expect(teamBody.content).toBe(`<@&${teamRole}>`);
   });
 
   it("does nothing on Discord without the works room's setting (the chapters room is never used for it), but still tells the search engines", async () => {

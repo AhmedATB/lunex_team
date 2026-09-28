@@ -23,6 +23,13 @@ export class AnnouncementsRepository {
     return (await this.prisma.team.findUnique({ where: { id: teamId }, select: { name: true } }))?.name ?? null;
   }
 
+  /** The team's own Discord server, if it set a webhook there: the address, and the role to ping (that server's roles are the team's own, never the site's). */
+  async teamDiscord(teamId: string | null): Promise<{ webhookUrl: string; roleId: string | null } | null> {
+    if (!teamId) return null;
+    const team = await this.prisma.team.findUnique({ where: { id: teamId }, select: { discordWebhookUrl: true, discordRoleId: true } });
+    return team?.discordWebhookUrl ? { webhookUrl: team.discordWebhookUrl, roleId: team.discordRoleId } : null;
+  }
+
   /** The featured picture of the newest of these chapters that has one (the batch's face), if any. */
   async latestThumbnail(seriesId: string, numbers: number[]): Promise<{ id: string; thumbnailAssetId: string } | null> {
     const row = await this.prisma.chapter.findFirst({

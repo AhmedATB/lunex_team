@@ -42,13 +42,19 @@ interface Post {
   team: string | null;
 }
 
+/** A team's own Discord server, when it set a webhook there (its address and the role to ping — its own, never the site's). */
+type TeamDiscord = { webhookUrl: string; roleId: string | null } | null;
+
 /**
  * Tells the outside world about what just went live: a chapter, or a new work. A post in the community's Discord (a webhook per
- * room, pinging the role that follows it) and, for a chapter, in the Telegram channel (a bot); and a ping to Bing and the other
- * IndexNow search engines so the page is found within minutes (Google does not use IndexNow; it reads the sitemap). Each channel
- * is switched on by its own setting and does nothing without it: `DISCORD_WEBHOOK_URL` (chapters), `DISCORD_NEW_SERIES_WEBHOOK_URL`
- * (new works), `TELEGRAM_BOT_TOKEN` + `TELEGRAM_CHAT_ID`; IndexNow needs none. It never throws — the chapter or work is already
- * published, and a channel being down must not undo that.
+ * room, pinging the role that follows it), *and*, when the work's team set its own webhook (`Team.discordWebhookUrl`), a second
+ * post in the team's own Discord server — pinging that server's own role (`Team.discordRoleId`) if it set one, never the site's
+ * role (a server's webhook and role ids only ever mean something on that one server). And, for a chapter, in the Telegram
+ * channel (a bot); and a ping to Bing and the other IndexNow search engines so the page is found
+ * within minutes (Google does not use IndexNow; it reads the sitemap). Each channel is switched on by its own setting and does
+ * nothing without it: `DISCORD_WEBHOOK_URL` (chapters), `DISCORD_NEW_SERIES_WEBHOOK_URL` (new works), `TELEGRAM_BOT_TOKEN` +
+ * `TELEGRAM_CHAT_ID`; IndexNow needs none. It never throws — the chapter or work is already published, and a channel being down
+ * must not undo that.
  */
 @Injectable()
 export class AnnouncementsService implements OnModuleDestroy {
@@ -145,7 +151,7 @@ export class AnnouncementsService implements OnModuleDestroy {
     const numbers = await this.repo.stillPublished(seriesId, published);
     if (numbers.length === 0) return;
 
-    const [team, genres] = await Promise.all([this.repo.teamName(series.teamId), this.repo.genres(seriesId)]);
+    const [team, genres, teamDiscord] = await Promise.all([this.repo.teamName(series.teamId), this.repo.genres(seriesId), this.repo.teamDiscord(series.teamId)]);
     const name = series.titleAr || series.titleEn;
     const label = numbers.length === 1 ? `الفصل ${numbers[0]}` : `الفصول ${numbers[0]}–${numbers[numbers.length - 1]}`;
     const seriesUrl = `${this.site}/series/${encodeURIComponent(series.slug)}`;
@@ -155,7 +161,7 @@ export class AnnouncementsService implements OnModuleDestroy {
     const post: Post = { name, link, cover: this.coverOf(series), picture, summary: clip(series.synopsis, 180), team };
 
     await Promise.all([
-      this.postDiscordChapter(post, label),
+      this.postDiscordChapter(post, label, teamDiscord),
       this.postTelegram({ ...post, label, synopsis: series.synopsis, genres }),
       this.pingIndexNow([...numbers.map((n) => `${seriesUrl}/${n}`), seriesUrl]),
     ]);
@@ -164,10 +170,10 @@ export class AnnouncementsService implements OnModuleDestroy {
   private async announceSeries(seriesId: string) {
     const series = await this.repo.findSeries(seriesId);
     if (!series || series.state !== "approved") return;
-    const [team, genres] = await Promise.all([this.repo.teamName(series.teamId), this.repo.genres(seriesId)]);
+    const [team, genres, teamDiscord] = await Promise.all([this.repo.teamName(series.teamId), this.repo.genres(seriesId), this.repo.teamDiscord(series.teamId)]);
     const seriesUrl = `${this.site}/series/${encodeURIComponent(series.slug)}`;
     await Promise.all([
-      this.postDiscordSeries({ name: series.titleAr || series.titleEn, link: seriesUrl, cover: this.coverOf(series), summary: clip(series.synopsis, 400), team }, genres),
+      this.postDiscordSeries({ name: series.titleAr || series.titleEn, link: seriesUrl, cover: this.coverOf(series), summary: clip(series.synopsis, 400), team }, genres, teamDiscord),
       this.pingIndexNow([seriesUrl]),
     ]);
   }
@@ -177,45 +183,45 @@ export class AnnouncementsService implements OnModuleDestroy {
     return role ? { content: `<@&${role}>`, allowed_mentions: { parse: [], roles: [role] } } : { allowed_mentions: { parse: [] } };
   }
 
-  private async postDiscordChapter(p: Post, label: string) {
-    if (!this.discordChapters) return;
-    await this.send("Discord", this.discordChapters, {
-      username: "LUNEX TEAM",
-      ...this.ping(this.chapterRole),
-      embeds: [
-        {
-          title: `${label} — ${p.name}`,
-          url: p.link,
-          description: p.summary,
-          color: 0x7c3aed,
-          ...(p.cover ? { thumbnail: { url: p.cover } } : {}),
-          ...(p.picture ? { image: { url: p.picture } } : {}),
-          footer: { text: p.team ? `الفريق: ${p.team}` : "LUNEX TEAM" },
-          timestamp: new Date().toISOString(),
-        },
-      ],
-    });
+  /** The team's own webhook, re-checked before sending (its stored value could be edited directly), with its own server's role — never the site's. */
+  private async postToTeamServer(embed: unknown, team: TeamDiscord) {
+    if (!team || !isWebhook(team.webhookUrl)) return;
+    await this.send("Discord (team)", team.webhookUrl, { username: "LUNEX TEAM", ...this.ping(roleId(team.roleId ?? undefined, "")), embeds: [embed] });
   }
 
-  private async postDiscordSeries(p: Post, genres: string[]) {
-    if (!this.discordSeries) return;
+  private async postDiscordChapter(p: Post, label: string, team: TeamDiscord) {
+    const embed = {
+      title: `${label} — ${p.name}`,
+      url: p.link,
+      description: p.summary,
+      color: 0x7c3aed,
+      ...(p.cover ? { thumbnail: { url: p.cover } } : {}),
+      ...(p.picture ? { image: { url: p.picture } } : {}),
+      footer: { text: p.team ? `الفريق: ${p.team}` : "LUNEX TEAM" },
+      timestamp: new Date().toISOString(),
+    };
+    await Promise.all([
+      this.discordChapters ? this.send("Discord", this.discordChapters, { username: "LUNEX TEAM", ...this.ping(this.chapterRole), embeds: [embed] }) : undefined,
+      this.postToTeamServer(embed, team),
+    ]);
+  }
+
+  private async postDiscordSeries(p: Post, genres: string[], team: TeamDiscord) {
     const fields = [...(genres.length > 0 ? [{ name: "التصنيف", value: genres.join("، "), inline: false }] : []), ...(p.team ? [{ name: "الفريق", value: p.team, inline: true }] : [])];
-    await this.send("Discord", this.discordSeries, {
-      username: "LUNEX TEAM",
-      ...this.ping(this.seriesRole),
-      embeds: [
-        {
-          title: `عمل جديد — ${p.name}`,
-          url: p.link,
-          description: p.summary,
-          color: 0x7c3aed,
-          ...(fields.length > 0 ? { fields } : {}),
-          ...(p.cover ? { image: { url: p.cover } } : {}),
-          footer: { text: "LUNEX TEAM" },
-          timestamp: new Date().toISOString(),
-        },
-      ],
-    });
+    const embed = {
+      title: `عمل جديد — ${p.name}`,
+      url: p.link,
+      description: p.summary,
+      color: 0x7c3aed,
+      ...(fields.length > 0 ? { fields } : {}),
+      ...(p.cover ? { image: { url: p.cover } } : {}),
+      footer: { text: "LUNEX TEAM" },
+      timestamp: new Date().toISOString(),
+    };
+    await Promise.all([
+      this.discordSeries ? this.send("Discord", this.discordSeries, { username: "LUNEX TEAM", ...this.ping(this.seriesRole), embeds: [embed] }) : undefined,
+      this.postToTeamServer(embed, team),
+    ]);
   }
 
   /**

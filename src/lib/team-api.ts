@@ -20,6 +20,15 @@ export interface TeamPatch {
   status?: "active" | "suspended" | "archived";
   /** Empty string clears the leader. */
   leaderUsername?: string;
+  /** The team's own Discord webhook (its own server); empty string clears it. Kept out of every other read — see {@link teamApi.getDiscordSettings}. */
+  discordWebhookUrl?: string;
+  /** The role to ping on the team's own server; empty string clears it. Only has an effect together with `discordWebhookUrl`. */
+  discordRoleId?: string;
+}
+
+export interface TeamDiscordSettings {
+  discordWebhookUrl: string | null;
+  discordRoleId: string | null;
 }
 
 /** Roles a member can be given here. The leader is set through `leaderUsername`, not as a member role. */
@@ -62,6 +71,9 @@ export const teamApi = {
   create: (input: { name: string; description?: string; leaderUsername?: string }) => call<{ id: string; slug: string }>("/api/catalog/teams", "POST", input),
 
   update: (teamId: string, patch: TeamPatch) => call<unknown>(`/api/catalog/teams/${enc(teamId)}`, "PATCH", patch),
+
+  /** The team's own Discord webhook and role, for the team's leader or a site manager — not part of the team's public data, so it is read separately. */
+  getDiscordSettings: (teamId: string) => call<TeamDiscordSettings>(`/api/catalog/teams/${enc(teamId)}/discord`, "GET"),
 
   remove: (teamId: string) => call<void>(`/api/catalog/teams/${enc(teamId)}`, "DELETE"),
 

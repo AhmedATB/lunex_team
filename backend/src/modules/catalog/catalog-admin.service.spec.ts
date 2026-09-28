@@ -46,6 +46,7 @@ const teamRow = (overrides: Record<string, unknown> = {}) => ({
   logoHue: 270,
   logoAssetId: null,
   discordUrl: null,
+  discordWebhookUrl: null,
   websiteUrl: null,
   category: "mixed",
   status: "active",
@@ -208,6 +209,30 @@ describe("team permissions", () => {
     await expect(service.updateTeam("leader", "t1", { leaderUsername: "someone" }, CTX)).rejects.toMatchObject({ response: { code: "global_manager_only" } });
     await expect(service.updateTeam("manager", "t1", { status: "suspended", leaderUsername: "" }, CTX)).resolves.toBeDefined();
     expect(repo.updateTeam).toHaveBeenLastCalledWith("t1", expect.objectContaining({ status: "suspended", leaderId: null }));
+  });
+
+  it("validates a team's own Discord webhook and role, and clears either with an empty string", async () => {
+    const { service, repo } = build(roster);
+    await service.updateTeam("leader", "t1", { discordWebhookUrl: "https://discord.com/api/webhooks/1/abc", discordRoleId: "1200000000000000001" }, CTX);
+    expect(repo.updateTeam).toHaveBeenLastCalledWith("t1", expect.objectContaining({ discordWebhookUrl: "https://discord.com/api/webhooks/1/abc", discordRoleId: "1200000000000000001" }));
+
+    await expect(service.updateTeam("leader", "t1", { discordWebhookUrl: "https://evil.example/steal" }, CTX)).rejects.toMatchObject({ response: { code: "invalid_discord_webhook" } });
+    await expect(service.updateTeam("leader", "t1", { discordRoleId: "not-a-role" }, CTX)).rejects.toMatchObject({ response: { code: "invalid_discord_role" } });
+
+    await service.updateTeam("leader", "t1", { discordWebhookUrl: "", discordRoleId: "" }, CTX);
+    expect(repo.updateTeam).toHaveBeenLastCalledWith("t1", expect.objectContaining({ discordWebhookUrl: null, discordRoleId: null }));
+  });
+
+  it("keeps a team's Discord setup private: readable only by its own leader or a manager, and never part of the public team object", async () => {
+    const { service, repo } = build(roster);
+    repo.findTeamById.mockResolvedValue(teamRow({ discordWebhookUrl: "https://discord.com/api/webhooks/1/abc", discordRoleId: "1200000000000000001" }));
+    await expect(service.getTeamDiscordSettings("leader", "t1")).resolves.toEqual({ discordWebhookUrl: "https://discord.com/api/webhooks/1/abc", discordRoleId: "1200000000000000001" });
+    await expect(service.getTeamDiscordSettings("manager", "t1")).resolves.toEqual({ discordWebhookUrl: "https://discord.com/api/webhooks/1/abc", discordRoleId: "1200000000000000001" });
+    await expect(service.getTeamDiscordSettings("member", "t1")).rejects.toBeInstanceOf(ForbiddenException);
+
+    const published = await service.updateTeam("leader", "t1", { description: "new" }, CTX);
+    expect(published).not.toHaveProperty("discordWebhookUrl");
+    expect(published).not.toHaveProperty("discordRoleId");
   });
 
   it("resolves a leader by username and rejects an unknown one", async () => {

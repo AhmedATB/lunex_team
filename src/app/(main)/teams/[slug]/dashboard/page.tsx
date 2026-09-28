@@ -50,6 +50,7 @@ import { ActivityPanel } from "@/components/teams/activity-panel";
 import { CollaborationPanel } from "@/components/teams/collaboration-panel";
 import { RecruitmentPanel } from "@/components/teams/recruitment-panel";
 import { ImagePicker } from "@/components/admin/image-picker";
+import { TeamDiscordSettings } from "@/components/admin/team-discord-settings";
 import { teamApi, type MemberRole, type TeamPatch } from "@/lib/team-api";
 import { useToast } from "@/store/toast";
 
@@ -654,6 +655,7 @@ export default function TeamDashboardPage() {
                 onSave={saveInfo}
               />
             )}
+            {canEditInfo && isRealTeam && <TeamDiscordSettings teamId={team.id} />}
             {isGlobalAdmin && (
               <LeaderTransferPanel
                 team={team}

@@ -56,6 +56,16 @@ export async function uniqueSlug(base: string, taken: (slug: string) => Promise<
 
 export type ImageKind = "series" | "banner" | "team" | "news";
 
+/** A team's own automation address for its Discord server (chapter/new-work announcements) — the site only ever sends to a real Discord webhook. */
+export function isDiscordWebhookUrl(url: string): boolean {
+  return /^https:\/\/(?:[a-z]+\.)?discord(?:app)?\.com\/api\/webhooks\//i.test(url);
+}
+
+/** A Discord snowflake id (a role, in practice) — always digits, always at least 15 of them. */
+export function isDiscordSnowflake(id: string): boolean {
+  return /^\d{15,25}$/.test(id);
+}
+
 /** The public address of a chapter's featured picture; the asset id is its version (a new picture is a new address). */
 export function chapterThumbnailUrl(chapterId: string, assetId: string | null): string | null {
   return assetId ? `/api/catalog/chapters/${chapterId}/thumbnail?v=${assetId.slice(0, 8)}` : null;

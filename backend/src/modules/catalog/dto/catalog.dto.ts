@@ -274,6 +274,18 @@ export class UpdateTeamDto {
   @IsBoolean()
   recruiting?: boolean;
 
+  /** A Discord webhook address for the team's own server (chapter and new-work announcements are also posted there); empty clears it. Validated against Discord's own domain in the service, not here. */
+  @IsOptional()
+  @IsString()
+  @MaxLength(300)
+  discordWebhookUrl?: string;
+
+  /** The role to ping on the team's own server (that server's roles are its own, never the site's); empty clears it. Only has an effect together with discordWebhookUrl. Validated as a Discord id in the service. */
+  @IsOptional()
+  @IsString()
+  @MaxLength(25)
+  discordRoleId?: string;
+
   /** Global team managers only. */
   @IsOptional()
   @IsIn(TEAM_STATUSES)

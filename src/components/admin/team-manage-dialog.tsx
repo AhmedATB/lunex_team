@@ -10,6 +10,7 @@ import { avatarSrcFor, useProfile } from "@/store/profile";
 import { useToast } from "@/store/toast";
 import { AddMemberForm } from "@/components/admin/add-member-form";
 import { ImagePicker } from "@/components/admin/image-picker";
+import { TeamDiscordSettings } from "@/components/admin/team-discord-settings";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
@@ -355,6 +356,8 @@ function SettingsPanel({ team, detail, can, onChanged, onDeleted }: { team: Team
       <Button onClick={save} disabled={busy || name.trim().length < 2} className="w-full">
         {busy && <Loader2 className="h-4 w-4 animate-spin" />} حفظ الإعدادات
       </Button>
+
+      <TeamDiscordSettings teamId={team.id} />
 
       {can.remove && (
         <div className="rounded-xl border border-red-500/30 p-3">

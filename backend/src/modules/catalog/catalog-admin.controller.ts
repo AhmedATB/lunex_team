@@ -149,6 +149,13 @@ export class CatalogAdminController {
     return this.admin.deleteTeam(actor.sub, id, req.context);
   }
 
+  /** The team's own Discord setup (its server's webhook and role to ping), for whoever may edit the team (set through the same PATCH above). Never on the public team page. */
+  @Get("teams/:id/discord")
+  @Throttle({ default: { limit: 30, ttl: 60_000 } })
+  getTeamDiscordSettings(@Param("id") id: string, @CurrentUser() actor: AccessTokenPayload) {
+    return this.admin.getTeamDiscordSettings(actor.sub, id);
+  }
+
   @Post("teams/:id/logo")
   @HttpCode(HttpStatus.OK)
   @Throttle({ default: { limit: 20, ttl: 60_000 } })

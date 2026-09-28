@@ -77,35 +77,35 @@ model User {
   unlockCredits  Int @default(0)
   creditProgress Int @default(0)
 
-  sessions         Session[]
-  devices          Device[]
-  loginEvents      LoginEvent[]
-  oauthAccounts    OAuthAccount[]
-  notifications    Notification[]
-  chapterUnlocks   ChapterUnlock[]
-  coinTransactions CoinTransaction[]
-  bookmarks        Bookmark[]
-  readingProgress  ReadingProgress[]
-  chapterProgress  ChapterProgress[]
-  attachments      Attachment[]
+  sessions          Session[]
+  devices           Device[]
+  loginEvents       LoginEvent[]
+  oauthAccounts     OAuthAccount[]
+  notifications     Notification[]
+  chapterUnlocks    ChapterUnlock[]
+  coinTransactions  CoinTransaction[]
+  bookmarks         Bookmark[]
+  readingProgress   ReadingProgress[]
+  chapterProgress   ChapterProgress[]
+  attachments       Attachment[]
   pushSubscriptions PushSubscription[]
-  pushPreference   PushPreference?
-  chapterViews     ChapterView[]
-  seriesRatings    SeriesRating[]
-  sanctions        Sanction[]
-  comments         Comment[]
-  commentReactions CommentReaction[]
-  commentReports   CommentReport[]
-  ledTeams         Team[]            @relation("TeamLeader")
-  teamMemberships  TeamMember[]
-  conversations    ConversationMember[]
-  sentMessages     Message[]
-  applications     RecruitmentApplication[]
-  teamRequests     TeamRequest[]
-  blocksMade       UserBlock[]      @relation("Blocker")
-  blocksReceived   UserBlock[]      @relation("Blocked")
-  teamActivity     TeamActivity[]   @relation("TeamActivityActor")
-  passwordResets   PasswordReset[]
+  pushPreference    PushPreference?
+  chapterViews      ChapterView[]
+  seriesRatings     SeriesRating[]
+  sanctions         Sanction[]
+  comments          Comment[]
+  commentReactions  CommentReaction[]
+  commentReports    CommentReport[]
+  ledTeams          Team[]                   @relation("TeamLeader")
+  teamMemberships   TeamMember[]
+  conversations     ConversationMember[]
+  sentMessages      Message[]
+  applications      RecruitmentApplication[]
+  teamRequests      TeamRequest[]
+  blocksMade        UserBlock[]              @relation("Blocker")
+  blocksReceived    UserBlock[]              @relation("Blocked")
+  teamActivity      TeamActivity[]           @relation("TeamActivityActor")
+  passwordResets    PasswordReset[]
 
   @@map("users")
 }
@@ -243,27 +243,27 @@ model ImageAsset {
 /// content moved server-side for the image-protection work; the catalog
 /// metadata around it stays mock until that's tackled separately.
 model Chapter {
-  id           String    @id @default(uuid())
-  seriesId     String
+  id               String    @id @default(uuid())
+  seriesId         String
   /// The team that published it; null for a work that belongs to no team (published straight by the site's staff).
-  teamId       String?
-  number       Float
-  title        String
-  isPublished  Boolean   @default(false)
-  scheduledFor DateTime?
+  teamId           String?
+  number           Float
+  title            String
+  isPublished      Boolean   @default(false)
+  scheduledFor     DateTime?
   /// true = force-locked, false = force-open, null = automatic (sliding free-chapter window) — mirrors the frontend's isChapterLocked() manual override.
-  manualLock   Boolean?
+  manualLock       Boolean?
   /// When it went live. null while unpublished; set on publish (or import). The catalog shows this, not createdAt.
-  publishedAt  DateTime?
-  viewCount    Int       @default(0)
+  publishedAt      DateTime?
+  viewCount        Int       @default(0)
   /// Novel-type series only: the chapter's full text, paragraphs separated by blank lines. Image chapters leave it null.
-  content      String?
+  content          String?
   /// Id of this chapter on the old lunexteam.com site, so a re-run of the import updates instead of duplicating.
-  legacyId     String?   @unique
+  legacyId         String?   @unique
   /// The chapter's featured picture (a 16:9 WebP, an ImageAsset id): shown in the chapter list and sent with the new-chapter posts and notifications. Optional.
   thumbnailAssetId String?
-  createdAt    DateTime  @default(now())
-  updatedAt    DateTime  @updatedAt
+  createdAt        DateTime  @default(now())
+  updatedAt        DateTime  @updatedAt
 
   pages   ChapterPage[]
   unlocks ChapterUnlock[]
@@ -417,16 +417,16 @@ model Bookmark {
 /// client-side store it replaces, `chapterNumber` only ever advances; `lastReadAt`
 /// moves on every read so the history can be listed most-recent-first.
 model ReadingProgress {
-  id            String   @id @default(uuid())
-  userId        String
-  user          User     @relation(fields: [userId], references: [id], onDelete: Cascade)
-  seriesId      String
-  chapterNumber Float
-  lastReadAt    DateTime @default(now())
+  id               String   @id @default(uuid())
+  userId           String
+  user             User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  seriesId         String
+  chapterNumber    Float
+  lastReadAt       DateTime @default(now())
   /// The highest chapter number the reader has *finished* here — separate from `chapterNumber` (the furthest they have
   /// opened). A finished chapter earns experience only when it lies beyond this, so re-reading earns nothing and no
   /// per-chapter history has to be kept.
-  completedThrough Float @default(0)
+  completedThrough Float    @default(0)
 
   @@unique([userId, seriesId])
   @@index([userId, lastReadAt])
@@ -561,21 +561,21 @@ model Sanction {
 /// a moderator's removal is soft (`deletedAt`) so the content stays reviewable
 /// until RetentionService purges it. Deleting the account deletes its comments.
 model Comment {
-  id          String    @id @default(uuid())
-  seriesId    String
-  userId      String
-  user        User      @relation(fields: [userId], references: [id], onDelete: Cascade)
-  content     String
-  isSpoiler   Boolean   @default(false)
-  isPinned    Boolean   @default(false)
-  createdAt   DateTime  @default(now())
-  editedAt    DateTime?
-  deletedAt   DateTime?
-  deletedById String?
+  id            String       @id @default(uuid())
+  seriesId      String
+  userId        String
+  user          User         @relation(fields: [userId], references: [id], onDelete: Cascade)
+  content       String
+  isSpoiler     Boolean      @default(false)
+  isPinned      Boolean      @default(false)
+  createdAt     DateTime     @default(now())
+  editedAt      DateTime?
+  deletedAt     DateTime?
+  deletedById   String?
   /// Set on a reply: the top-level comment it hangs under (one level only — a reply to a reply is stored under the same top-level comment).
-  parentId    String?
-  parent      Comment?  @relation("CommentReplies", fields: [parentId], references: [id], onDelete: Cascade)
-  replies     Comment[] @relation("CommentReplies")
+  parentId      String?
+  parent        Comment?     @relation("CommentReplies", fields: [parentId], references: [id], onDelete: Cascade)
+  replies       Comment[]    @relation("CommentReplies")
   /// Set on a comment written at the end of a chapter: it belongs to that chapter (shown there, and marked with its number on the
   /// work's page). Null for a comment on the work itself. A reply takes its comment's chapter. `chapterNumber` is copied at writing time so
   /// the label survives without a lookup (and outlives the chapter). Plain id, not a relation, like other catalogue references here.
@@ -626,34 +626,40 @@ model CommentReport {
 /// A translation group. `leaderId` is null for a group imported from the old
 /// site until its leader registers here and an administrator assigns them.
 model Team {
-  id          String   @id @default(uuid())
-  slug        String   @unique
-  name        String
-  description String   @default("")
-  goals       String   @default("")
-  color       String   @default("#6D28D9")
-  logoHue     Int      @default(270)
+  id                String   @id @default(uuid())
+  slug              String   @unique
+  name              String
+  description       String   @default("")
+  goals             String   @default("")
+  color             String   @default("#6D28D9")
+  logoHue           Int      @default(270)
   /// ImageAsset id of the logo, or null (the UI draws a coloured initial instead).
-  logoAssetId String?
-  discordUrl  String?
-  websiteUrl  String?
-  category    String   @default("mixed") // manhwa | manhua | manga | novel | mixed
-  status      String   @default("active") // active | suspended | archived
-  recruiting  Boolean  @default(false)
-  leaderId    String?
-  leader      User?    @relation("TeamLeader", fields: [leaderId], references: [id], onDelete: SetNull)
+  logoAssetId       String?
+  discordUrl        String?
+  /// A Discord webhook address for the team's own server: chapter and new-work announcements about this team's series are also
+  /// posted there. Set by the team's own lead or a site manager; never shown on the team's public page.
+  discordWebhookUrl String?
+  /// The role on the team's own server to ping there (that server's roles are the team's own, not the site's, so the site's role
+  /// ids never apply). Only used together with discordWebhookUrl; without it nobody is pinged on the team's server.
+  discordRoleId     String?
+  websiteUrl        String?
+  category          String   @default("mixed") // manhwa | manhua | manga | novel | mixed
+  status            String   @default("active") // active | suspended | archived
+  recruiting        Boolean  @default(false)
+  leaderId          String?
+  leader            User?    @relation("TeamLeader", fields: [leaderId], references: [id], onDelete: SetNull)
   /// Id of this group on the old lunexteam.com site (idempotent import).
-  legacyId    String?  @unique
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
+  legacyId          String?  @unique
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
 
   members      TeamMember[]
   series       Series[]
   positions    RecruitmentPosition[]
   applications RecruitmentApplication[]
 
-  collaborationsSent     TeamCollaboration[] @relation("CollaborationFrom")
-  collaborationsReceived TeamCollaboration[] @relation("CollaborationTo")
+  collaborationsSent     TeamCollaboration[]  @relation("CollaborationFrom")
+  collaborationsReceived TeamCollaboration[]  @relation("CollaborationTo")
   collaborations         SeriesCollaborator[]
   activity               TeamActivity[]
 
@@ -790,7 +796,6 @@ model SeriesRating {
   @@map("series_ratings")
 }
 
-
 /// A chat between members: two people (a direct chat, one per pair) or a group with a title.
 model Conversation {
   id            String   @id @default(uuid())
@@ -905,9 +910,9 @@ model RecruitmentApplication {
 /// A member's request to open a new team, and the site managers' decision on it. Approving creates the team with the requester as its
 /// leader (`createdTeamId`); suspending or archiving an approved one does the same to its team.
 model TeamRequest {
-  id                 String    @id @default(uuid())
+  id                 String           @id @default(uuid())
   requesterId        String
-  requester          User      @relation(fields: [requesterId], references: [id], onDelete: Cascade)
+  requester          User             @relation(fields: [requesterId], references: [id], onDelete: Cascade)
   teamName           String
   description        String
   goals              String
@@ -916,17 +921,17 @@ model TeamRequest {
   requiredPositions  String[]
   category           String
   expectedMembers    Int
-  previousExperience String    @default("")
+  previousExperience String           @default("")
   portfolioUrl       String?
   color              String?
   /// pending | needs_modification | approved | rejected | suspended | archived
-  status             String    @default("pending")
+  status             String           @default("pending")
   reviewerNote       String?
   reviewedById       String?
   reviewedAt         DateTime?
   createdTeamId      String?
-  createdAt          DateTime  @default(now())
-  updatedAt          DateTime  @updatedAt
+  createdAt          DateTime         @default(now())
+  updatedAt          DateTime         @updatedAt
   /// The logo the requester chose from their device (never a link).
   logo               TeamRequestLogo?
 
