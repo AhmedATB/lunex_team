@@ -1,5 +1,5 @@
 import { Type } from "class-transformer";
-import { IsBoolean, IsNotEmpty, IsObject, IsOptional, IsString, MaxLength, ValidateNested } from "class-validator";
+import { IsBoolean, IsNotEmpty, IsNumber, IsObject, IsOptional, IsString, MaxLength, ValidateNested } from "class-validator";
 
 export class PushKeysDto {
   @IsString()
@@ -18,6 +18,11 @@ export class SubscribeDto {
   @IsString()
   @MaxLength(1000)
   endpoint!: string;
+
+  /** A browser's own `PushSubscription.toJSON()` also says when the subscription expires (nearly always null); it is accepted and ignored. */
+  @IsOptional()
+  @IsNumber()
+  expirationTime?: number | null;
 
   @IsObject()
   @ValidateNested()

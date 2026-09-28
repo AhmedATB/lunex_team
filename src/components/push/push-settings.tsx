@@ -6,6 +6,7 @@ import { Button } from "@/components/ui/button";
 import { Switch } from "@/components/ui/switch";
 import {
   disablePush,
+  enableFailureText,
   enablePush,
   pushPermission,
   pushStatus,
@@ -66,13 +67,7 @@ export function PushSettings() {
     setBusy(true);
     if (on) {
       const result = await enablePush();
-      if (!result.ok) {
-        useToast.getState().push(
-          result.reason === "denied"
-            ? { title: "الإشعارات محظورة في المتصفح", description: "فعّلها من إعدادات الموقع في المتصفح ثم أعد المحاولة." }
-            : { title: "تعذر تفعيل الإشعارات", description: "جرّب مرة أخرى بعد قليل." }
-        );
-      }
+      if (!result.ok) useToast.getState().push(enableFailureText(result));
     } else {
       await disablePush();
     }

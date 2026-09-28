@@ -47,15 +47,27 @@ export async function currentSubscription(): Promise<PushSubscription | null> {
 
 /** Gives the server this device's address and keys (again if it already has them: it moves the device to whoever is signed in). */
 async function tell(subscription: PushSubscription): Promise<boolean> {
+  const json = subscription.toJSON();
+  if (!json.endpoint || !json.keys?.p256dh || !json.keys?.auth) return false;
   const res = await fetch("/api/push/subscribe", {
     method: "POST",
     headers: { "Content-Type": "application/json" },
-    body: JSON.stringify(subscription.toJSON()),
+    body: JSON.stringify({ endpoint: json.endpoint, keys: json.keys }),
   }).catch(() => null);
   return !!res?.ok;
 }
 
-export type EnableResult = { ok: true } | { ok: false; reason: "denied" | "unsupported" | "failed" };
+/** Why setting up failed, so the person is told the true reason: the site (`site`) or the browser's own push service (`browser`, often blocked by a VPN). */
+export type EnableResult = { ok: true } | { ok: false; reason: "denied" | "unsupported" | "failed"; step?: "site" | "browser" };
+
+/** What to tell a person whose device could not be set up. */
+export function enableFailureText(result: Extract<EnableResult, { ok: false }>): { title: string; description: string } {
+  if (result.reason === "denied") return { title: "لم يُسمح بالإشعارات", description: "يمكنك تفعيلها لاحقًا من صفحة الإشعارات أو من إعدادات الموقع في المتصفح." };
+  if (result.reason === "unsupported") return { title: "هذا المتصفح لا يدعم الإشعارات", description: "جرّب Chrome أو Firefox أو Edge أو Safari حديثًا." };
+  return result.step === "browser"
+    ? { title: "تعذر تسجيل الجهاز لدى خدمة الإشعارات", description: "خدمة الإشعارات في المتصفح لم تستجب. أوقف الـ VPN إن كان يعمل، أو جرّب شبكة أخرى، ثم أعد المحاولة." }
+    : { title: "تعذر تفعيل الإشعارات", description: "لم يستجب الموقع. أعد المحاولة بعد قليل." };
+}
 
 /** Asks the browser's permission (it shows its own question) and, if given, starts notifications for the signed-in account on this device. */
 export async function enablePush(): Promise<EnableResult> {
@@ -65,20 +77,24 @@ export async function enablePush(): Promise<EnableResult> {
     if (permission !== "granted") return { ok: false, reason: "denied" };
     const registration = await worker();
     await navigator.serviceWorker.ready;
-    const key = await fetch("/api/push/public-key", { cache: "no-store" }).then((res) => json<{ publicKey: string }>(res));
-    if (!key) return { ok: false, reason: "failed" };
+    const key = await fetch("/api/push/public-key", { cache: "no-store" }).then((res) => json<{ publicKey: string }>(res)).catch(() => null);
+    if (!key) return { ok: false, reason: "failed", step: "site" };
     const options = { userVisibleOnly: true, applicationServerKey: toBytes(key.publicKey) };
     let subscription: PushSubscription;
     try {
       subscription = (await registration.pushManager.getSubscription()) ?? (await registration.pushManager.subscribe(options));
     } catch {
       // A subscription made with another key (the site's keys changed) cannot be kept: start again.
-      await (await registration.pushManager.getSubscription())?.unsubscribe();
-      subscription = await registration.pushManager.subscribe(options);
+      try {
+        await (await registration.pushManager.getSubscription())?.unsubscribe();
+        subscription = await registration.pushManager.subscribe(options);
+      } catch {
+        return { ok: false, reason: "failed", step: "browser" };
+      }
     }
-    return (await tell(subscription)) ? { ok: true } : { ok: false, reason: "failed" };
+    return (await tell(subscription)) ? { ok: true } : { ok: false, reason: "failed", step: "site" };
   } catch {
-    return { ok: false, reason: "failed" };
+    return { ok: false, reason: "failed", step: "browser" };
   }
 }
 

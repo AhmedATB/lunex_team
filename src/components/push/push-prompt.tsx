@@ -5,7 +5,7 @@ import { usePathname } from "next/navigation";
 import { AnimatePresence, motion } from "framer-motion";
 import { Bell, Loader2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { enablePush, pushPermission, pushSupport, reattachThisDevice } from "@/lib/push-client";
+import { enableFailureText, enablePush, pushPermission, pushSupport, reattachThisDevice } from "@/lib/push-client";
 import { useSession } from "@/store/session";
 import { useToast } from "@/store/toast";
 
@@ -68,11 +68,7 @@ export function PushPrompt() {
       return;
     }
     rememberDismissal();
-    useToast.getState().push(
-      result.reason === "denied"
-        ? { title: "لم يُسمح بالإشعارات", description: "يمكنك تفعيلها لاحقًا من صفحة الإشعارات." }
-        : { title: "تعذر تفعيل الإشعارات", description: "جرّب لاحقًا من صفحة الإشعارات." }
-    );
+    useToast.getState().push(enableFailureText(result));
   }
 
   function later() {
