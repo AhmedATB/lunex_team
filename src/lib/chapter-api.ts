@@ -12,6 +12,8 @@ export interface DriveInfo {
 
 export interface ImportStatus {
   state: "running" | "done" | "failed";
+  /** `downloading`: a ZIP is still being fetched from Drive and its pictures are not counted yet. */
+  phase: "downloading" | "importing";
   total: number;
   done: number;
   error: string | null;
@@ -43,7 +45,8 @@ export const chapterApi = {
 
   driveInfo: () => call<DriveInfo>("/api/chapters/import/drive/info", "GET"),
 
-  importDrive: (chapterId: string, link: string) => call<{ total: number }>(`/api/chapters/${encodeURIComponent(chapterId)}/import/drive`, "POST", { link }),
+  /** `link` is a Drive folder of pictures or a ZIP file of them; `total` is 0 for a ZIP (counted once it is fetched). */
+  importDrive: (chapterId: string, link: string) => call<{ total: number; kind: "folder" | "zip" }>(`/api/chapters/${encodeURIComponent(chapterId)}/import/drive`, "POST", { link }),
 
   importStatus: (chapterId: string) => call<ImportStatus | null>(`/api/chapters/${encodeURIComponent(chapterId)}/import/status`, "GET"),
 };

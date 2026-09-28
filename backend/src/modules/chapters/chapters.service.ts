@@ -181,6 +181,20 @@ export class ChaptersService {
     return { pages: created.length };
   }
 
+  /**
+   * The picture's part of {@link storePages} that needs no database: turned into WebP pages (a long one cut). The import prepares
+   * several pictures side by side with it, then links them in reading order with {@link storePrepared}.
+   */
+  preparePages(bytes: Buffer): Promise<PageSlice[]> {
+    return this.prepare(bytes, true);
+  }
+
+  /** Links pages made by {@link preparePages} from page `firstPage` on. Returns how many pages it made. */
+  async storePrepared(chapterId: string, firstPage: number, slices: PageSlice[]): Promise<{ pages: number }> {
+    const created = await this.storeSlices(chapterId, firstPage, slices);
+    return { pages: created.length };
+  }
+
   private async prepare(bytes: Buffer, cut: boolean): Promise<PageSlice[]> {
     try {
       return await preparePage(bytes, { cut });

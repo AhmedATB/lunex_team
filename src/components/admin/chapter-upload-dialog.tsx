@@ -154,18 +154,18 @@ function Form({ series, initialFiles, onClose, onDone }: { series: UploadTarget[
         undo();
         return fail(started.message);
       }
-      const total = started.body.total;
       const deadline = Date.now() + POLL_LIMIT_MS;
       for (;;) {
         await new Promise((resolve) => setTimeout(resolve, POLL_MS));
         if (cancelled.current) return;
         const status = await chapterApi.importStatus(chapterId);
         if (status.ok && status.body) {
-          setProgress({ label: "جلب الصفحات من درايف...", done: status.body.done, total });
+          const total = Math.max(status.body.total, started.body.total, 1);
+          setProgress({ label: status.body.phase === "downloading" ? "جلب ملف ZIP من درايف..." : "معالجة الصفحات...", done: status.body.done, total });
           if (status.body.state === "done") break;
           if (status.body.state === "failed") {
             undo();
-            return fail(`توقف الجلب بعد ${status.body.done} من ${total} صفحة: ${status.body.error ?? "خطأ غير معروف"}`);
+            return fail(`توقف الجلب بعد ${status.body.done} من ${status.body.total || "؟"} صفحة: ${status.body.error ?? "خطأ غير معروف"}`);
           }
         } else if (Date.now() > deadline) {
           undo();
@@ -256,14 +256,14 @@ function Form({ series, initialFiles, onClose, onDone }: { series: UploadTarget[
         </TabsContent>
 
         <TabsContent value="drive" className="space-y-2">
-          <Label htmlFor="ch-drive">رابط مجلد Google Drive</Label>
-          <Input id="ch-drive" dir="ltr" value={driveLink} onChange={(e) => setDriveLink(e.target.value)} placeholder="https://drive.google.com/drive/folders/..." disabled={busy} />
+          <Label htmlFor="ch-drive">رابط مجلد أو ملف ZIP على Google Drive</Label>
+          <Input id="ch-drive" dir="ltr" value={driveLink} onChange={(e) => setDriveLink(e.target.value)} placeholder="https://drive.google.com/drive/folders/... أو https://drive.google.com/file/d/..." disabled={busy} />
           {drive === null ? null : drive.configured ? (
             <div className="space-y-1 rounded-lg border border-white/10 bg-white/[0.03] p-3 text-xs text-lunex-gray">
-              <p>إن كان المجلد <b className="text-white">عامًا</b> (أي شخص لديه الرابط) فلا تحتاج شيئًا.</p>
+              <p>إن كان الرابط <b className="text-white">عامًا</b> (أي شخص لديه الرابط) فلا تحتاج شيئًا.</p>
               <p>إن كان <b className="text-white">خاصًا</b> فشاركه (بصلاحية عارض) مع هذا الحساب:</p>
               <p dir="ltr" className="select-all break-all rounded bg-black/30 px-2 py-1 font-mono text-[11px] text-primary-200">{drive.serviceEmail}</p>
-              <p>تُجلب الصور من المجلد وحده (لا المجلدات الفرعية) بترتيب أسمائها.</p>
+              <p>مجلد: تُجلب صوره وحده (لا المجلدات الفرعية). ملف ZIP: يُفتح على الخادم وتُؤخذ صوره. وفي الحالتين بترتيب الأسماء، وعدة صور تُجلب معًا فيكون أسرع.</p>
             </div>
           ) : (
             <p className="rounded-lg border border-amber-500/30 bg-amber-500/10 p-3 text-xs text-amber-200">

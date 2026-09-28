@@ -1,5 +1,5 @@
 import { generateKeyPairSync, createVerify } from "node:crypto";
-import { DriveError, folderIdFromLink, GoogleDriveClient, loadDriveCredentials, naturalCompare } from "./google-drive.client";
+import { DriveError, folderIdFromLink, GoogleDriveClient, isZipFile, loadDriveCredentials, naturalCompare, parseDriveLink } from "./google-drive.client";
 
 const { privateKey, publicKey } = generateKeyPairSync("rsa", { modulusLength: 2048, privateKeyEncoding: { type: "pkcs8", format: "pem" }, publicKeyEncoding: { type: "spki", format: "pem" } });
 const KEY_FILE = JSON.stringify({ type: "service_account", client_email: "reader@project.iam.gserviceaccount.com", private_key: privateKey, token_uri: "https://oauth2.example/token" });
@@ -129,3 +129,54 @@ describe("GoogleDriveClient", () => {
     await expect(new GoogleDriveClient(credentials, http).assertFolder("x")).rejects.toMatchObject({ kind: "auth_failed" });
   });
 });
+
+describe("parseDriveLink", () => {
+  const id = "1AbCdEfGhIjKlMnOpQrStUvWxYz012345";
+  it("tells a folder link from a file link, and leaves a bare or ?id= link to be looked up", () => {
+    expect(parseDriveLink(`https://drive.google.com/drive/folders/${id}?usp=sharing`)).toEqual({ id, hint: "folder" });
+    expect(parseDriveLink(`https://drive.google.com/file/d/${id}/view?usp=sharing`)).toEqual({ id, hint: "file" });
+    expect(parseDriveLink(`https://drive.google.com/open?id=${id}`)).toEqual({ id, hint: null });
+    expect(parseDriveLink(`https://drive.google.com/uc?export=download&id=${id}`)).toEqual({ id, hint: null });
+    expect(parseDriveLink(id)).toEqual({ id, hint: null });
+    expect(parseDriveLink("https://example.com/x")).toBeNull();
+  });
+});
+
+describe("isZipFile", () => {
+  it("knows a ZIP by its type, or by its name when Drive files it as a plain binary", () => {
+    expect(isZipFile({ name: "a", mimeType: "application/zip" })).toBe(true);
+    expect(isZipFile({ name: "a", mimeType: "application/x-zip-compressed" })).toBe(true);
+    expect(isZipFile({ name: "CH6.ZIP", mimeType: "application/octet-stream" })).toBe(true);
+    expect(isZipFile({ name: "cover.png", mimeType: "image/png" })).toBe(false);
+    expect(isZipFile({ name: "notes.pdf", mimeType: "application/pdf" })).toBe(false);
+  });
+});
+
+describe("GoogleDriveClient files", () => {
+  const answer = (handler: (url: URL) => { status: number; body?: unknown; bytes?: Buffer; headers?: Record<string, string> }) => {
+    const http = jest.fn(async (input: string | URL | Request) => {
+      const url = new URL(String(input));
+      if (url.origin === "https://oauth2.example") return new Response(JSON.stringify({ access_token: "t" }), { status: 200 });
+      const { status, body, bytes, headers } = handler(url);
+      return new Response(bytes ? new Uint8Array(bytes) : JSON.stringify(body ?? {}), { status, headers });
+    }) as unknown as typeof fetch;
+    return new GoogleDriveClient(credentials, http);
+  };
+
+  it("describes a file, and says not_shared for one it may not see", async () => {
+    const client = answer((url) => (url.pathname.endsWith("/secret") ? { status: 404 } : { status: 200, body: { id: "z", name: "CH6.zip", mimeType: "application/zip", size: "1048576" } }));
+    await expect(client.getFile("zip-id-1234567890")).resolves.toEqual({ id: "z", name: "CH6.zip", mimeType: "application/zip", size: 1048576 });
+    await expect(client.getFile("secret")).rejects.toMatchObject({ kind: "not_shared" });
+  });
+
+  it("refuses a download bigger than the limit, by its announced size or as it grows", async () => {
+    const big = Buffer.alloc(2048, 1);
+    const announced = answer(() => ({ status: 200, bytes: big, headers: { "content-length": "2048" } }));
+    await expect(announced.download("x", { maxBytes: 1000 })).rejects.toMatchObject({ kind: "too_large" });
+    const unannounced = answer(() => ({ status: 200, bytes: big }));
+    await expect(unannounced.download("x", { maxBytes: 1000 })).rejects.toMatchObject({ kind: "too_large" });
+    expect((await unannounced.download("x", { maxBytes: 5000 })).length).toBe(2048);
+    expect((await unannounced.download("x")).length).toBe(2048);
+  });
+});
+

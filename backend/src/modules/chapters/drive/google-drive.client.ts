@@ -13,10 +13,18 @@ export interface DriveImage {
   mimeType: string;
 }
 
+/** What Drive says about one file or folder. */
+export interface DriveFile {
+  id: string;
+  name: string;
+  mimeType: string;
+  size: number | null;
+}
+
 /** Why a folder could not be read: it is not shared with the service account, or it is not a folder, or Google refused. */
 export class DriveError extends Error {
   constructor(
-    readonly kind: "not_shared" | "not_a_folder" | "auth_failed" | "rate_limited" | "failed",
+    readonly kind: "not_shared" | "not_a_folder" | "auth_failed" | "rate_limited" | "too_large" | "failed",
     message: string
   ) {
     super(message);
@@ -25,7 +33,13 @@ export class DriveError extends Error {
 
 const DRIVE_API = "https://www.googleapis.com/drive/v3";
 const SCOPE = "https://www.googleapis.com/auth/drive.readonly";
-const FOLDER_MIME = "application/vnd.google-apps.folder";
+export const FOLDER_MIME = "application/vnd.google-apps.folder";
+const ZIP_MIMES = new Set(["application/zip", "application/x-zip-compressed", "application/x-zip", "multipart/x-zip"]);
+
+/** Whether a Drive file is a ZIP archive (by its type, or by its name when Drive filed it as a generic binary). */
+export function isZipFile(file: Pick<DriveFile, "name" | "mimeType">): boolean {
+  return ZIP_MIMES.has(file.mimeType) || (/\.zip$/i.test(file.name) && !file.mimeType.startsWith("image/"));
+}
 const DEFAULT_TOKEN_URI = "https://oauth2.googleapis.com/token";
 
 /**
@@ -72,6 +86,20 @@ export function folderIdFromLink(link: string): string | null {
   const fromQuery = /[?&]id=([A-Za-z0-9_-]{10,})/.exec(text)?.[1];
   if (fromQuery) return fromQuery;
   return /^[A-Za-z0-9_-]{20,}$/.test(text) ? text : null;
+}
+
+/**
+ * What a pasted Drive link points at: its id, and whether the link itself says folder or file (`/folders/<id>`, `/file/d/<id>`);
+ * a `?id=` link or a bare id does not say, so the caller asks Drive.
+ */
+export function parseDriveLink(link: string): { id: string; hint: "folder" | "file" | null } | null {
+  const text = link.trim();
+  const folder = /\/folders\/([A-Za-z0-9_-]{10,})/.exec(text)?.[1];
+  if (folder) return { id: folder, hint: "folder" };
+  const file = /\/file\/d\/([A-Za-z0-9_-]{10,})/.exec(text)?.[1];
+  if (file) return { id: file, hint: "file" };
+  const id = folderIdFromLink(text);
+  return id ? { id, hint: null } : null;
 }
 
 /** File names in reading order: 2 before 10, whatever the case and whatever number of leading zeros. */
@@ -129,6 +157,17 @@ export class GoogleDriveClient {
     return res;
   }
 
+  /** A file's or folder's name, type and size; `not_shared` when Drive says it does not exist or was not shared with the account. */
+  async getFile(fileId: string): Promise<DriveFile> {
+    const res = await this.get(`/files/${encodeURIComponent(fileId)}`, { fields: "id,name,mimeType,size" });
+    if (res.status === 404 || res.status === 403) {
+      throw new DriveError("not_shared", "The link is private and not shared with the service account, or it does not exist.");
+    }
+    if (!res.ok) throw new DriveError("failed", `Drive answered ${res.status}.`);
+    const file = (await res.json()) as { id?: string; name?: string; mimeType?: string; size?: string };
+    return { id: file.id ?? fileId, name: file.name ?? "", mimeType: file.mimeType ?? "", size: file.size ? Number(file.size) : null };
+  }
+
   /**
    * Checks the folder can be read. Google answers "not found" for a folder that exists but was not shared with the account
    * (and lists it as empty), so this is asked first: an empty result would otherwise look like an empty folder.
@@ -163,9 +202,25 @@ export class GoogleDriveClient {
     return images.sort((a, b) => naturalCompare(a.name, b.name));
   }
 
-  async download(fileId: string): Promise<Buffer> {
+  /** A file's bytes. With `maxBytes` a bigger file is refused (by its announced size, or as soon as it grows past it) instead of filling memory. */
+  async download(fileId: string, options: { maxBytes?: number } = {}): Promise<Buffer> {
     const res = await this.get(`/files/${encodeURIComponent(fileId)}`, { alt: "media" });
     if (!res.ok) throw new DriveError("failed", `Could not download a file (${res.status}).`);
-    return Buffer.from(await res.arrayBuffer());
+    const { maxBytes } = options;
+    if (maxBytes === undefined || !res.body) return Buffer.from(await res.arrayBuffer());
+
+    const tooLarge = () => new DriveError("too_large", `The file is larger than ${Math.round(maxBytes / 1024 / 1024)} MB.`);
+    if (Number(res.headers.get("content-length")) > maxBytes) {
+      void res.body.cancel().catch(() => undefined);
+      throw tooLarge();
+    }
+    const chunks: Buffer[] = [];
+    let total = 0;
+    for await (const chunk of res.body as unknown as AsyncIterable<Uint8Array>) {
+      total += chunk.byteLength;
+      if (total > maxBytes) throw tooLarge();
+      chunks.push(Buffer.from(chunk));
+    }
+    return Buffer.concat(chunks);
   }
 }
