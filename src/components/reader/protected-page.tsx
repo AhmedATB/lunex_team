@@ -36,6 +36,44 @@ function decodeTokenPayload(token: string): { assetId: string; bundleKey: string
   return JSON.parse(json);
 }
 
+/** At most this many pages are being fetched at once, across the whole chapter — a phone on a weak network, or a fast scroll through a long chapter, would otherwise trip the server's rate limit and lose pages. */
+const MAX_PARALLEL = 6;
+let running = 0;
+const waiting: (() => void)[] = [];
+function acquireSlot(): Promise<void> {
+  if (running < MAX_PARALLEL) {
+    running++;
+    return Promise.resolve();
+  }
+  return new Promise((resolve) =>
+    waiting.push(() => {
+      running++;
+      resolve();
+    })
+  );
+}
+function releaseSlot() {
+  running--;
+  waiting.shift()?.();
+}
+
+/** A failed load: whether trying again can help (a dropped connection, a busy server, a rate limit) or not (not signed in, not there). */
+class LoadError extends Error {
+  constructor(
+    message: string,
+    readonly retryable: boolean
+  ) {
+    super(message);
+  }
+}
+/** A response that says "try again later" rather than "no". */
+const retryableStatus = (status: number) => status === 408 || status === 425 || status === 429 || status >= 500;
+
+/** How long to wait before attempt number `attempt` (1, 2, 3, …): 1 s, 2 s, 4 s, 8 s, 16 s, then every 30 s, a little randomised so a page-full of failures does not retry in lockstep. */
+const backoffMs = (attempt: number) => Math.min(30_000, 1_000 * 2 ** (attempt - 1)) * (0.75 + Math.random() * 0.5);
+/** A page that fails for a reason that keeps repeating (a corrupt file) stops after this many tries and waits for the reader's tap. */
+const MAX_ATTEMPTS = 20;
+
 /**
  * Renders one real, protected chapter page: requests a short-lived page
  * token, fetches the encrypted tile bundle it authorizes, decrypts with the
@@ -65,6 +103,10 @@ export function ProtectedPage({
   const [state, setState] = useState<"loading" | "ready" | "error">("loading");
   const [started, setStarted] = useState(priority);
   const [aspect, setAspect] = useState<number | null>(null);
+  /** How many times this page has failed so far in the current run (0 while the first try is still going). */
+  const [failures, setFailures] = useState(0);
+  /** Bumped by the reader's own "try again" tap: starts a fresh run. */
+  const [retryNonce, setRetryNonce] = useState(0);
 
   useEffect(() => {
     if (started) return;
@@ -86,22 +128,51 @@ export function ProtectedPage({
   useEffect(() => {
     if (!started) return;
     let cancelled = false;
+    let timer: ReturnType<typeof setTimeout> | undefined;
+    let attempt = 0;
+    /** Set while waiting to try again: runs the next try right away (the connection came back, or the reader returned to the tab). */
+    let wake: (() => void) | undefined;
+    setState("loading");
+    setFailures(0);
 
-    async function load() {
+    /** One try: fetch, decrypt and draw the page. Throws a LoadError. */
+    async function fetchAndDraw() {
+      let tokenRes: Response;
+      let token: string;
       try {
-        const tokenRes = await fetch(`/api/chapters/${chapterId}/pages/${pageNumber}/token`, { method: "POST" });
-        if (tokenRes.status === 401) {
-          if (!cancelled) onLoginRequired?.();
-          throw new Error("login_required");
-        }
-        if (!tokenRes.ok) throw new Error("token_failed");
-        const { token } = await tokenRes.json();
-        const { assetId, bundleKey } = decodeTokenPayload(token);
+        tokenRes = await fetch(`/api/chapters/${chapterId}/pages/${pageNumber}/token`, { method: "POST" });
+      } catch {
+        throw new LoadError("network", true);
+      }
+      if (tokenRes.status === 401) {
+        if (!cancelled) onLoginRequired?.();
+        throw new LoadError("login_required", false);
+      }
+      if (!tokenRes.ok) throw new LoadError("token_failed", retryableStatus(tokenRes.status));
+      try {
+        ({ token } = await tokenRes.json());
+      } catch {
+        throw new LoadError("token_unreadable", true);
+      }
 
+      let assetId: string;
+      let bundleKey: string;
+      try {
+        ({ assetId, bundleKey } = decodeTokenPayload(token));
+      } catch {
+        throw new LoadError("token_invalid", true);
+      }
+
+      let encrypted: Uint8Array;
+      try {
         const streamRes = await fetch(`/api/images/${assetId}/stream?token=${encodeURIComponent(token)}`);
-        if (!streamRes.ok) throw new Error("stream_failed");
-        const encrypted = new Uint8Array(await streamRes.arrayBuffer());
+        if (!streamRes.ok) throw new LoadError("stream_failed", retryableStatus(streamRes.status));
+        encrypted = new Uint8Array(await streamRes.arrayBuffer()); // a connection that drops mid-download throws here
+      } catch (err) {
+        throw err instanceof LoadError ? err : new LoadError("network", true);
+      }
 
+      try {
         const iv = encrypted.slice(0, 12);
         const ciphertextAndTag = encrypted.slice(12);
         const key = await crypto.subtle.importKey("raw", base64UrlToBytes(bundleKey) as BufferSource, "AES-GCM", false, ["decrypt"]);
@@ -141,17 +212,58 @@ export function ProtectedPage({
           setState("ready");
         }
       } catch {
-        if (!cancelled) setState("error");
+        // a truncated or garbled download does not decrypt: the same fetch usually works the next time
+        throw new LoadError("decode_failed", true);
       }
     }
 
-    load();
+    async function load() {
+      attempt++;
+      await acquireSlot();
+      if (cancelled) {
+        releaseSlot();
+        return;
+      }
+      try {
+        await fetchAndDraw();
+      } catch (err) {
+        releaseSlot();
+        if (cancelled) return;
+        const retryable = err instanceof LoadError ? err.retryable : true;
+        if (!retryable || attempt >= MAX_ATTEMPTS) {
+          setState("error");
+          return;
+        }
+        setFailures(attempt);
+        // Try again — right away when the connection comes back or the reader returns to this tab, otherwise after a growing pause.
+        const again = () => {
+          wake = undefined;
+          clearTimeout(timer);
+          void load();
+        };
+        wake = again;
+        if (typeof navigator !== "undefined" && navigator.onLine === false) return; // the `online` event wakes it
+        timer = setTimeout(again, backoffMs(attempt));
+        return;
+      }
+      releaseSlot();
+    }
+
+    const onOnline = () => wake?.();
+    const onVisible = () => document.visibilityState === "visible" && wake?.();
+    window.addEventListener("online", onOnline);
+    document.addEventListener("visibilitychange", onVisible);
+
+    void load();
     return () => {
       cancelled = true;
+      clearTimeout(timer);
+      window.removeEventListener("online", onOnline);
+      document.removeEventListener("visibilitychange", onVisible);
     };
     // onLoginRequired is a plain notification; re-running the load because its identity changed would re-download the page.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [started, chapterId, pageNumber]);
+  }, [started, chapterId, pageNumber, retryNonce]);
 
   return (
     <div
@@ -171,9 +283,34 @@ export function ProtectedPage({
         }}
       />
       {state === "loading" && <div className="absolute inset-0 animate-pulse rounded-lg bg-white/5" />}
+      {state === "loading" && failures >= 2 && (
+        <div className="absolute inset-0 flex flex-col items-center justify-center gap-2 text-sm text-lunex-gray">
+          <span>جاري إعادة تحميل الصفحة…</span>
+          <button
+            type="button"
+            onClick={(e) => {
+              e.stopPropagation();
+              setRetryNonce((n) => n + 1);
+            }}
+            className="rounded-full border border-white/20 px-4 py-2 text-xs font-bold text-white transition-colors hover:bg-white/10"
+          >
+            أعد المحاولة الآن
+          </button>
+        </div>
+      )}
       {state === "error" && (
-        <div className="absolute inset-0 flex items-center justify-center rounded-lg bg-white/5 text-sm text-lunex-gray">
-          تعذر تحميل هذه الصفحة
+        <div className="absolute inset-0 flex flex-col items-center justify-center gap-2 rounded-lg bg-white/5 text-sm text-lunex-gray">
+          <span>تعذر تحميل هذه الصفحة</span>
+          <button
+            type="button"
+            onClick={(e) => {
+              e.stopPropagation();
+              setRetryNonce((n) => n + 1);
+            }}
+            className="rounded-full border border-white/20 px-4 py-2 text-xs font-bold text-white transition-colors hover:bg-white/10"
+          >
+            إعادة المحاولة
+          </button>
         </div>
       )}
     </div>
