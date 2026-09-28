@@ -25,6 +25,8 @@ export const useSession = create<SessionState>((set) => ({
   isGuest: true,
   setUser: (user) => set({ user, currentUserId: user?.id ?? null, isGuest: !user }),
   logout: async () => {
+    // This device stops receiving the account's notifications (asked while the session still exists).
+    await import("@/lib/push-client").then((push) => push.detachThisDevice()).catch(() => null);
     await fetch("/api/auth/logout", { method: "POST" }).catch(() => null);
     set({ user: null, currentUserId: null, isGuest: true });
   },

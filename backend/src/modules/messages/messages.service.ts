@@ -2,6 +2,7 @@ import { BadRequestException, ForbiddenException, Injectable, NotFoundException 
 import sharp from "sharp";
 import { fixTanween } from "../../common/text/arabic.util";
 import { AttachmentsService } from "../attachments/attachments.service";
+import { PushService } from "../push/push.service";
 import { isEffectivelyBanned, isMuted } from "../moderation/moderation.util";
 import { MAX_MESSAGE_IMAGES, MAX_OTHER_MEMBERS, type AddMembersDto, type CreateConversationDto, type ListMessagesQueryDto, type SendMessageDto, type SetMemberRoleDto, type UpdateConversationDto } from "./dto/messages.dto";
 import { MessagesRepository } from "./messages.repository";
@@ -52,7 +53,8 @@ const toMessage = (m: { id: string; senderId: string | null; text: string; creat
 export class MessagesService {
   constructor(
     private readonly repo: MessagesRepository,
-    private readonly attachments: AttachmentsService
+    private readonly attachments: AttachmentsService,
+    private readonly push: PushService
   ) {}
 
   /** Starts a chat with the named people (or opens the one that already exists between the two). */
@@ -135,6 +137,7 @@ export class MessagesService {
     const text = (dto.text ?? "").trim();
     if (!text && images.length === 0) throw new BadRequestException({ code: "empty_message", message: "Write something first." });
     const message = await this.repo.createMessage({ conversationId, senderId: actorId, text, ...(images.length > 0 ? { attachmentIds: images.map((i) => i.id) } : {}) });
+    this.push.newMessage(conversationId, actorId, text, images.length).catch(() => undefined); // to the others' phones, if they want it
     return toMessage(message);
   }
 

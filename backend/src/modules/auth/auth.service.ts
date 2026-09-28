@@ -13,7 +13,8 @@ import { isReservedDisplayName, isReservedUsername, USERNAME_PATTERN } from "../
 import { PASSWORD_RESET_TTL_MINUTES, passwordResetMail } from "./password-reset.mail";
 
 const ACCESS_TOKEN_TTL = "10m";
-const REFRESH_TOKEN_TTL_MS = 7 * 24 * 60 * 60 * 1000; // 7 days
+/** How long a sign-in lasts without a visit. Every visit renews it (each refresh issues a fresh token), so someone who comes back within this time is never signed out. */
+const REFRESH_TOKEN_TTL_MS = 180 * 24 * 60 * 60 * 1000; // 180 days
 /**
  * A browser that comes back after its 10-minute access token died sends a page and several data requests at once, all carrying the
  * same refresh token. The first rotates it; the others arrive holding a token that was consumed a moment ago. Within this window that

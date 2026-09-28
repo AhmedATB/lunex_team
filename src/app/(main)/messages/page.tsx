@@ -104,6 +104,7 @@ function MessagesPageInner() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const targetUserId = searchParams.get("to");
+  const chatParam = searchParams.get("chat");
 
   const myId = useSession((s) => s.currentUserId);
   const mute = useMuteStatus();
@@ -192,6 +193,13 @@ function MessagesPageInner() {
       cancelled = true;
     };
   }, [myId, targetUserId, refreshList, router]);
+
+  // ?chat=<id> (what a notification on the phone links to) opens that chat.
+  useEffect(() => {
+    if (!myId || !chatParam || !listLoaded) return;
+    if (conversations.some((c) => c.id === chatParam)) setActiveId(chatParam);
+    router.replace("/messages");
+  }, [myId, chatParam, listLoaded, conversations, router]);
 
   const markRead = useCallback(async (id: string) => {
     setConversations((list) => list.map((c) => (c.id === id ? { ...c, unreadCount: 0 } : c)));

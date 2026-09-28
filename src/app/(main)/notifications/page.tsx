@@ -7,6 +7,7 @@ import type { LucideIcon } from "lucide-react";
 import { NOTIFICATIONS_CHANGED } from "@/components/layout/notifications-bell";
 import { groupByPeriod } from "@/lib/notification-groups";
 import { NOTIFICATION_TABS, type AppNotification, type NotificationCategory } from "@/lib/notification-types";
+import { PushSettings } from "@/components/push/push-settings";
 import { Button } from "@/components/ui/button";
 import { cn, timeAgo } from "@/lib/utils";
 
@@ -126,6 +127,8 @@ export default function NotificationsPage() {
           </Button>
         )}
       </div>
+
+      <PushSettings />
 
       <div role="tablist" aria-label="نوع الإشعارات" className="flex gap-1.5 overflow-x-auto pb-1 no-scrollbar">
         {NOTIFICATION_TABS.map((t) => (

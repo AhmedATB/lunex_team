@@ -1,6 +1,7 @@
 import { BadRequestException, ForbiddenException, NotFoundException } from "@nestjs/common";
 import sharp from "sharp";
 import type { AttachmentsService } from "../attachments/attachments.service";
+import type { PushService } from "../push/push.service";
 import type { MessagesRepository } from "./messages.repository";
 import { MessagesService } from "./messages.service";
 
@@ -56,7 +57,8 @@ function build(overrides: Record<string, unknown> = {}) {
   const attachments = {
     claimable: jest.fn(async (_actor: string, ids: string[] | undefined) => (ids ?? []).map((id) => ({ id, width: 800, height: 600 }))),
   };
-  return { service: new MessagesService(repo as unknown as MessagesRepository, attachments as unknown as AttachmentsService), repo, attachments };
+  const push = { newMessage: jest.fn().mockResolvedValue(undefined) };
+  return { service: new MessagesService(repo as unknown as MessagesRepository, attachments as unknown as AttachmentsService, push as unknown as PushService), repo, attachments, push };
 }
 
 describe("starting a chat", () => {
@@ -398,3 +400,19 @@ describe("managing a group", () => {
   });
 });
 
+describe("messages that also reach a phone", () => {
+  it("tells the other people of the chat, with what was written and how many pictures", async () => {
+    const { service, push } = build();
+    await service.send("me", "c1", { text: " مرحبًا ", imageIds: ["a", "b"] });
+    expect(push.newMessage).toHaveBeenCalledWith("c1", "me", "مرحبًا", 2);
+  });
+
+  it("does not tell anyone about a message that was refused, and is not held up or undone by a failing push", async () => {
+    const refused = build();
+    await expect(refused.service.send("me", "c1", { text: "  " })).rejects.toBeDefined();
+    expect(refused.push.newMessage).not.toHaveBeenCalled();
+    const failing = build();
+    failing.push.newMessage.mockRejectedValue(new Error("push down"));
+    await expect(failing.service.send("me", "c1", { text: "hi" })).resolves.toMatchObject({ text: "hi" });
+  });
+});

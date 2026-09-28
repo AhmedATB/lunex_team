@@ -7,7 +7,7 @@ export const OAUTH_STATE_COOKIE = "lunex_oauth_state";
 
 const OAUTH_STATE_MAX_AGE = 300; // 5 minutes — long enough to complete a real consent screen, short enough that a stale value is useless
 
-const REFRESH_TOKEN_MAX_AGE = 7 * 24 * 60 * 60; // 7 days — mirrors the backend's refresh-token TTL
+const REFRESH_TOKEN_MAX_AGE = 180 * 24 * 60 * 60; // 180 days — mirrors the backend's refresh-token TTL; renewed at every refresh
 
 export interface SessionTokens {
   accessToken: string;

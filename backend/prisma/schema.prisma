@@ -88,6 +88,8 @@ model User {
   readingProgress  ReadingProgress[]
   chapterProgress  ChapterProgress[]
   attachments      Attachment[]
+  pushSubscriptions PushSubscription[]
+  pushPreference   PushPreference?
   chapterViews     ChapterView[]
   seriesRatings    SeriesRating[]
   sanctions        Sanction[]
@@ -449,6 +451,45 @@ model ChapterProgress {
   @@unique([userId, chapterId])
   @@index([userId, seriesId])
   @@map("chapter_progress")
+}
+
+/// A device (a browser on a phone or computer) that asked to be sent notifications even while the site is closed. The address (`endpoint`)
+/// is the browser vendor's push service's; the keys are the browser's, used to encrypt what is sent. One device is one row, whichever
+/// account is signed in there now; a device the push service says is gone is deleted.
+model PushSubscription {
+  id        String   @id @default(uuid())
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  endpoint  String   @unique
+  p256dh    String
+  auth      String
+  userAgent String?
+  createdAt DateTime @default(now())
+
+  @@index([userId])
+  @@map("push_subscriptions")
+}
+
+/// Which kinds of notification an account wants pushed to its devices (all of them unless it turned some off).
+model PushPreference {
+  userId   String  @id
+  user     User    @relation(fields: [userId], references: [id], onDelete: Cascade)
+  chapters Boolean @default(true)
+  messages Boolean @default(true)
+  replies  Boolean @default(true)
+  news     Boolean @default(true)
+  account  Boolean @default(true)
+
+  @@map("push_preferences")
+}
+
+/// Small site-wide settings the site keeps for itself (the keys that identify it to browsers' push services).
+model SiteSetting {
+  key       String   @id
+  value     String
+  updatedAt DateTime @updatedAt
+
+  @@map("site_settings")
 }
 
 /// A picture uploaded to go with a comment or a chat message. It is uploaded first — private to whoever uploaded it — and joins the

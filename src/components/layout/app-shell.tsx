@@ -13,6 +13,7 @@ import { MagicCursor } from "@/components/effects/magic-cursor";
 import { ScrollPerformanceGuard } from "@/components/effects/scroll-performance-guard";
 import { ToastHost } from "@/components/ui/toast-host";
 import { ProgressWatcher } from "@/components/effects/progress-watcher";
+import { PushPrompt } from "@/components/push/push-prompt";
 
 /** Pages that show none of the site's frame beyond the header on a wide screen. */
 const CHAT_ROUTES = ["/messages"];
@@ -24,6 +25,7 @@ export function AppShell({ children, initialStyle }: { children: ReactNode; init
       <ScrollPerformanceGuard />
       <ToastHost />
       <ProgressWatcher />
+      <PushPrompt />
       {/*
         Everything decorative below is `absolute` inside the page's own `relative` root: it belongs to the page and
         scrolls with it, never following the reader down the screen; the glows and sparkles pulse in place, nothing drifts. The glows sit at the page
