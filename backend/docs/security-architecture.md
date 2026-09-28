@@ -606,3 +606,11 @@ A visitor who came back after more than the 10 minutes an access token lives —
 - **Also fixed:** two of those simultaneous refreshes from a device seen for the first time both tried to create it and one failed with a 500 (`devices` unique key); the loser now finds the winner's row.
 - Checked against Postgres (8 refreshes at once: all succeed; the same token 1.5 s later: succeeds; after the window: refused as a replay, family ended, audited) and with 6 new unit tests.
 
+## §57 — The admin overview shows what is really being published
+
+The overview's "الفصول المنشورة أسبوعيًا" chart read 0 in every week and "آخر النشاطات" never listed a chapter, though chapters were going up every day. The page counted the catalogue's chapter list, and on the real site that list is empty (the catalogue only carries the 60 latest chapters, in a separate list) — so everything built on it stayed empty.
+- `GET /v1/catalog/admin/dashboard` (`CatalogDashboardService`, throttled 60/min) now counts from the database: chapters published in each of the last eight weeks (by the day they went live — an import keeps its old date, so it never inflates a week), chapters published in the last 30 days per team (the busiest six; a work with no team is "بدون فريق"), and the newest eight events among chapters, works added and members joined. The chapters of one work published on one day are a single line ("نُشرت الفصول 13–20 (8) من X"), so a publishing spree does not push everything else out of the list.
+- Open to the people the page is open to: any staff role, and anyone who leads a team or holds an office in one (leader, assistant, administrator); a plain reader is `403`, a guest `401`, a banned account refused.
+- The page asks for it with the visitor's own session. The "مهام Kanban حسب الفريق" chart beside it (a count of a mock task board, empty on the real site) became "الفصول المنشورة حسب الفريق (آخر 30 يومًا)".
+- Checked against Postgres (weeks, teams, grouped recent activity, the three kinds of caller) and in the browser; 8 new unit tests. **Not yet covered:** a team's own dashboard (`/teams/<team>/dashboard`) still counts the catalogue's empty chapter list for its weekly chart and activity.
+

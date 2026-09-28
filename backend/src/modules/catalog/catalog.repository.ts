@@ -460,4 +460,58 @@ export class CatalogRepository {
   writeAuditLog(params: { actorId?: string; action: string; target?: string; ip?: string }) {
     return this.prisma.auditLog.create({ data: params });
   }
+
+  // ---- the admin overview -------------------------------------------------------
+
+  /** When each chapter published since `since` went live (an import keeps its old date, so it does not count as this week's work). */
+  async publishedChapterDatesSince(since: Date): Promise<Date[]> {
+    const rows = await this.prisma.chapter.findMany({ where: { isPublished: true, publishedAt: { gte: since } }, select: { publishedAt: true }, take: 50_000 });
+    return rows.flatMap((r) => (r.publishedAt ? [r.publishedAt] : []));
+  }
+
+  /** Chapters published since `since`, per team (`null` = a work that belongs to no team). */
+  async chaptersPerTeamSince(since: Date): Promise<{ teamId: string | null; chapters: number }[]> {
+    const rows = await this.prisma.chapter.groupBy({ by: ["teamId"], where: { isPublished: true, publishedAt: { gte: since } }, _count: { _all: true } });
+    return rows.map((r) => ({ teamId: r.teamId, chapters: r._count._all }));
+  }
+
+  /** The newest published chapters since `since` (a few hundred at most — a publishing spree is one line in the overview anyway). */
+  async publishedChaptersSince(since: Date): Promise<{ seriesId: string; number: number; publishedAt: Date }[]> {
+    const rows = await this.prisma.chapter.findMany({
+      where: { isPublished: true, publishedAt: { gte: since } },
+      orderBy: { publishedAt: "desc" },
+      take: 400,
+      select: { seriesId: true, number: true, publishedAt: true },
+    });
+    return rows.flatMap((r) => (r.publishedAt ? [{ seriesId: r.seriesId, number: r.number, publishedAt: r.publishedAt }] : []));
+  }
+
+  async seriesTitles(ids: string[]): Promise<Map<string, string>> {
+    if (ids.length === 0) return new Map();
+    const rows = await this.prisma.series.findMany({ where: { id: { in: ids } }, select: { id: true, titleAr: true, titleEn: true } });
+    return new Map(rows.map((r) => [r.id, r.titleAr || r.titleEn]));
+  }
+
+  async teamNames(ids: string[]): Promise<Map<string, string>> {
+    if (ids.length === 0) return new Map();
+    const rows = await this.prisma.team.findMany({ where: { id: { in: ids } }, select: { id: true, name: true } });
+    return new Map(rows.map((r) => [r.id, r.name]));
+  }
+
+  newestSeries(take: number) {
+    return this.prisma.series.findMany({ where: { state: "approved" }, orderBy: { createdAt: "desc" }, take, select: { titleAr: true, titleEn: true, createdAt: true } });
+  }
+
+  newestMembers(take: number) {
+    return this.prisma.user.findMany({ orderBy: { createdAt: "desc" }, take, select: { displayName: true, username: true, createdAt: true } });
+  }
+
+  /** Whether the account leads a team or holds one of `roles` in one. */
+  async holdsTeamOffice(userId: string, roles: string[]): Promise<boolean> {
+    const [led, held] = await Promise.all([
+      this.prisma.team.count({ where: { leaderId: userId } }),
+      this.prisma.teamMember.count({ where: { userId, role: { in: roles } } }),
+    ]);
+    return led + held > 0;
+  }
 }

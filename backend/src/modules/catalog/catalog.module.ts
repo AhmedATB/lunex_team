@@ -6,6 +6,7 @@ import { NotificationsModule } from "../notifications/notifications.module";
 import { TeamActivityModule } from "../team-activity/team-activity.module";
 import { CatalogAdminController } from "./catalog-admin.controller";
 import { CatalogAdminService } from "./catalog-admin.service";
+import { CatalogDashboardService } from "./catalog-dashboard.service";
 import { CatalogController } from "./catalog.controller";
 import { CatalogRepository } from "./catalog.repository";
 import { CatalogService } from "./catalog.service";
@@ -21,7 +22,7 @@ import { StorageAdminService } from "./legacy/storage-admin.service";
 @Module({
   imports: [AnnouncementsModule, ImagesModule, ProgressModule, NotificationsModule, TeamActivityModule],
   controllers: [CatalogController, CatalogAdminController, EngagementController, LegacyImportController],
-  providers: [CatalogService, CatalogAdminService, CatalogRepository, EngagementService, EngagementRepository, LegacyImportService, LegacyChapterImportService, StorageAdminService],
+  providers: [CatalogService, CatalogAdminService, CatalogDashboardService, CatalogRepository, EngagementService, EngagementRepository, LegacyImportService, LegacyChapterImportService, StorageAdminService],
   exports: [CatalogService, CatalogRepository],
 })
 export class CatalogModule {}

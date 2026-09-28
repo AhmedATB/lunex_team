@@ -38,7 +38,7 @@ export function ChaptersOverTimeChart({ data }: { data: { label: string; chapter
         <XAxis dataKey="label" tick={AXIS_STYLE} axisLine={false} tickLine={false} />
         <YAxis tick={AXIS_STYLE} axisLine={false} tickLine={false} />
         <Tooltip contentStyle={TOOLTIP_STYLE} />
-        <Area type="monotone" dataKey="chapters" stroke="#A855F7" strokeWidth={2} fill="url(#chaptersFill)" />
+        <Area type="monotone" dataKey="chapters" name="فصول" stroke="#A855F7" strokeWidth={2} fill="url(#chaptersFill)" />
       </AreaChart>
     </ResponsiveContainer>
   );
@@ -61,7 +61,7 @@ export function StatusPieChart({ data }: { data: { name: string; value: number }
   );
 }
 
-export function TeamActivityBarChart({ data }: { data: { name: string; tasks: number }[] }) {
+export function TeamActivityBarChart({ data, unit = "فصول" }: { data: { name: string; value: number }[]; unit?: string }) {
   return (
     <ResponsiveContainer width="100%" height={240}>
       <BarChart data={data} margin={{ left: -20 }}>
@@ -69,7 +69,7 @@ export function TeamActivityBarChart({ data }: { data: { name: string; tasks: nu
         <XAxis dataKey="name" tick={AXIS_STYLE} axisLine={false} tickLine={false} />
         <YAxis tick={AXIS_STYLE} axisLine={false} tickLine={false} />
         <Tooltip contentStyle={TOOLTIP_STYLE} cursor={{ fill: "rgba(255,255,255,0.04)" }} />
-        <Bar dataKey="tasks" radius={[8, 8, 0, 0]} fill="#8B31E8" />
+        <Bar dataKey="value" name={unit} radius={[8, 8, 0, 0]} fill="#8B31E8" />
       </BarChart>
     </ResponsiveContainer>
   );

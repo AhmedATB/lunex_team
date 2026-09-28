@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import { Layers, BookOpen, Users, MessageSquare, Eye, Activity } from "lucide-react";
 import { loadCatalog } from "@/lib/catalog-server";
+import { loadAdminDashboard } from "@/lib/admin-dashboard";
 import { getPlatformStats } from "@/lib/mock/repo";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { ChaptersOverTimeChart, StatusPieChart, TeamActivityBarChart } from "@/components/admin/charts";
@@ -18,20 +19,10 @@ const STATUS_LABEL: Record<string, string> = {
 };
 
 export default async function AdminDashboardPage() {
-  const db = await loadCatalog();
-  const stats = await getPlatformStats();
+  const [db, stats, dashboard] = await Promise.all([loadCatalog(), getPlatformStats(), loadAdminDashboard()]);
 
-  const now = Date.now();
-  const buckets = Array.from({ length: 8 }).map((_, i) => {
-    const weeksAgo = 7 - i;
-    const start = now - (weeksAgo + 1) * 7 * 86400000;
-    const end = now - weeksAgo * 7 * 86400000;
-    const count = db.chapters.filter((c) => {
-      const t = +new Date(c.releasedAt);
-      return t >= start && t < end;
-    }).length;
-    return { label: `أ${8 - weeksAgo}`, chapters: count };
-  });
+  // Counted from the database by the backend: the catalogue held here is only the site's short list of latest chapters.
+  const buckets = Array.from({ length: 8 }).map((_, i) => ({ label: `أ${i + 1}`, chapters: dashboard?.weeks[i]?.chapters ?? 0 }));
 
   const statusCounts = db.series.reduce<Record<string, number>>((acc, s) => {
     acc[s.status] = (acc[s.status] ?? 0) + 1;
@@ -42,25 +33,10 @@ export default async function AdminDashboardPage() {
     value,
   }));
 
-  const teamActivity = db.teams
-    .map((t) => ({ name: t.name, tasks: db.kanbanTasks.filter((k) => k.teamId === t.id).length }))
-    .sort((a, b) => b.tasks - a.tasks)
-    .slice(0, 6);
+  const teamActivity = (dashboard?.teams ?? []).map((t) => ({ name: t.name, value: t.chapters }));
 
-  const recentActivity = [
-    ...db.chapters.slice(0, 4).map((c) => ({
-      icon: BookOpen,
-      text: `نُشر ${c.title} لسلسلة ${db.series.find((s) => s.id === c.seriesId)?.titleAr ?? ""}`,
-      at: c.releasedAt,
-    })),
-    ...db.users
-      .slice()
-      .sort((a, b) => +new Date(b.joinedAt) - +new Date(a.joinedAt))
-      .slice(0, 3)
-      .map((u) => ({ icon: Users, text: `انضم عضو جديد: ${u.displayName}`, at: u.joinedAt })),
-  ]
-    .sort((a, b) => +new Date(b.at) - +new Date(a.at))
-    .slice(0, 8);
+  const ACTIVITY_ICONS = { chapter: BookOpen, series: Layers, member: Users } as const;
+  const recentActivity = (dashboard?.recent ?? []).map((e) => ({ icon: ACTIVITY_ICONS[e.kind], text: e.text, at: e.at }));
 
   return (
     <div className="space-y-6">
@@ -100,7 +76,7 @@ export default async function AdminDashboardPage() {
 
       <div className="grid gap-4 lg:grid-cols-3">
         <Card className="lg:col-span-2">
-          <CardHeader><CardTitle>مهام Kanban حسب الفريق</CardTitle></CardHeader>
+          <CardHeader><CardTitle>الفصول المنشورة حسب الفريق (آخر 30 يومًا)</CardTitle></CardHeader>
           <CardContent><TeamActivityBarChart data={teamActivity} /></CardContent>
         </Card>
 
@@ -109,6 +85,7 @@ export default async function AdminDashboardPage() {
             <CardTitle className="flex items-center gap-2"><Activity className="h-4 w-4" /> آخر النشاطات</CardTitle>
           </CardHeader>
           <CardContent className="space-y-3">
+            {recentActivity.length === 0 && <p className="text-xs text-lunex-gray">لا نشاط حديثًا.</p>}
             {recentActivity.map((a, i) => {
               const Icon = a.icon;
               return (

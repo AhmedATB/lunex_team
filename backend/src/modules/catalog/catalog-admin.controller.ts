@@ -20,6 +20,7 @@ import { memoryStorage } from "multer";
 import { CurrentUser } from "../../common/decorators/current-user.decorator";
 import type { AccessTokenPayload } from "../../common/guards/jwt-auth.guard";
 import { CatalogAdminService } from "./catalog-admin.service";
+import { CatalogDashboardService } from "./catalog-dashboard.service";
 import {
   AddMemberDto,
   CreateNewsDto,
@@ -40,7 +41,18 @@ const imageUpload = () => FileInterceptor("file", { storage: memoryStorage(), li
 /** Authenticated (the global guard) and role-checked per method inside CatalogAdminService against the account's CURRENT role. */
 @Controller("v1/catalog")
 export class CatalogAdminController {
-  constructor(private readonly admin: CatalogAdminService) {}
+  constructor(
+    private readonly admin: CatalogAdminService,
+    private readonly dashboard: CatalogDashboardService
+  ) {}
+
+  /** The admin overview's charts and recent activity, from the database (staff and team officers). */
+  @Get("admin/dashboard")
+  @HttpCode(HttpStatus.OK)
+  @Throttle({ default: { limit: 60, ttl: 60_000 } })
+  overview(@CurrentUser() actor: AccessTokenPayload) {
+    return this.dashboard.dashboard(actor.sub);
+  }
 
   // ---- series ----
 
