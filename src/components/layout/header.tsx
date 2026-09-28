@@ -2,9 +2,9 @@
 
 import Link from "next/link";
 import Image from "next/image";
-import { useRouter } from "next/navigation";
+import { usePathname, useRouter } from "next/navigation";
 import { useEffect, useMemo, useState } from "react";
-import { Search, LogOut, Settings, User as UserIcon, ShieldCheck, Coins, Palette } from "lucide-react";
+import { Search, LogOut, Settings, User as UserIcon, ShieldCheck, Coins, Palette, Users } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Avatar, AvatarImage, AvatarFallback } from "@/components/ui/avatar";
@@ -32,6 +32,7 @@ import { resolveAvatarUrl, cn } from "@/lib/utils";
 
 export function Header() {
   const router = useRouter();
+  const pathname = usePathname();
   const { logout } = useSession();
   const currentUserId = useSignedInUserId();
   const [query, setQuery] = useState("");
@@ -77,7 +78,7 @@ export function Header() {
           : "border-b border-transparent bg-transparent"
       )}
     >
-      <div className="container flex h-16 items-center gap-3">
+      <div className="container flex h-16 items-center gap-2 sm:gap-3">
         <Link href="/" className="flex shrink-0 items-center gap-2">
           <Image
             src="/brand/icon-square.png"
@@ -103,7 +104,7 @@ export function Header() {
           </div>
         </form>
 
-        <div className="flex flex-1 items-center justify-end gap-2">
+        <div className="flex flex-1 items-center justify-end gap-1 sm:gap-2">
           <Button
             variant="ghost"
             size="icon"
@@ -113,6 +114,20 @@ export function Header() {
           >
             <Search className="h-5 w-5" />
           </Button>
+
+          {/* The teams have no room in the phone's bottom bar (it is full), so a phone gets them here; a wide screen has them in the side menu. */}
+          <Link
+            href="/teams"
+            aria-label="الفرق"
+            title="الفرق"
+            aria-current={pathname === "/teams" || pathname.startsWith("/teams/") ? "page" : undefined}
+            className={cn(
+              "flex h-9 w-9 items-center justify-center rounded-xl transition-colors sm:h-10 sm:w-10 lg:hidden",
+              pathname === "/teams" || pathname.startsWith("/teams/") ? "bg-primary-500/20 text-primary-300" : "text-foreground hover:bg-white/10"
+            )}
+          >
+            <Users className="h-5 w-5" />
+          </Link>
 
           {/* Coins, messages and notifications belong to an account; a visitor without one only browses. */}
           {currentUserId && (
