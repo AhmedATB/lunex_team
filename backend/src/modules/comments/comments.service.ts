@@ -11,6 +11,7 @@ import {
 import type { RequestContext } from "../../common/middleware/request-context.middleware";
 import { MODERATOR_ROLES, rankOf } from "../../common/roles";
 import { activeMutedUntil, isEffectivelyBanned, isMuted } from "../moderation/moderation.util";
+import { AttachmentsService } from "../attachments/attachments.service";
 import { NotificationsService } from "../notifications/notifications.service";
 import { ProgressService } from "../progress/progress.service";
 import { cleanCommentText } from "./comment-text.util";
@@ -47,6 +48,7 @@ interface CommentRow {
   parentId: string | null;
   chapterId: string | null;
   chapterNumber: number | null;
+  attachments: { id: string; width: number; height: number }[];
   content: string;
   isSpoiler: boolean;
   isPinned: boolean;
@@ -60,7 +62,8 @@ export class CommentsService {
   constructor(
     private readonly repo: CommentsRepository,
     private readonly notifications: NotificationsService,
-    private readonly progress: ProgressService
+    private readonly progress: ProgressService,
+    private readonly attachments: AttachmentsService
   ) {}
 
   /** A work's comments — all of them (those under chapters carry the chapter's number), or only one chapter's when `chapterId` is given. */
@@ -84,7 +87,8 @@ export class CommentsService {
       });
     }
 
-    const content = this.validContent(dto.content);
+    const images = await this.attachments.claimable(userId, dto.imageId ? [dto.imageId] : [], 1);
+    const content = this.validContent(dto.content, images.length > 0);
     const target = dto.parentId ? await this.requireReplyTarget(dto.parentId, dto.seriesId) : null;
     // One level of replies: answering a reply files the answer under the same top-level comment, as an answer to that person.
     const threadId = target ? (target.parentId ?? target.id) : null;
@@ -109,6 +113,7 @@ export class CommentsService {
       isSpoiler: dto.isSpoiler ?? false,
       ...(threadId ? { parentId: threadId } : {}),
       ...(chapter ? { chapterId: chapter.id, ...(chapter.number !== null ? { chapterNumber: chapter.number } : {}) } : {}),
+      ...(images.length > 0 ? { attachmentIds: images.map((i) => i.id) } : {}),
     });
     await this.progress.awardComment(userId); // experience for the comment; never fails the comment itself
     if (target) await this.tellOfReply(target, row);
@@ -133,7 +138,7 @@ export class CommentsService {
       if (isMuted(actor)) {
         throw new ForbiddenException({ code: "account_muted", message: `You are in a timeout until ${activeMutedUntil(actor)}.` });
       }
-      const content = this.validContent(dto.content);
+      const content = this.validContent(dto.content, comment.attachments.length > 0);
       if (content !== comment.content) {
         patch.content = content;
         patch.editedAt = new Date();
@@ -264,9 +269,13 @@ export class CommentsService {
     }
   }
 
-  private validContent(raw: string): string {
+  /** `hasImage`: a picture on its own is a comment, so the words may be missing (they are then an empty text). */
+  private validContent(raw: string, hasImage = false): string {
     const content = cleanCommentText(raw);
-    if (content === null) throw new BadRequestException({ code: "empty_comment", message: "A comment can't be empty." });
+    if (content === null) {
+      if (hasImage) return "";
+      throw new BadRequestException({ code: "empty_comment", message: "A comment can't be empty." });
+    }
     if (content.length > MAX_COMMENT_LENGTH) {
       throw new BadRequestException({ code: "comment_too_long", message: `A comment can be at most ${MAX_COMMENT_LENGTH} characters.` });
     }
@@ -319,6 +328,7 @@ export class CommentsService {
         parentId: row.parentId,
         chapterId: row.chapterId,
         chapterNumber: row.chapterNumber,
+        image: row.attachments[0] ?? null,
         content: fixTanween(row.content),
         isSpoiler: row.isSpoiler,
         isPinned: row.isPinned,

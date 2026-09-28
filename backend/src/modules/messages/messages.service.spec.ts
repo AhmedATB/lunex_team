@@ -1,4 +1,5 @@
 import { BadRequestException, ForbiddenException, NotFoundException } from "@nestjs/common";
+import type { AttachmentsService } from "../attachments/attachments.service";
 import type { MessagesRepository } from "./messages.repository";
 import { MessagesService } from "./messages.service";
 
@@ -29,12 +30,15 @@ function build(overrides: Record<string, unknown> = {}) {
     listFor: jest.fn().mockResolvedValue([conversationRow()]),
     unreadByConversation: jest.fn().mockResolvedValue(new Map([["c1", 2]])),
     listMessages: jest.fn().mockResolvedValue([]),
-    createMessage: jest.fn(async (d: { conversationId: string; senderId: string; text: string }) => ({ id: "m1", createdAt: new Date(), ...d })),
+    createMessage: jest.fn(async (d: { conversationId: string; senderId: string; text: string; attachmentIds?: string[] }) => {
+      const { attachmentIds, ...rest } = d;
+      return { id: "m1", createdAt: new Date(), editedAt: null, attachments: (attachmentIds ?? []).map((id) => ({ id, width: 800, height: 600 })), ...rest };
+    }),
     markRead: jest.fn().mockResolvedValue(undefined),
     leave: jest.fn().mockResolvedValue(undefined),
     blockedAmong: jest.fn().mockResolvedValue([]),
     directPeer: jest.fn().mockResolvedValue(null),
-    findMessage: jest.fn().mockResolvedValue({ id: "m1", conversationId: "c1", senderId: "me", createdAt: new Date() }),
+    findMessage: jest.fn().mockResolvedValue({ id: "m1", conversationId: "c1", senderId: "me", createdAt: new Date(), _count: { attachments: 0 } }),
     deleteMessage: jest.fn().mockResolvedValue(undefined),
     updateMessageText: jest.fn(async (id: string, text: string) => ({ id, senderId: "me", text, createdAt: new Date(), editedAt: new Date() })),
     addBlock: jest.fn().mockResolvedValue(undefined),
@@ -42,7 +46,10 @@ function build(overrides: Record<string, unknown> = {}) {
     listBlocked: jest.fn().mockResolvedValue([{ createdAt: new Date("2026-09-26T00:00:00Z"), blocked: person("sara") }]),
     ...overrides,
   };
-  return { service: new MessagesService(repo as unknown as MessagesRepository), repo };
+  const attachments = {
+    claimable: jest.fn(async (_actor: string, ids: string[] | undefined) => (ids ?? []).map((id) => ({ id, width: 800, height: 600 }))),
+  };
+  return { service: new MessagesService(repo as unknown as MessagesRepository, attachments as unknown as AttachmentsService), repo, attachments };
 }
 
 describe("starting a chat", () => {
@@ -223,6 +230,47 @@ describe("editing a message", () => {
     await expect(build({ membership: jest.fn().mockResolvedValue(null) }).service.editMessage("me", "c1", "m1", { text: "x" })).rejects.toBeInstanceOf(NotFoundException);
     const muted = build({ findActor: jest.fn().mockResolvedValue({ id: "me", isBanned: false, bannedUntil: null, mutedUntil: new Date(Date.now() + 3_600_000) }) });
     await expect(muted.service.editMessage("me", "c1", "m1", { text: "x" })).rejects.toMatchObject({ response: { code: "muted" } });
+  });
+});
+
+describe("messages with pictures", () => {
+  it("sends the pictures with the words, in the order they were added, and returns them", async () => {
+    const { service, repo, attachments } = build();
+    const message = await service.send("me", "c1", { text: " look ", imageIds: ["a", "b", "c"] });
+    expect(attachments.claimable).toHaveBeenCalledWith("me", ["a", "b", "c"], 10);
+    expect(repo.createMessage).toHaveBeenCalledWith({ conversationId: "c1", senderId: "me", text: "look", attachmentIds: ["a", "b", "c"] });
+    expect(message.images.map((i) => i.id)).toEqual(["a", "b", "c"]);
+  });
+
+  it("lets pictures stand alone, but not a message with neither words nor pictures", async () => {
+    const { service, repo } = build();
+    await expect(service.send("me", "c1", { imageIds: ["a"] })).resolves.toMatchObject({ text: "" });
+    expect(repo.createMessage).toHaveBeenCalledWith(expect.objectContaining({ text: "", attachmentIds: ["a"] }));
+    await expect(service.send("me", "c1", { text: "  " })).rejects.toMatchObject({ response: { code: "empty_message" } });
+    await expect(service.send("me", "c1", {})).rejects.toMatchObject({ response: { code: "empty_message" } });
+  });
+
+  it("sends nothing when a picture cannot be used", async () => {
+    const { service, repo, attachments } = build();
+    attachments.claimable.mockRejectedValue(new BadRequestException({ code: "invalid_attachment", message: "gone" }));
+    await expect(service.send("me", "c1", { text: "hi", imageIds: ["a"] })).rejects.toMatchObject({ response: { code: "invalid_attachment" } });
+    expect(repo.createMessage).not.toHaveBeenCalled();
+  });
+
+  it("lets a message that has pictures be edited down to no words, but not one that has none", async () => {
+    const plain = build();
+    await expect(plain.service.editMessage("me", "c1", "m1", { text: " " })).rejects.toMatchObject({ response: { code: "empty_message" } });
+
+    const withPictures = build({ findMessage: jest.fn().mockResolvedValue({ id: "m1", conversationId: "c1", senderId: "me", createdAt: new Date(), _count: { attachments: 2 } }) });
+    await withPictures.service.editMessage("me", "c1", "m1", { text: " " });
+    expect(withPictures.repo.updateMessageText).toHaveBeenCalledWith("m1", "");
+  });
+
+  it("marks in the chat list that the newest message carries pictures", async () => {
+    const row = conversationRow({ messages: [{ id: "m1", senderId: "sara", text: "", createdAt: new Date(), _count: { attachments: 3 } }] });
+    const { service } = build({ listFor: jest.fn().mockResolvedValue([row]) });
+    const { conversations } = await service.list("me");
+    expect(conversations[0].lastMessage).toMatchObject({ text: "", imageCount: 3 });
   });
 });
 

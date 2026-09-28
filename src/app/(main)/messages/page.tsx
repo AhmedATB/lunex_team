@@ -6,12 +6,13 @@ import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import { ArrowRight, Ban, Keyboard, LogOut, Loader2, MessageCircle, Pencil, Plus, Send, Smile, Trash2, UserCheck, UserPlus, Users } from "lucide-react";
 import { useSession } from "@/store/session";
-import { chatApi, conversationName, MESSAGES_CHANGED, type BlockedPerson, type ChatMessage, type Conversation, type Person } from "@/lib/messages-api";
+import { chatApi, conversationName, MESSAGES_CHANGED, previewOf, type BlockedPerson, type ChatMessage, type Conversation, type Person } from "@/lib/messages-api";
 import { resolveAvatarUrl, cn } from "@/lib/utils";
 import { useMuteStatus } from "@/lib/use-mute-status";
 import { MuteNotice } from "@/components/moderation/mute-notice";
 import { UserPicker } from "@/components/messages/user-picker";
 import { EmojiPanel } from "@/components/messages/emoji-panel";
+import { PictureButton, PictureGrid, PicturePreviews, usePictures } from "@/components/shared/pictures";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
@@ -22,6 +23,8 @@ const LIST_POLL_MS = 10_000;
 const THREAD_POLL_MS = 4_000;
 /** The server's limit for one message. */
 const MAX_MESSAGE = 2000;
+/** Pictures that can go with one message. */
+const MAX_PICTURES = 10;
 /** The message box grows with what is typed, up to about five lines, then scrolls inside itself. */
 const INPUT_MAX_PX = 144;
 /** The phone's keyboard covers this much or more of the screen; below it, the browser bar coming and going is not the keyboard. */
@@ -144,6 +147,8 @@ function MessagesPageInner() {
   const [blockedOpen, setBlockedOpen] = useState(false);
 
   const [emojiOpen, setEmojiOpen] = useState(false);
+  /** The pictures being added to the message being written (several can go with one message). */
+  const pictures = usePictures(MAX_PICTURES);
 
   const rootRef = useRef<HTMLDivElement>(null);
   const scroller = useRef<HTMLDivElement>(null);
@@ -348,16 +353,17 @@ function MessagesPageInner() {
 
   async function submit() {
     const text = draft.trim();
-    if (!activeId || !text || sending || mute.muted) return;
+    if (!activeId || (!text && pictures.ids.length === 0) || pictures.uploading || sending || mute.muted) return;
     setSending(true);
     setError("");
-    const result = await chatApi.send(activeId, text);
+    const result = await chatApi.send(activeId, text, pictures.ids);
     setSending(false);
     if (!result.ok) {
       setError(result.message);
       return;
     }
     setDraft("");
+    pictures.clear();
     stickToBottom.current = true;
     setMessages((current) => (current.some((m) => m.id === result.body.id) ? current : [...current, result.body]));
     void refreshList();
@@ -492,7 +498,7 @@ function MessagesPageInner() {
                       {c.lastMessage && <span className="shrink-0 text-[11px] text-lunex-gray">{listTime(c.lastMessageAt)}</span>}
                     </div>
                     <div className="mt-0.5 flex items-center justify-between gap-2">
-                      <p className="truncate text-xs text-lunex-gray">{c.lastMessage ? c.lastMessage.text : "لا توجد رسائل بعد"}</p>
+                      <p className="truncate text-xs text-lunex-gray">{c.lastMessage ? previewOf(c.lastMessage) : "لا توجد رسائل بعد"}</p>
                       {c.unreadCount > 0 && (
                         <span className="flex min-w-[1.25rem] shrink-0 items-center justify-center rounded-full bg-primary-500 px-1.5 text-[11px] font-bold leading-5 text-white">
                           {c.unreadCount > 9 ? "9+" : c.unreadCount}
@@ -650,7 +656,10 @@ function MessagesPageInner() {
                               </div>
                             </div>
                           ) : (
-                            <p className="whitespace-pre-wrap break-words">{row.message.text}</p>
+                            <>
+                              {row.message.images && row.message.images.length > 0 && <PictureGrid images={row.message.images} className={row.message.text ? "mb-1.5" : ""} />}
+                              {row.message.text && <p className="whitespace-pre-wrap break-words">{row.message.text}</p>}
+                            </>
                           )}
                           {row.last && (
                             <p className="mt-0.5 text-[10px] opacity-70">
@@ -675,6 +684,10 @@ function MessagesPageInner() {
                       <Button size="sm" variant="secondary" onClick={() => void toggleBlock(peer)}>إلغاء الحظر</Button>
                     </div>
                   ) : (
+                    <>
+                    <PicturePreviews items={pictures.items} onRemove={pictures.remove} className="mb-2" />
+                    {pictures.notice && <p className="mb-1 text-xs text-amber-300">{pictures.notice}</p>}
+                    {pictures.failed && <p className="mb-1 text-xs text-red-400">تعذر رفع إحدى الصور. أزلها وأعد المحاولة.</p>}
                     <form
                       onSubmit={(e) => {
                         e.preventDefault();
@@ -695,6 +708,7 @@ function MessagesPageInner() {
                       >
                         {emojiOpen ? <Keyboard className="h-5 w-5" /> : <Smile className="h-5 w-5" />}
                       </Button>
+                      <PictureButton onPick={pictures.add} multiple disabled={mute.muted || !pictures.canAddMore} className="h-11 w-11" />
                       <Textarea
                         ref={inputRef}
                         value={draft}
@@ -720,11 +734,12 @@ function MessagesPageInner() {
                         className="h-11 w-11 shrink-0 rounded-full"
                         onMouseDown={(e) => e.preventDefault()}
                         aria-label="إرسال"
-                        disabled={!draft.trim() || sending || mute.muted}
+                        disabled={(!draft.trim() && pictures.ids.length === 0) || pictures.uploading || pictures.failed || sending || mute.muted}
                       >
                         {sending ? <Loader2 className="h-4 w-4 animate-spin" /> : <Send className="h-4 w-4" />}
                       </Button>
                     </form>
+                    </>
                   )}
                 </div>
                 {emojiOpen && !peerBlocked && <EmojiPanel onPick={pickEmoji} />}

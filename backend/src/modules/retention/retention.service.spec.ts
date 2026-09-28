@@ -40,14 +40,16 @@ function build(env: Record<string, string> = {}) {
   const teamActivity = fakeDelegate([]);
   const comment = fakeDelegate([], "deletedAt");
   const chapterView = fakeDelegate([], "createdAt");
-  const prisma = { loginEvent, imageAccessLog, auditLog, teamActivity, comment, chapterView } as unknown as PrismaService;
+  const attachment = fakeDelegate([], "createdAt");
+  const prisma = { loginEvent, imageAccessLog, auditLog, teamActivity, comment, chapterView, attachment } as unknown as PrismaService;
   const config = { get: (key: string) => env[key] } as unknown as ConfigService;
-  return { service: new RetentionService(prisma, config), loginEvent, imageAccessLog, auditLog, teamActivity, comment, chapterView };
+  return { service: new RetentionService(prisma, config), loginEvent, imageAccessLog, auditLog, teamActivity, comment, chapterView, attachment };
 }
 
 describe("RetentionService", () => {
   it("deletes each log only once it is past its own window", async () => {
-    const { service, loginEvent, imageAccessLog, auditLog, teamActivity, comment, chapterView } = build();
+    const { service, loginEvent, imageAccessLog, auditLog, teamActivity, comment, chapterView, attachment } = build();
+    attachment.rows.push({ id: "p-old", at: daysAgo(2) }, { id: "p-new", at: new Date(NOW.getTime() - 3_600_000) });
     teamActivity.rows.push({ id: "t-old", at: daysAgo(366) }, { id: "t-new", at: daysAgo(200) });
     chapterView.rows.push({ id: "v-old", at: daysAgo(91) }, { id: "v-new", at: daysAgo(10) });
     comment.rows.push({ id: "c-old", at: daysAgo(91) }, { id: "c-new", at: daysAgo(30) });
@@ -57,7 +59,8 @@ describe("RetentionService", () => {
 
     const result = await service.runOnce(NOW);
 
-    expect(result).toEqual({ loginEvents: 1, imageAccessLog: 1, auditLog: 1, teamActivity: 1, removedComments: 1, chapterViews: 1 });
+    expect(result).toEqual({ loginEvents: 1, imageAccessLog: 1, auditLog: 1, teamActivity: 1, removedComments: 1, chapterViews: 1, unusedPictures: 1 });
+    expect(attachment.rows.map((r) => r.id)).toEqual(["p-new"]);
     expect(teamActivity.rows.map((r) => r.id)).toEqual(["t-new"]);
     expect(chapterView.rows.map((r) => r.id)).toEqual(["v-new"]);
     expect(comment.rows.map((r) => r.id)).toEqual(["c-new"]);
@@ -102,6 +105,6 @@ describe("RetentionService", () => {
 
   it("does nothing on an empty database", async () => {
     const { service } = build();
-    await expect(service.runOnce(NOW)).resolves.toEqual({ loginEvents: 0, imageAccessLog: 0, auditLog: 0, teamActivity: 0, removedComments: 0, chapterViews: 0 });
+    await expect(service.runOnce(NOW)).resolves.toEqual({ loginEvents: 0, imageAccessLog: 0, auditLog: 0, teamActivity: 0, removedComments: 0, chapterViews: 0, unusedPictures: 0 });
   });
 });

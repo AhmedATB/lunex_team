@@ -11,14 +11,19 @@ export class CreateCommentDto {
   @Matches(SERIES_ID_PATTERN, { message: "seriesId is not valid" })
   seriesId!: string;
 
+  /** May be empty when a picture goes with the comment (the service checks there is one or the other). */
   @IsString()
-  @MinLength(1)
   @MaxLength(MAX_COMMENT_LENGTH * 2) // generous here; the service trims and enforces the real limit on the cleaned text
   content!: string;
 
   @IsOptional()
   @IsBoolean()
   isSpoiler?: boolean;
+
+  /** A picture uploaded to `POST /v1/attachments` for this comment (one). */
+  @IsOptional()
+  @Matches(SERIES_ID_PATTERN, { message: "imageId is not valid" })
+  imageId?: string;
 
   /** The chapter this comment is written under (its page), or nothing for a comment on the work itself. */
   @IsOptional()

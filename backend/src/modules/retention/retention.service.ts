@@ -40,6 +40,9 @@ export const DEFAULT_RETENTION_DAYS = {
   chapterViews: 90,
 } as const;
 
+/** A picture uploaded for a comment or message that never joined one is not kept past this: it was abandoned, not published (housekeeping, not a privacy period). */
+const UNUSED_PICTURE_DAYS = 1;
+
 export interface RetentionResult {
   loginEvents: number;
   imageAccessLog: number;
@@ -47,6 +50,7 @@ export interface RetentionResult {
   teamActivity: number;
   removedComments: number;
   chapterViews: number;
+  unusedPictures: number;
 }
 
 interface Sweep {
@@ -92,7 +96,7 @@ export class RetentionService implements OnModuleInit, OnModuleDestroy {
 
   /** One full sweep. Public so it can be triggered from a script or test; the timer goes through safeRun() instead. */
   async runOnce(now: Date = new Date()): Promise<RetentionResult> {
-    const result: RetentionResult = { loginEvents: 0, imageAccessLog: 0, auditLog: 0, teamActivity: 0, removedComments: 0, chapterViews: 0 };
+    const result: RetentionResult = { loginEvents: 0, imageAccessLog: 0, auditLog: 0, teamActivity: 0, removedComments: 0, chapterViews: 0, unusedPictures: 0 };
 
     for (const sweep of this.sweeps()) {
       const cutoff = new Date(now.getTime() - sweep.days * DAY_MS);
@@ -107,7 +111,7 @@ export class RetentionService implements OnModuleInit, OnModuleDestroy {
     try {
       const result = await this.runOnce();
       this.logger.log(
-        `Retention sweep removed login_events=${result.loginEvents}, image_access_log=${result.imageAccessLog}, audit_log=${result.auditLog}, team_activity=${result.teamActivity}, removed_comments=${result.removedComments}, chapter_views=${result.chapterViews}`
+        `Retention sweep removed login_events=${result.loginEvents}, image_access_log=${result.imageAccessLog}, audit_log=${result.auditLog}, team_activity=${result.teamActivity}, removed_comments=${result.removedComments}, chapter_views=${result.chapterViews}, unused_pictures=${result.unusedPictures}`
       );
     } catch (error) {
       this.logger.error("Retention sweep failed", error instanceof Error ? error.stack : String(error));
@@ -170,6 +174,14 @@ export class RetentionService implements OnModuleInit, OnModuleDestroy {
         findIds: (before, take) =>
           this.prisma.chapterView.findMany({ where: { createdAt: { lt: before } }, select: { id: true }, take }),
         deleteByIds: (ids) => this.prisma.chapterView.deleteMany({ where: { id: { in: ids } } }),
+      },
+      {
+        // Pictures uploaded for a comment or message and never used (the reader changed their mind, or the page was closed).
+        name: "unusedPictures",
+        days: UNUSED_PICTURE_DAYS,
+        findIds: (before, take) =>
+          this.prisma.attachment.findMany({ where: { commentId: null, messageId: null, createdAt: { lt: before } }, select: { id: true }, take }),
+        deleteByIds: (ids) => this.prisma.attachment.deleteMany({ where: { id: { in: ids } } }),
       },
     ];
   }

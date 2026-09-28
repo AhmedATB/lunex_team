@@ -1,5 +1,7 @@
 import { BadRequestException, ConflictException, ForbiddenException, HttpException, NotFoundException } from "@nestjs/common";
 import type { RequestContext } from "../../common/middleware/request-context.middleware";
+import type { AttachmentsService } from "../attachments/attachments.service";
+import { BadRequestException as BadRequest } from "@nestjs/common";
 import type { NotificationsService } from "../notifications/notifications.service";
 import { cleanCommentText } from "./comment-text.util";
 import type { CommentsRepository } from "./comments.repository";
@@ -44,6 +46,7 @@ function commentRow(id: string, userId: string, role = "reader", extra: Record<s
     parentId: null,
     chapterId: null,
     chapterNumber: null,
+    attachments: [],
     content: "hello",
     isSpoiler: false,
     isPinned: false,
@@ -64,8 +67,15 @@ function build(users: Record<string, { role: string; isBanned?: boolean; bannedU
     findById: jest.fn(),
     countByAuthorSince: jest.fn().mockResolvedValue(0),
     findRecentDuplicate: jest.fn().mockResolvedValue(null),
-    create: jest.fn(async (d: { seriesId: string; userId: string; content: string; isSpoiler: boolean; parentId?: string; chapterId?: string; chapterNumber?: number }) =>
-      commentRow("new", d.userId, "reader", { content: d.content, isSpoiler: d.isSpoiler, parentId: d.parentId ?? null, chapterId: d.chapterId ?? null, chapterNumber: d.chapterNumber ?? null })
+    create: jest.fn(async (d: { seriesId: string; userId: string; content: string; isSpoiler: boolean; parentId?: string; chapterId?: string; chapterNumber?: number; attachmentIds?: string[] }) =>
+      commentRow("new", d.userId, "reader", {
+        content: d.content,
+        isSpoiler: d.isSpoiler,
+        parentId: d.parentId ?? null,
+        chapterId: d.chapterId ?? null,
+        chapterNumber: d.chapterNumber ?? null,
+        attachments: (d.attachmentIds ?? []).map((id) => ({ id, width: 800, height: 600 })),
+      })
     ),
     update: jest.fn(async (id: string, patch: Record<string, unknown>) => commentRow(id, "author", "reader", patch)),
     hardDelete: jest.fn().mockResolvedValue(undefined),
@@ -86,8 +96,16 @@ function build(users: Record<string, { role: string; isBanned?: boolean; bannedU
   };
   const notifications = { notify: jest.fn().mockResolvedValue(undefined) };
   const progress = { awardComment: jest.fn(async () => undefined) };
-  const service = new CommentsService(repo as unknown as CommentsRepository, notifications as unknown as NotificationsService, progress as unknown as ProgressService);
-  return { service, repo, notifications, progress };
+  const attachments = {
+    claimable: jest.fn(async (_actor: string, ids: string[] | undefined) => (ids ?? []).map((id) => ({ id, width: 800, height: 600 }))),
+  };
+  const service = new CommentsService(
+    repo as unknown as CommentsRepository,
+    notifications as unknown as NotificationsService,
+    progress as unknown as ProgressService,
+    attachments as unknown as AttachmentsService
+  );
+  return { service, repo, notifications, progress, attachments };
 }
 
 const roster = () => ({
@@ -438,6 +456,49 @@ describe("comments under a chapter", () => {
     repo.findById.mockResolvedValue(commentRow("top", "other", "reader", { chapterId: "ch-6", chapterNumber: 6 }));
     await service.create("author", { seriesId: "series-1", content: "agreed", parentId: "top" });
     expect(notifications.notify).toHaveBeenCalledWith("other", "reply", expect.any(String), expect.any(String), "/series/moon-rose/6");
+  });
+});
+
+describe("comments with a picture", () => {
+  it("takes the picture uploaded for it and says so in what it returns", async () => {
+    const { service, repo, attachments } = build(roster());
+    const dto = await service.create("author", { seriesId: "series-1", content: "look at this", imageId: "img-1" });
+    expect(attachments.claimable).toHaveBeenCalledWith("author", ["img-1"], 1);
+    expect(repo.create).toHaveBeenCalledWith(expect.objectContaining({ content: "look at this", attachmentIds: ["img-1"] }));
+    expect(dto.image).toEqual({ id: "img-1", width: 800, height: 600 });
+  });
+
+  it("lets a picture stand alone, but not an empty comment", async () => {
+    const { service, repo } = build(roster());
+    const dto = await service.create("author", { seriesId: "series-1", content: "  ", imageId: "img-1" });
+    expect(repo.create).toHaveBeenCalledWith(expect.objectContaining({ content: "", attachmentIds: ["img-1"] }));
+    expect(dto.image).not.toBeNull();
+    await expect(service.create("author", { seriesId: "series-1", content: "  " })).rejects.toMatchObject({ response: { code: "empty_comment" } });
+  });
+
+  it("has no picture when none was given", async () => {
+    const { service, repo } = build(roster());
+    const dto = await service.create("author", { seriesId: "series-1", content: "just words" });
+    expect(dto.image).toBeNull();
+    expect(repo.create).toHaveBeenCalledWith(expect.not.objectContaining({ attachmentIds: expect.anything() }));
+  });
+
+  it("posts nothing when the picture cannot be used (not theirs, taken, or too old)", async () => {
+    const { service, repo, attachments } = build(roster());
+    attachments.claimable.mockRejectedValue(new BadRequest({ code: "invalid_attachment", message: "gone" }));
+    await expect(service.create("author", { seriesId: "series-1", content: "hi", imageId: "img-1" })).rejects.toMatchObject({ response: { code: "invalid_attachment" } });
+    expect(repo.create).not.toHaveBeenCalled();
+  });
+
+  it("does not let an edit empty a comment that has no picture, but does for one that has", async () => {
+    const plain = build(roster());
+    plain.repo.findById.mockResolvedValue(commentRow("c1", "author", "reader", { content: "words" }));
+    await expect(plain.service.update("author", "c1", { content: "  " })).rejects.toMatchObject({ response: { code: "empty_comment" } });
+
+    const withPicture = build(roster());
+    withPicture.repo.findById.mockResolvedValue(commentRow("c1", "author", "reader", { content: "words", attachments: [{ id: "img-1", width: 1, height: 1 }] }));
+    await withPicture.service.update("author", "c1", { content: "  " });
+    expect(withPicture.repo.update).toHaveBeenCalledWith("c1", expect.objectContaining({ content: "" }));
   });
 });
 

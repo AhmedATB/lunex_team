@@ -4,6 +4,8 @@ import { ArrayMaxSize, IsArray, IsDateString, IsInt, IsOptional, IsString, Max, 
 /** Up to this many people besides the one starting the chat. */
 export const MAX_OTHER_MEMBERS = 19;
 export const MAX_MESSAGE_LENGTH = 2000;
+/** Pictures that can go with one message. */
+export const MAX_MESSAGE_IMAGES = 10;
 
 /**
  * Starts a chat with the people named by id or by username: one person makes (or finds) the direct chat with them, two or
@@ -30,10 +32,19 @@ export class CreateConversationDto {
 }
 
 export class SendMessageDto {
+  /** May be missing or empty when pictures go with the message (the service checks there are words or pictures). */
+  @IsOptional()
   @IsString()
-  @MinLength(1)
   @MaxLength(MAX_MESSAGE_LENGTH)
-  text!: string;
+  text?: string;
+
+  /** Pictures uploaded to `POST /v1/attachments` for this message, in the order to show them. */
+  @IsOptional()
+  @IsArray()
+  @ArrayMaxSize(MAX_MESSAGE_IMAGES)
+  @IsString({ each: true })
+  @MaxLength(64, { each: true })
+  imageIds?: string[];
 }
 
 export class ListMessagesQueryDto {

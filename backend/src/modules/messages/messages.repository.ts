@@ -2,6 +2,10 @@ import { Injectable } from "@nestjs/common";
 import { PrismaService } from "../../prisma/prisma.service";
 
 const PERSON = { id: true, username: true, displayName: true, avatarMimeType: true, updatedAt: true } as const;
+/** The pictures of a message, in the order they were added (their bytes stay in their own table). */
+const PICTURES = { attachments: { select: { id: true, width: true, height: true }, orderBy: { createdAt: "asc" as const } } };
+/** The newest message of a chat for the list: just whether it carries pictures. */
+const NEWEST = { orderBy: { createdAt: "desc" as const }, take: 1, include: { _count: { select: { attachments: true } } } };
 
 @Injectable()
 export class MessagesRepository {
@@ -53,7 +57,7 @@ export class MessagesRepository {
       where: { id },
       include: {
         members: { include: { user: { select: PERSON } } },
-        messages: { orderBy: { createdAt: "desc" }, take: 1 },
+        messages: NEWEST,
       },
     });
   }
@@ -66,7 +70,7 @@ export class MessagesRepository {
       take,
       include: {
         members: { include: { user: { select: PERSON } } },
-        messages: { orderBy: { createdAt: "desc" }, take: 1 },
+        messages: NEWEST,
       },
     });
   }
@@ -87,13 +91,18 @@ export class MessagesRepository {
       where: { conversationId, ...(params.before ? { createdAt: { lt: params.before } } : {}) },
       orderBy: { createdAt: "desc" },
       take: params.take,
+      include: PICTURES,
     });
   }
 
-  async createMessage(data: { conversationId: string; senderId: string; text: string }) {
+  async createMessage(data: { conversationId: string; senderId: string; text: string; attachmentIds?: string[] }) {
     const now = new Date();
+    const { attachmentIds, ...fields } = data;
     const [message] = await this.prisma.$transaction([
-      this.prisma.message.create({ data: { ...data, createdAt: now } }),
+      this.prisma.message.create({
+        data: { ...fields, createdAt: now, ...(attachmentIds?.length ? { attachments: { connect: attachmentIds.map((id) => ({ id })) } } : {}) },
+        include: PICTURES,
+      }),
       this.prisma.conversation.update({ where: { id: data.conversationId }, data: { lastMessageAt: now } }),
       // The sender has, by definition, read everything up to their own message.
       this.prisma.conversationMember.update({ where: { conversationId_userId: { conversationId: data.conversationId, userId: data.senderId } }, data: { lastReadAt: now } }),
@@ -106,11 +115,14 @@ export class MessagesRepository {
   }
 
   findMessage(id: string) {
-    return this.prisma.message.findUnique({ where: { id }, select: { id: true, conversationId: true, senderId: true, createdAt: true } });
+    return this.prisma.message.findUnique({
+      where: { id },
+      select: { id: true, conversationId: true, senderId: true, createdAt: true, _count: { select: { attachments: true } } },
+    });
   }
 
   updateMessageText(id: string, text: string) {
-    return this.prisma.message.update({ where: { id }, data: { text, editedAt: new Date() } });
+    return this.prisma.message.update({ where: { id }, data: { text, editedAt: new Date() }, include: PICTURES });
   }
 
   deleteMessage(id: string) {

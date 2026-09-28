@@ -13,6 +13,9 @@ const AUTHOR_SELECT = {
 
 const visible = { deletedAt: null };
 
+/** The picture that goes with a comment (its bytes stay in their own table; only what is needed to ask for it is loaded). */
+const WITH_IMAGE = { attachments: { select: { id: true, width: true, height: true }, orderBy: { createdAt: "asc" as const } } };
+
 @Injectable()
 export class CommentsRepository {
   constructor(private readonly prisma: PrismaService) {}
@@ -30,7 +33,7 @@ export class CommentsRepository {
       where: { seriesId, parentId: null, ...(chapterId ? { chapterId } : {}), ...visible },
       orderBy: [{ isPinned: "desc" }, { createdAt: "desc" }],
       take,
-      include: { user: { select: AUTHOR_SELECT } },
+      include: { user: { select: AUTHOR_SELECT }, ...WITH_IMAGE },
     });
   }
 
@@ -41,7 +44,7 @@ export class CommentsRepository {
       where: { parentId: { in: parentIds }, ...visible },
       orderBy: { createdAt: "asc" },
       take,
-      include: { user: { select: AUTHOR_SELECT } },
+      include: { user: { select: AUTHOR_SELECT }, ...WITH_IMAGE },
     });
   }
 
@@ -60,7 +63,7 @@ export class CommentsRepository {
       where: visible,
       orderBy: { createdAt: "desc" },
       take,
-      include: { user: { select: AUTHOR_SELECT } },
+      include: { user: { select: AUTHOR_SELECT }, ...WITH_IMAGE },
     });
   }
 
@@ -74,12 +77,12 @@ export class CommentsRepository {
       },
       orderBy: { createdAt: "desc" },
       take: params.take,
-      include: { user: { select: AUTHOR_SELECT }, _count: { select: { reports: true } } },
+      include: { user: { select: AUTHOR_SELECT }, ...WITH_IMAGE, _count: { select: { reports: true } } },
     });
   }
 
   findById(id: string) {
-    return this.prisma.comment.findUnique({ where: { id }, include: { user: { select: AUTHOR_SELECT } } });
+    return this.prisma.comment.findUnique({ where: { id }, include: { user: { select: AUTHOR_SELECT }, ...WITH_IMAGE } });
   }
 
   countByAuthorSince(userId: string, since: Date) {
@@ -94,12 +97,16 @@ export class CommentsRepository {
     });
   }
 
-  create(data: { seriesId: string; userId: string; content: string; isSpoiler: boolean; parentId?: string; chapterId?: string; chapterNumber?: number }) {
-    return this.prisma.comment.create({ data, include: { user: { select: AUTHOR_SELECT } } });
+  create(data: { seriesId: string; userId: string; content: string; isSpoiler: boolean; parentId?: string; chapterId?: string; chapterNumber?: number; attachmentIds?: string[] }) {
+    const { attachmentIds, ...fields } = data;
+    return this.prisma.comment.create({
+      data: { ...fields, ...(attachmentIds?.length ? { attachments: { connect: attachmentIds.map((id) => ({ id })) } } : {}) },
+      include: { user: { select: AUTHOR_SELECT }, ...WITH_IMAGE },
+    });
   }
 
   update(id: string, data: { content?: string; isSpoiler?: boolean; isPinned?: boolean; editedAt?: Date }) {
-    return this.prisma.comment.update({ where: { id }, data, include: { user: { select: AUTHOR_SELECT } } });
+    return this.prisma.comment.update({ where: { id }, data, include: { user: { select: AUTHOR_SELECT }, ...WITH_IMAGE } });
   }
 
   /** The author deleting their own comment: gone for good. */
@@ -160,6 +167,7 @@ export class CommentsRepository {
       where: { ...visible, reports: { some: {} } },
       include: {
         user: { select: AUTHOR_SELECT },
+        ...WITH_IMAGE,
         reports: { orderBy: { createdAt: "desc" }, include: { reporter: { select: { username: true } } } },
       },
       orderBy: { reports: { _count: "desc" } },

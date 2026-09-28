@@ -36,6 +36,7 @@ import {
   type ServerComment,
 } from "@/lib/server-comments";
 import { MuteNotice } from "@/components/moderation/mute-notice";
+import { PictureButton, PictureGrid, PicturePreviews, usePictures } from "@/components/shared/pictures";
 
 const REPORT_REASONS = ["محتوى غير مناسب", "تحرش أو إساءة", "معلومات مضللة", "سبام", "أخرى"];
 const STAFF_ROLES = new Set(["owner", "super_administrator", "moderator"]);
@@ -87,6 +88,9 @@ export function CommentSection({
   headingClassName?: string;
 }) {
   const [view, setView] = useState<View>("latest");
+  /** The picture being added to the comment being written, and to the reply being written. */
+  const pictures = usePictures(1);
+  const replyPictures = usePictures(1);
   const [draft, setDraft] = useState("");
   const [draftIsSpoiler, setDraftIsSpoiler] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
@@ -185,10 +189,16 @@ export function CommentSection({
   }
 
   async function post() {
-    if (!draft.trim() || !currentUser || mute.muted || busy) return;
+    if ((!draft.trim() && pictures.ids.length === 0) || pictures.uploading || !currentUser || mute.muted || busy) return;
     setActionError("");
     setBusy("post");
-    const res = await commentApi<ServerComment>("POST", "", { seriesId, content: draft, isSpoiler: draftIsSpoiler, ...(chapter ? { chapterId: chapter.id } : {}) });
+    const res = await commentApi<ServerComment>("POST", "", {
+      seriesId,
+      content: draft,
+      isSpoiler: draftIsSpoiler,
+      ...(chapter ? { chapterId: chapter.id } : {}),
+      ...(pictures.ids[0] ? { imageId: pictures.ids[0] } : {}),
+    });
     setBusy(null);
     if (!res.ok || !res.body) {
       setActionError(commentErrorMessage(res));
@@ -198,6 +208,7 @@ export function CommentSection({
     commentsStore.notePostedOnServer(currentUser.id);
     setDraft("");
     setDraftIsSpoiler(false);
+    pictures.clear();
   }
 
   function startReply(c: CommentRow, person: Person) {
@@ -215,10 +226,15 @@ export function CommentSection({
   }
 
   async function sendReply() {
-    if (!reply || !reply.text.trim() || !currentUser || mute.muted || busy) return;
+    if (!reply || (!reply.text.trim() && replyPictures.ids.length === 0) || replyPictures.uploading || !currentUser || mute.muted || busy) return;
     setActionError("");
     setBusy("reply");
-    const res = await commentApi<ServerComment>("POST", "", { seriesId, content: reply.text, parentId: reply.to });
+    const res = await commentApi<ServerComment>("POST", "", {
+      seriesId,
+      content: reply.text,
+      parentId: reply.to,
+      ...(replyPictures.ids[0] ? { imageId: replyPictures.ids[0] } : {}),
+    });
     setBusy(null);
     if (!res.ok || !res.body) {
       setActionError(commentErrorMessage(res));
@@ -235,6 +251,7 @@ export function CommentSection({
       return next;
     });
     setReply(null);
+    replyPictures.clear();
   }
 
   function startEdit(c: Comment) {
@@ -434,8 +451,9 @@ export function CommentSection({
                 <span className="ms-auto shrink-0 whitespace-nowrap text-xs font-bold text-amber-300">حرق — اضغط للإظهار</span>
               </button>
             ) : (
-              <p className="mt-1 whitespace-pre-line text-sm text-lunex-gray">{withMentions(c.content)}</p>
+              c.content && <p className="mt-1 whitespace-pre-line text-sm text-lunex-gray">{withMentions(c.content)}</p>
             )}
+            {c.image && !isBlurred && !isEditing && <PictureGrid images={[c.image]} className="mt-2" />}
 
             {!isEditing && (
               <div className="mt-2 flex flex-wrap items-center gap-3">
@@ -552,11 +570,25 @@ export function CommentSection({
                   autoFocus
                   aria-label={`ردك على ${user.displayName}`}
                 />
-                <div className="flex justify-end gap-2">
-                  <Button size="sm" variant="ghost" onClick={() => setReply(null)}>
+                <PicturePreviews items={replyPictures.items} onRemove={replyPictures.remove} />
+                {replyPictures.failed && <p className="text-xs text-red-400">تعذر رفع الصورة. أزلها وأعد المحاولة.</p>}
+                <div className="flex items-center justify-end gap-2">
+                  <PictureButton onPick={replyPictures.add} disabled={mute.muted || !replyPictures.canAddMore} className="h-9 w-9" />
+                  <Button
+                    size="sm"
+                    variant="ghost"
+                    onClick={() => {
+                      setReply(null);
+                      replyPictures.clear();
+                    }}
+                  >
                     <X className="h-3.5 w-3.5" /> إلغاء
                   </Button>
-                  <Button size="sm" onClick={sendReply} disabled={!reply.text.trim() || mute.muted || busy === "reply"}>
+                  <Button
+                    size="sm"
+                    onClick={sendReply}
+                    disabled={(!reply.text.trim() && replyPictures.ids.length === 0) || replyPictures.uploading || replyPictures.failed || mute.muted || busy === "reply"}
+                  >
                     {busy === "reply" ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Send className="h-3.5 w-3.5" />} نشر الرد
                   </Button>
                 </div>
@@ -620,6 +652,9 @@ export function CommentSection({
               maxLength={2000}
               disabled={mute.muted}
             />
+            <PicturePreviews items={pictures.items} onRemove={pictures.remove} />
+            {pictures.notice && <p className="text-xs text-amber-300">{pictures.notice}</p>}
+            {pictures.failed && <p className="text-xs text-red-400">تعذر رفع الصورة. أزلها وأعد المحاولة.</p>}
             <div className="flex items-center justify-between">
               <label className="flex items-center gap-1.5 text-xs text-lunex-gray">
                 <input
@@ -630,9 +665,12 @@ export function CommentSection({
                 />
                 هذا التعليق فيه حرق (سيظهر مشوشًا للآخرين)
               </label>
-              <Button size="sm" onClick={post} disabled={!draft.trim() || mute.muted || busy === "post"}>
-                {busy === "post" ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Send className="h-3.5 w-3.5" />} نشر
-              </Button>
+              <div className="flex items-center gap-1">
+                <PictureButton onPick={pictures.add} disabled={mute.muted || !pictures.canAddMore} className="h-9 w-9" />
+                <Button size="sm" onClick={post} disabled={(!draft.trim() && pictures.ids.length === 0) || pictures.uploading || pictures.failed || mute.muted || busy === "post"}>
+                  {busy === "post" ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Send className="h-3.5 w-3.5" />} نشر
+                </Button>
+              </div>
             </div>
           </div>
         </div>

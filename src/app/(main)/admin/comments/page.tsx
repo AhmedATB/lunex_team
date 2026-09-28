@@ -7,6 +7,7 @@ import { Pin, PinOff, Trash2, EyeOff, Eye, ThumbsUp, ThumbsDown, Flag, Loader2, 
 import { useCatalog } from "@/components/catalog-provider";
 import { useSession } from "@/store/session";
 import { authorAsUser, commentApi, commentErrorMessage, type ServerComment } from "@/lib/server-comments";
+import { PictureGrid } from "@/components/shared/pictures";
 import { useProfile, avatarSrcFor } from "@/store/profile";
 import { timeAgo } from "@/lib/utils";
 import { Card, CardContent } from "@/components/ui/card";
@@ -156,7 +157,8 @@ export default function AdminCommentsPage() {
                       {c.editedAt && " · معدّل"}
                     </span>
                   </div>
-                  <p className="mt-1 whitespace-pre-line text-sm text-lunex-gray">{c.content}</p>
+                  {c.content && <p className="mt-1 whitespace-pre-line text-sm text-lunex-gray">{c.content}</p>}
+                  {c.image && <PictureGrid images={[c.image]} className="mt-2" />}
                   <div className="mt-1 flex items-center gap-3 text-xs text-lunex-gray">
                     <span className="flex items-center gap-1"><ThumbsUp className="h-3 w-3" /> {c.likes}</span>
                     <span className="flex items-center gap-1"><ThumbsDown className="h-3 w-3" /> {c.dislikes}</span>

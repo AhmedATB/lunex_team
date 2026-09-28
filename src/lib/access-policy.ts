@@ -42,6 +42,8 @@ const PUBLIC_READS: readonly RegExp[] = [
   // the catalogue (not the owner's import tools nor the editors' lists) and the comment threads (not the moderators' list)
   /^\/api\/catalog\/(?!(?:import|admin)(?:\/|$))/,
   /^\/api\/comments(?!\/admin(?:\/|$))(?:\/|$)/,
+  // the picture of a comment (the backend lets in whoever may see it: anyone for a comment's, only the chat's people for a message's)
+  /^\/api\/attachments\/[^/]+$/,
 ];
 
 /** The one write a visitor may make: asking for a page of a chapter to read (the server checks the chapter is not locked). */

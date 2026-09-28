@@ -1,3 +1,4 @@
+import type { AttachmentInfo } from "@/lib/attachments-api";
 import type { Comment } from "@/lib/types";
 import { useProgress } from "@/store/progress";
 import { formatDateTime } from "@/lib/use-mute-status";
@@ -21,6 +22,8 @@ export interface ServerComment {
   /** Set on a comment written at the end of a chapter (its number is what the work's page marks it with). */
   chapterId?: string | null;
   chapterNumber?: number | null;
+  /** The picture that goes with the comment, if any. */
+  image?: AttachmentInfo | null;
   content: string;
   isSpoiler: boolean;
   isPinned: boolean;
@@ -41,6 +44,7 @@ export interface ServerComment {
 export type CommentRow = Comment & {
   /** The number of the chapter it was written under (real accounts' comments only). */
   chapterNumber?: number;
+  image?: AttachmentInfo;
   server?: true;
   author?: CommentAuthor;
   myReaction?: Reaction | null;
@@ -54,6 +58,7 @@ export function serverToRow(c: ServerComment): CommentRow {
     parentId: c.parentId ?? undefined,
     chapterId: c.chapterId ?? undefined,
     chapterNumber: c.chapterNumber ?? undefined,
+    image: c.image ?? undefined,
     content: c.content,
     likes: c.likes,
     dislikes: c.dislikes,
@@ -131,6 +136,8 @@ const ERRORS: Record<string, string> = {
   cannot_moderate_higher_rank: "لا يمكنك حذف تعليق من رتبته أعلى منك.",
   comment_not_found: "هذا التعليق لم يعد موجودًا.",
   chapter_not_found: "هذا الفصل غير موجود.",
+  invalid_attachment: "الصورة لم تعد متاحة. أضفها من جديد.",
+  too_many_images: "يمكن إرفاق صورة واحدة فقط.",
   cannot_react_own: "لا يمكنك التفاعل مع تعليقك.",
   cannot_report_own: "لا يمكنك الإبلاغ عن تعليقك.",
 };

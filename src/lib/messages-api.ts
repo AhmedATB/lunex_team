@@ -1,3 +1,5 @@
+import type { AttachmentInfo } from "@/lib/attachments-api";
+
 /** The member's chats, from the browser, through the site's own API. Everything lives on the server: nothing here is kept in the browser. */
 
 export interface Person {
@@ -11,6 +13,9 @@ export interface ChatMessage {
   id: string;
   senderId: string | null;
   text: string;
+  /** The pictures that go with the message, in order (not on the chat list's "newest message", which only says how many: `imageCount`). */
+  images?: AttachmentInfo[];
+  imageCount?: number;
   createdAt: string;
   /** Set once the writer changed the text afterwards. */
   editedAt?: string | null;
@@ -46,6 +51,9 @@ const MESSAGES: Record<string, string> = {
   cannot_message: "لا يمكنك مراسلة هذا الشخص.",
   cannot_block_self: "لا يمكنك حظر نفسك.",
   message_not_found: "هذه الرسالة غير موجودة.",
+  empty_message: "اكتب شيئًا أو أرفق صورة أولًا.",
+  invalid_attachment: "إحدى الصور لم تعد متاحة. أضفها من جديد.",
+  too_many_images: "الحد الأقصى 10 صور في الرسالة.",
 };
 
 async function call<T>(path: string, method: "GET" | "POST" | "PUT" | "PATCH" | "DELETE", body?: unknown): Promise<ApiResult<T>> {
@@ -78,7 +86,8 @@ export const chatApi = {
     if (params.limit) query.set("limit", String(params.limit));
     return call<{ items: ChatMessage[]; hasMore: boolean }>(`/api/conversations/${encodeURIComponent(id)}/messages${query.toString() ? `?${query}` : ""}`, "GET");
   },
-  send: (id: string, text: string) => call<ChatMessage>(`/api/conversations/${encodeURIComponent(id)}/messages`, "POST", { text }),
+  send: (id: string, text: string, imageIds: string[] = []) =>
+    call<ChatMessage>(`/api/conversations/${encodeURIComponent(id)}/messages`, "POST", { text, ...(imageIds.length > 0 ? { imageIds } : {}) }),
   markRead: (id: string) => call<void>(`/api/conversations/${encodeURIComponent(id)}/read`, "POST", {}),
   addMembers: (id: string, usernames: string[]) => call<Conversation>(`/api/conversations/${encodeURIComponent(id)}/members`, "POST", { usernames }),
   leave: (id: string) => call<void>(`/api/conversations/${encodeURIComponent(id)}/members/me`, "DELETE"),
@@ -102,6 +111,14 @@ export function conversationName(conversation: Conversation, myId: string | null
   if (conversation.title) return conversation.title;
   const names = others.slice(0, 3).map((m) => m.displayName);
   return names.join("، ") + (others.length > 3 ? ` +${others.length - 3}` : "");
+}
+
+/** What the chat list shows for the newest message: the words, or that there is a picture. */
+export function previewOf(message: Pick<ChatMessage, "text" | "imageCount">): string {
+  const pictures = message.imageCount ?? 0;
+  if (pictures === 0) return message.text;
+  const label = pictures === 1 ? "📷" : `📷 ${pictures}`;
+  return message.text ? `${label} ${message.text}` : pictures === 1 ? "📷 صورة" : `📷 ${pictures} صور`;
 }
 
 export const MESSAGES_CHANGED = "lunex:messages-changed";

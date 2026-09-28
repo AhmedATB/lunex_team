@@ -1,7 +1,8 @@
 import { BadRequestException, ForbiddenException, Injectable, NotFoundException } from "@nestjs/common";
 import { fixTanween } from "../../common/text/arabic.util";
+import { AttachmentsService } from "../attachments/attachments.service";
 import { isEffectivelyBanned, isMuted } from "../moderation/moderation.util";
-import { MAX_OTHER_MEMBERS, type AddMembersDto, type CreateConversationDto, type ListMessagesQueryDto, type SendMessageDto } from "./dto/messages.dto";
+import { MAX_MESSAGE_IMAGES, MAX_OTHER_MEMBERS, type AddMembersDto, type CreateConversationDto, type ListMessagesQueryDto, type SendMessageDto } from "./dto/messages.dto";
 import { MessagesRepository } from "./messages.repository";
 
 /** A message can be corrected for a day, not rewritten weeks later (a reported message has to stay what it was). */
@@ -26,13 +27,26 @@ export const toPerson = (row: PersonRow) => ({
 
 const cleanUsername = (name: string) => name.trim().replace(/^@/, "");
 
+/** A message as the chat shows it: the words, and the pictures that go with them (in the order they were added). */
+const toMessage = (m: { id: string; senderId: string | null; text: string; createdAt: Date; editedAt: Date | null; attachments?: { id: string; width: number; height: number }[] }) => ({
+  id: m.id,
+  senderId: m.senderId,
+  text: fixTanween(m.text),
+  createdAt: m.createdAt,
+  editedAt: m.editedAt,
+  images: m.attachments ?? [],
+});
+
 /**
  * Chats between members: a direct chat (one per pair of people) or a group. Only the members of a conversation can read it
  * or write to it; everything is scoped by the caller's id from the token, never by an id in the request.
  */
 @Injectable()
 export class MessagesService {
-  constructor(private readonly repo: MessagesRepository) {}
+  constructor(
+    private readonly repo: MessagesRepository,
+    private readonly attachments: AttachmentsService
+  ) {}
 
   /** Starts a chat with the named people (or opens the one that already exists between the two). */
   async create(actorId: string, dto: CreateConversationDto) {
@@ -98,7 +112,7 @@ export class MessagesService {
     const items = rows
       .slice(0, limit)
       .reverse()
-      .map((m) => ({ id: m.id, senderId: m.senderId, text: fixTanween(m.text), createdAt: m.createdAt, editedAt: m.editedAt }));
+      .map(toMessage);
     return { items, hasMore: rows.length > limit };
   }
 
@@ -110,10 +124,11 @@ export class MessagesService {
     await this.requireMember(conversationId, actorId);
     const peer = await this.repo.directPeer(conversationId, actorId);
     if (peer) await this.requireNotBlocked(actorId, [peer]);
-    const text = dto.text.trim();
-    if (!text) throw new BadRequestException({ code: "empty_message", message: "Write something first." });
-    const message = await this.repo.createMessage({ conversationId, senderId: actorId, text });
-    return { id: message.id, senderId: message.senderId, text: fixTanween(message.text), createdAt: message.createdAt, editedAt: message.editedAt };
+    const images = await this.attachments.claimable(actorId, dto.imageIds, MAX_MESSAGE_IMAGES);
+    const text = (dto.text ?? "").trim();
+    if (!text && images.length === 0) throw new BadRequestException({ code: "empty_message", message: "Write something first." });
+    const message = await this.repo.createMessage({ conversationId, senderId: actorId, text, ...(images.length > 0 ? { attachmentIds: images.map((i) => i.id) } : {}) });
+    return toMessage(message);
   }
 
   /** The writer corrects their own message (within a day); everyone in the chat sees the new text, marked as edited. */
@@ -129,10 +144,9 @@ export class MessagesService {
     if (Date.now() - message.createdAt.getTime() > EDIT_WINDOW_MS) {
       throw new ForbiddenException({ code: "edit_window_closed", message: "A message can only be edited for a day after it was sent." });
     }
-    const text = dto.text.trim();
-    if (!text) throw new BadRequestException({ code: "empty_message", message: "Write something first." });
-    const updated = await this.repo.updateMessageText(messageId, text);
-    return { id: updated.id, senderId: updated.senderId, text: fixTanween(updated.text), createdAt: updated.createdAt, editedAt: updated.editedAt };
+    const text = (dto.text ?? "").trim();
+    if (!text && message._count.attachments === 0) throw new BadRequestException({ code: "empty_message", message: "Write something first." });
+    return toMessage(await this.repo.updateMessageText(messageId, text));
   }
 
   async markRead(actorId: string, conversationId: string): Promise<void> {
@@ -212,7 +226,7 @@ export class MessagesService {
       createdById: string | null;
       lastMessageAt: Date;
       members: { user: PersonRow }[];
-      messages: { id: string; senderId: string | null; text: string; createdAt: Date }[];
+      messages: { id: string; senderId: string | null; text: string; createdAt: Date; _count?: { attachments: number } }[];
     },
     unread: number
   ) {
@@ -223,7 +237,7 @@ export class MessagesService {
       isGroup: row.isGroup,
       createdById: row.createdById,
       members: row.members.map((m) => toPerson(m.user)),
-      lastMessage: last ? { id: last.id, senderId: last.senderId, text: fixTanween(last.text), createdAt: last.createdAt } : null,
+      lastMessage: last ? { id: last.id, senderId: last.senderId, text: fixTanween(last.text), imageCount: last._count?.attachments ?? 0, createdAt: last.createdAt } : null,
       unreadCount: unread,
       lastMessageAt: row.lastMessageAt,
     };

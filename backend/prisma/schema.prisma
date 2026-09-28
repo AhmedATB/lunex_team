@@ -87,6 +87,7 @@ model User {
   bookmarks        Bookmark[]
   readingProgress  ReadingProgress[]
   chapterProgress  ChapterProgress[]
+  attachments      Attachment[]
   chapterViews     ChapterView[]
   seriesRatings    SeriesRating[]
   sanctions        Sanction[]
@@ -450,6 +451,39 @@ model ChapterProgress {
   @@map("chapter_progress")
 }
 
+/// A picture uploaded to go with a comment or a chat message. It is uploaded first — private to whoever uploaded it — and joins the
+/// comment or message when that is sent; one that never does is swept away after a day. Deleting the comment or message (or the account)
+/// deletes the picture with it. The bytes live in `AttachmentBlob` so that lists of comments and messages never load them.
+model Attachment {
+  id        String   @id @default(uuid())
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  width     Int
+  height    Int
+  createdAt DateTime @default(now())
+  commentId String?
+  comment   Comment? @relation(fields: [commentId], references: [id], onDelete: Cascade)
+  messageId String?
+  message   Message? @relation(fields: [messageId], references: [id], onDelete: Cascade)
+
+  blob AttachmentBlob?
+
+  @@index([commentId])
+  @@index([messageId])
+  @@index([userId, createdAt])
+  @@map("attachments")
+}
+
+/// The picture itself, as WebP: `data` is the full picture (at most 1600 px on a side), `thumb` a small one (480 px) for lists.
+model AttachmentBlob {
+  attachmentId String     @id
+  attachment   Attachment @relation(fields: [attachmentId], references: [id], onDelete: Cascade)
+  data         Bytes
+  thumb        Bytes
+
+  @@map("attachment_blobs")
+}
+
 /// One moderation action against an account: a warning (no effect on its own),
 /// a timeout (cannot comment or message until `expiresAt`) or a ban (cannot
 /// sign in; `expiresAt` null = permanent). One-off staff actions are recorded
@@ -504,6 +538,8 @@ model Comment {
   /// the label survives without a lookup (and outlives the chapter). Plain id, not a relation, like other catalogue references here.
   chapterId     String?
   chapterNumber Float?
+  /// The picture that goes with the comment (one), if any.
+  attachments   Attachment[]
 
   reactions CommentReaction[]
   reports   CommentReport[]
@@ -757,6 +793,8 @@ model Message {
   createdAt      DateTime     @default(now())
   /// Set when the writer changed the text afterwards (the chat shows it as "edited").
   editedAt       DateTime?
+  /// The pictures that go with the message, in the order they were added.
+  attachments    Attachment[]
 
   @@index([conversationId, createdAt])
   @@map("messages")
