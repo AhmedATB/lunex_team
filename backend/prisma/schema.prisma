@@ -260,6 +260,8 @@ model Chapter {
   content      String?
   /// Id of this chapter on the old lunexteam.com site, so a re-run of the import updates instead of duplicating.
   legacyId     String?   @unique
+  /// The chapter's featured picture (a 16:9 WebP, an ImageAsset id): shown in the chapter list and sent with the new-chapter posts and notifications. Optional.
+  thumbnailAssetId String?
   createdAt    DateTime  @default(now())
   updatedAt    DateTime  @updatedAt
 

@@ -20,7 +20,7 @@ const RECENT_CHAPTERS = 60;
 const NEWS_ON_BOOTSTRAP = 20;
 const TOP_READERS = 10;
 
-type ImageTarget = "series" | "banner" | "team" | "news";
+type ImageTarget = "series" | "banner" | "team" | "news" | "chapter";
 
 /**
  * The read side of the catalogue. One `bootstrap()` call answers everything the
@@ -193,6 +193,7 @@ export class CatalogService {
       return (target === "series" ? series?.coverAssetId : series?.bannerAssetId) ?? null;
     }
     if (target === "team") return (await this.repo.findTeamById(id))?.logoAssetId ?? null;
+    if (target === "chapter") return (await this.repo.findChapterThumbnail(id))?.thumbnailAssetId ?? null;
     return (await this.repo.findNews(id))?.coverAssetId ?? null;
   }
 

@@ -24,9 +24,11 @@ import { CurrentUser } from "../../common/decorators/current-user.decorator";
 import { Public } from "../../common/decorators/public.decorator";
 import type { AccessTokenPayload } from "../../common/guards/jwt-auth.guard";
 import { ChapterImportService } from "./chapter-import.service";
+import { ChapterThumbnailService } from "./chapter-thumbnail.service";
 import { ChaptersService } from "./chapters.service";
 import { ImportDriveDto } from "./dto/import-drive.dto";
 import { CreateChapterDto } from "./dto/create-chapter.dto";
+import { ThumbnailPageDto } from "./dto/thumbnail-page.dto";
 import { UpdateChapterDto } from "./dto/update-chapter.dto";
 import { UploadPageDto } from "./dto/upload-page.dto";
 import { UnlockChapterDto } from "../wallet/dto/unlock-chapter.dto";
@@ -43,7 +45,8 @@ const MAX_PAGE_UPLOAD_BYTES = 15 * 1024 * 1024;
 export class ChaptersController {
   constructor(
     private readonly chapters: ChaptersService,
-    private readonly imports: ChapterImportService
+    private readonly imports: ChapterImportService,
+    private readonly thumbnails: ChapterThumbnailService
   ) {}
 
   @Post()
@@ -132,6 +135,41 @@ export class ChaptersController {
     @Req() req: Request
   ) {
     return this.chapters.issuePageToken(actor?.sub ?? null, chapterId, Number(pageNumber), req.context);
+  }
+
+  /**
+   * Four suggestions for the chapter's featured picture, taken from its own pages (`round` 0, 1, 2 … gives others). Each says which
+   * page it comes from and carries a small copy of the picture as it would be stored.
+   */
+  @Get(":id/thumbnail-suggestions")
+  @Throttle({ default: { limit: 30, ttl: 60_000 } })
+  thumbnailSuggestions(@Param("id") chapterId: string, @Query("round") round: string | undefined, @CurrentUser() actor: AccessTokenPayload) {
+    const number = Number(round);
+    return this.thumbnails.suggestions(actor.role, chapterId, Number.isInteger(number) && number >= 0 && number < 1000 ? number : 0);
+  }
+
+  /** Makes the featured picture from one of the chapter's own pages. */
+  @Put(":id/thumbnail/page")
+  @HttpCode(HttpStatus.OK)
+  @Throttle({ default: { limit: 30, ttl: 60_000 } })
+  thumbnailFromPage(@Param("id") chapterId: string, @Body() dto: ThumbnailPageDto, @CurrentUser() actor: AccessTokenPayload) {
+    return this.thumbnails.fromPage(actor.role, chapterId, dto.pageNumber);
+  }
+
+  /** Makes the featured picture from an uploaded picture (multipart `file`). */
+  @Put(":id/thumbnail")
+  @HttpCode(HttpStatus.OK)
+  @Throttle({ default: { limit: 30, ttl: 60_000 } })
+  @UseInterceptors(FileInterceptor("file", { storage: memoryStorage(), limits: { fileSize: MAX_PAGE_UPLOAD_BYTES } }))
+  uploadThumbnail(@Param("id") chapterId: string, @UploadedFile() file: Express.Multer.File | undefined, @CurrentUser() actor: AccessTokenPayload) {
+    return this.thumbnails.upload(actor.role, chapterId, file);
+  }
+
+  @Delete(":id/thumbnail")
+  @HttpCode(HttpStatus.NO_CONTENT)
+  @Throttle({ default: { limit: 30, ttl: 60_000 } })
+  async removeThumbnail(@Param("id") chapterId: string, @CurrentUser() actor: AccessTokenPayload) {
+    await this.thumbnails.remove(actor.role, chapterId);
   }
 
   /** Whether Drive import is set up, and the address a private folder must be shared with. */

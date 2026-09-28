@@ -57,13 +57,18 @@ export class CatalogController {
     return this.sendImage("team", id, res);
   }
 
+  @Get("chapters/:id/thumbnail")
+  chapterThumbnail(@Param("id") id: string, @Res() res: Response) {
+    return this.sendImage("chapter", id, res);
+  }
+
   @Get("news/:id/cover")
   newsCover(@Param("id") id: string, @Res() res: Response) {
     return this.sendImage("news", id, res);
   }
 
   /** The URL carries a version stamp (see imageUrl), so an image can be cached for a year — a replaced one gets a new URL. */
-  private async sendImage(target: "series" | "banner" | "team" | "news", id: string, res: Response) {
+  private async sendImage(target: "series" | "banner" | "team" | "news" | "chapter", id: string, res: Response) {
     const image = await this.catalog.image(target, id);
     if (!image) throw new NotFoundException({ code: "image_not_found", message: "No image for this item." });
     res.setHeader("Content-Type", image.mimeType);

@@ -36,6 +36,8 @@ interface Post {
   name: string;
   link: string;
   cover?: string;
+  /** The chapter's own featured picture, when it has one: shown large, in place of the work's cover in a photo post. */
+  picture?: string;
   summary: string;
   team: string | null;
 }
@@ -148,7 +150,9 @@ export class AnnouncementsService implements OnModuleDestroy {
     const label = numbers.length === 1 ? `الفصل ${numbers[0]}` : `الفصول ${numbers[0]}–${numbers[numbers.length - 1]}`;
     const seriesUrl = `${this.site}/series/${encodeURIComponent(series.slug)}`;
     const link = numbers.length === 1 ? `${seriesUrl}/${numbers[0]}` : seriesUrl;
-    const post: Post = { name, link, cover: this.coverOf(series), summary: clip(series.synopsis, 180), team };
+    const featured = await this.repo.latestThumbnail(seriesId, numbers);
+    const picture = featured ? `${this.site}/api/catalog/chapters/${featured.id}/thumbnail?v=${featured.thumbnailAssetId.slice(0, 8)}` : undefined;
+    const post: Post = { name, link, cover: this.coverOf(series), picture, summary: clip(series.synopsis, 180), team };
 
     await Promise.all([
       this.postDiscordChapter(post, label),
@@ -185,6 +189,7 @@ export class AnnouncementsService implements OnModuleDestroy {
           description: p.summary,
           color: 0x7c3aed,
           ...(p.cover ? { thumbnail: { url: p.cover } } : {}),
+          ...(p.picture ? { image: { url: p.picture } } : {}),
           footer: { text: p.team ? `الفريق: ${p.team}` : "LUNEX TEAM" },
           timestamp: new Date().toISOString(),
         },
@@ -236,7 +241,8 @@ export class AnnouncementsService implements OnModuleDestroy {
     // The plain twin, for the rare Telegram that will not take the quote blocks.
     const plain = ["#فصل_جديد", `${p.name} — ${p.label}`, ...(story ? [story] : []), p.link, ...(p.team ? [`الفريق: ${p.team}`] : [])].join("\n\n");
 
-    if (p.cover && (await this.send("Telegram", `${api}/sendPhoto`, { chat_id: this.telegramChat, photo: p.cover, caption: html, parse_mode: "HTML" }))) return;
+    const photo = p.picture ?? p.cover;
+    if (photo && (await this.send("Telegram", `${api}/sendPhoto`, { chat_id: this.telegramChat, photo, caption: html, parse_mode: "HTML" }))) return;
     if (await this.send("Telegram", `${api}/sendMessage`, { chat_id: this.telegramChat, text: html, parse_mode: "HTML" })) return;
     await this.send("Telegram", `${api}/sendMessage`, { chat_id: this.telegramChat, text: plain });
   }

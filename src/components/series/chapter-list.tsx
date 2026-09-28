@@ -148,7 +148,11 @@ export function ChapterList({ seriesSlug, chapters, teamId }: { seriesSlug: stri
                 </span>
               )}
               <Link href={`/series/${seriesSlug}/${c.number}`} className="absolute inset-0" aria-label={chapterLabel(c)} />
-              <div className="pointer-events-none min-w-0">
+              {c.thumbnail && (
+                // eslint-disable-next-line @next/next/no-img-element
+                <img src={c.thumbnail} alt="" loading="lazy" className="pointer-events-none aspect-video w-24 shrink-0 rounded-md border border-white/10 object-cover sm:w-28" />
+              )}
+              <div className="pointer-events-none min-w-0 flex-1">
                 <p className="flex items-center gap-1.5 truncate font-medium text-white">
                   {locked && <Lock className="h-3.5 w-3.5 shrink-0 text-amber-300" aria-label="فصل مقفل" />}
                   {finishedChapter && <CheckCircle2 className="h-3.5 w-3.5 shrink-0 text-primary-400" aria-label="مقروء" />}

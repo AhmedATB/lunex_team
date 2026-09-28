@@ -6,6 +6,7 @@ import { WalletModule } from "../wallet/wallet.module";
 import { NotificationsModule } from "../notifications/notifications.module";
 import { TeamActivityModule } from "../team-activity/team-activity.module";
 import { ChapterImportService } from "./chapter-import.service";
+import { ChapterThumbnailService } from "./chapter-thumbnail.service";
 import { ChaptersController } from "./chapters.controller";
 import { ChaptersRepository } from "./chapters.repository";
 import { ChaptersService } from "./chapters.service";
@@ -13,7 +14,7 @@ import { ChaptersService } from "./chapters.service";
 @Module({
   imports: [AnnouncementsModule, CatalogModule, ImagesModule, WalletModule, NotificationsModule, TeamActivityModule],
   controllers: [ChaptersController],
-  providers: [ChaptersService, ChaptersRepository, ChapterImportService],
+  providers: [ChaptersService, ChaptersRepository, ChapterImportService, ChapterThumbnailService],
   exports: [ChaptersService],
 })
 export class ChaptersModule {}

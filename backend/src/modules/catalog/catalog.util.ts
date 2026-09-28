@@ -56,6 +56,11 @@ export async function uniqueSlug(base: string, taken: (slug: string) => Promise<
 
 export type ImageKind = "series" | "banner" | "team" | "news";
 
+/** The public address of a chapter's featured picture; the asset id is its version (a new picture is a new address). */
+export function chapterThumbnailUrl(chapterId: string, assetId: string | null): string | null {
+  return assetId ? `/api/catalog/chapters/${chapterId}/thumbnail?v=${assetId.slice(0, 8)}` : null;
+}
+
 /**
  * The public URL of a catalogue image, through the frontend's BFF. The
  * timestamp is only a cache-buster: the endpoint is immutable-cached, so a
@@ -240,6 +245,7 @@ export interface ChapterRow {
   publishedAt: Date | null;
   viewCount: number;
   content: string | null;
+  thumbnailAssetId: string | null;
   createdAt: Date;
   _count?: { pages: number };
 }
@@ -258,6 +264,7 @@ export function toChapterDto(row: ChapterRow) {
     scheduledFor: row.scheduledFor?.toISOString(),
     manualLock: row.manualLock,
     teamId: row.teamId ?? "",
+    thumbnail: chapterThumbnailUrl(row.id, row.thumbnailAssetId),
   };
 }
 

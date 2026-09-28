@@ -263,6 +263,8 @@ export interface Chapter {
   /** Staff override of the lock: true = always locked, false = always open, null/absent = automatic (the newest chapters are locked). */
   manualLock?: boolean | null;
   teamId: string;
+  /** The address of the chapter's featured picture, when it has one. */
+  thumbnail?: string;
 }
 
 export interface Series {

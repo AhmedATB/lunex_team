@@ -31,6 +31,7 @@ function build(overrides: Record<string, unknown> = {}) {
     broadcast: jest.fn().mockResolvedValue(undefined),
     notifyChapter: jest.fn().mockResolvedValue(undefined),
     findSeriesLabel: jest.fn().mockResolvedValue({ slug: "shadow-slave", titleAr: "عبد الظل", titleEn: "Shadow Slave", synopsis: "  قصة طويلة  " }),
+    latestChapterThumbnail: jest.fn().mockResolvedValue(null),
     findNewsLabel: jest.fn().mockResolvedValue({ title: "تحديث", excerpt: "ملخص", isPublished: true }),
     ...overrides,
   };
@@ -134,6 +135,15 @@ describe("notifications that also reach a phone", () => {
     } finally {
       jest.useRealTimers();
     }
+  });
+
+  it("sends the chapter's featured picture with the notification when it has one", async () => {
+    const { service, push, repo } = build();
+    repo.latestChapterThumbnail.mockResolvedValue({ id: "c14", thumbnailAssetId: "abcdef12-3456" });
+    await service.chapterPublished("s1", 14);
+    await service.flushChapterPush("s1");
+    expect(push.toLibraryReaders).toHaveBeenCalledWith("s1", expect.objectContaining({ image: "/api/catalog/chapters/c14/thumbnail?v=abcdef12" }));
+    expect(repo.latestChapterThumbnail).toHaveBeenCalledWith("s1", [14]);
   });
 
   it("names the chapter and links to it when only one came out", async () => {

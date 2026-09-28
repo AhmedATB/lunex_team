@@ -32,6 +32,8 @@ export interface PushPayload {
   body?: string;
   /** Where tapping it goes (a path on the site). */
   url?: string;
+  /** A large picture shown with it (a path on the site: a new chapter's featured picture). */
+  image?: string;
   /** A newer notification with the same tag replaces the one still showing (one line per chat, not one per message). */
   tag?: string;
 }
@@ -214,7 +216,7 @@ export class PushService implements OnModuleInit {
     } catch {
       return 0;
     }
-    const body = JSON.stringify({ title: clip(payload.title, TITLE_MAX), body: payload.body ? clip(payload.body, BODY_MAX) : undefined, url: payload.url ?? "/", tag: payload.tag });
+    const body = JSON.stringify({ title: clip(payload.title, TITLE_MAX), body: payload.body ? clip(payload.body, BODY_MAX) : undefined, url: payload.url ?? "/", tag: payload.tag, image: payload.image });
     let delivered = 0;
     for (let i = 0; i < subs.length; i += CONCURRENCY) {
       const results = await Promise.all(subs.slice(i, i + CONCURRENCY).map((sub) => this.deliver(sub, body)));

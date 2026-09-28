@@ -46,7 +46,7 @@ export class ChaptersRepository {
     });
   }
 
-  update(id: string, data: { isPublished?: boolean; manualLock?: boolean | null; publishedAt?: Date | null }) {
+  update(id: string, data: { isPublished?: boolean; manualLock?: boolean | null; publishedAt?: Date | null; thumbnailAssetId?: string | null }) {
     return this.prisma.chapter.update({ where: { id }, data });
   }
 
@@ -67,6 +67,10 @@ export class ChaptersRepository {
   /** Points page `pageNumber` at another picture (the old one is left where it is; no reader is sent to it any more). */
   updatePageAsset(chapterId: string, pageNumber: number, assetId: string) {
     return this.prisma.chapterPage.update({ where: { chapterId_pageNumber: { chapterId, pageNumber } }, data: { assetId } });
+  }
+
+  findAsset(id: string) {
+    return this.prisma.imageAsset.findUnique({ where: { id } });
   }
 
   createAsset(data: { storageKey: string; checksum: string; mimeType: string; width: number; height: number }) {

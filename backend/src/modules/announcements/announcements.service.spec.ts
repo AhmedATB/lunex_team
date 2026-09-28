@@ -8,7 +8,7 @@ const CHAPTER_ROLE = "1472481779662196736";
 const SERIES_ROLE = "1474536152697671874";
 const TELEGRAM = { TELEGRAM_BOT_TOKEN: "123:token", TELEGRAM_CHAT_ID: "@lunex" };
 
-function build(settings: Record<string, string> = {}, options: { published?: number[]; state?: string; synopsis?: string; genres?: string[] } = {}) {
+function build(settings: Record<string, string> = {}, options: { published?: number[]; state?: string; synopsis?: string; genres?: string[]; thumbnail?: { id: string; thumbnailAssetId: string } } = {}) {
   const repo = {
     findSeries: jest.fn(async () => ({
       id: "s1",
@@ -24,6 +24,7 @@ function build(settings: Record<string, string> = {}, options: { published?: num
     teamName: jest.fn(async () => "Nova & Co"),
     genres: jest.fn(async () => options.genres ?? ["خيالي", "دراما"]),
     stillPublished: jest.fn(async (_id: string, numbers: number[]) => options.published ?? [...numbers].sort((a, b) => a - b)),
+    latestThumbnail: jest.fn(async () => options.thumbnail ?? null),
   };
   const config = { get: (key: string) => ({ FRONTEND_URL: "https://lunexteam.com/", ...settings })[key] } as unknown as ConfigService;
   return { service: new AnnouncementsService(repo as unknown as AnnouncementsRepository, config), repo };
@@ -80,6 +81,21 @@ describe("announcing a chapter", () => {
       thumbnail: { url: `https://lunexteam.com/api/catalog/series/s1/cover?v=${new Date("2026-09-20T00:00:00Z").getTime()}` },
       footer: { text: "الفريق: Nova & Co" },
     });
+  });
+
+  it("shows the chapter's own featured picture large in Discord, and sends it to Telegram in place of the cover", async () => {
+    const thumbnail = { id: "c7", thumbnailAssetId: "abcdef12-3456" };
+    const { service } = build({ DISCORD_WEBHOOK_URL: HOOK, ...TELEGRAM }, { thumbnail });
+    await publishAndWait(service, "s1", 7);
+    const picture = "https://lunexteam.com/api/catalog/chapters/c7/thumbnail?v=abcdef12";
+    expect(bodyOf(calls("discord.com")[0]).embeds[0]).toMatchObject({ image: { url: picture }, thumbnail: { url: expect.stringContaining("/series/s1/cover") } });
+    expect(bodyOf(calls("/sendPhoto")[0]).photo).toBe(picture);
+
+    fetchMock.mockClear();
+    const plain = build({ DISCORD_WEBHOOK_URL: HOOK, ...TELEGRAM });
+    await publishAndWait(plain.service, "s1", 7);
+    expect(bodyOf(calls("discord.com")[0]).embeds[0].image).toBeUndefined();
+    expect(bodyOf(calls("/sendPhoto")[0]).photo).toContain("/series/s1/cover");
   });
 
   it("takes another role from the settings, and pings nobody when the setting is not a role id", async () => {

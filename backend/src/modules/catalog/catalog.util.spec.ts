@@ -155,6 +155,7 @@ describe("toChapterDto", () => {
       manualLock: null,
       viewCount: 4,
       content: null,
+      thumbnailAssetId: null as string | null,
       createdAt: new Date("2026-01-01T00:00:00Z"),
       publishedAt: null as Date | null,
       _count: { pages: 18 },
@@ -164,6 +165,12 @@ describe("toChapterDto", () => {
       releasedAt: "2026-02-01T00:00:00.000Z",
       hasContent: true,
     });
+  });
+
+  it("carries the featured picture's address, versioned by the picture, only when the chapter has one", () => {
+    const row = { id: "c1", seriesId: "s1", teamId: null, number: 3, title: "Three", isPublished: true, scheduledFor: null, manualLock: null, viewCount: 0, content: null, createdAt: new Date(), publishedAt: null, _count: { pages: 2 } };
+    expect(toChapterDto({ ...row, thumbnailAssetId: null }).thumbnail).toBeNull();
+    expect(toChapterDto({ ...row, thumbnailAssetId: "abcdef12-3456" }).thumbnail).toBe("/api/catalog/chapters/c1/thumbnail?v=abcdef12");
   });
 });
 

@@ -118,7 +118,9 @@ export class NotificationsService implements OnModuleDestroy {
     this.chapterPushes.delete(seriesId);
     const numbers = [...waiting.numbers].sort((a, b) => a - b);
     const single = numbers.length === 1;
+    const featured = await this.repo.latestChapterThumbnail(seriesId, numbers).catch(() => null);
     await this.push.toLibraryReaders(seriesId, {
+      image: featured ? `/api/catalog/chapters/${featured.id}/thumbnail?v=${featured.thumbnailAssetId.slice(0, 8)}` : undefined,
       title: fixTanween(chapterTitle(waiting.title)),
       body: single ? chapterBody(1, String(numbers[0])) : `صدرت الفصول ${numbers[0]}–${numbers[numbers.length - 1]}`,
       url: single ? `/series/${waiting.slug}/${numbers[0]}` : `/series/${waiting.slug}`,

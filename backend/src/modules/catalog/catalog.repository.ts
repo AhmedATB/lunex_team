@@ -34,6 +34,10 @@ export class CatalogRepository {
     return this.prisma.series.findMany({ where: { state: "approved" }, select: { id: true, slug: true, updatedAt: true }, orderBy: { updatedAt: "desc" } });
   }
 
+  findChapterThumbnail(id: string) {
+    return this.prisma.chapter.findUnique({ where: { id }, select: { thumbnailAssetId: true } });
+  }
+
   /** Every published chapter's number and when it went live, for the sitemap (no pages, no text). */
   listSitemapChapters() {
     return this.prisma.chapter.findMany({ where: { isPublished: true }, select: { seriesId: true, number: true, publishedAt: true, createdAt: true } });

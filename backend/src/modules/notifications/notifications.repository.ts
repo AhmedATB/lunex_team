@@ -89,6 +89,16 @@ export class NotificationsRepository {
     ]);
   }
 
+  /** The featured picture of the newest of these chapters that has one, if any. */
+  async latestChapterThumbnail(seriesId: string, numbers: number[]): Promise<{ id: string; thumbnailAssetId: string } | null> {
+    const row = await this.prisma.chapter.findFirst({
+      where: { seriesId, number: { in: numbers }, thumbnailAssetId: { not: null } },
+      orderBy: { number: "desc" },
+      select: { id: true, thumbnailAssetId: true },
+    });
+    return row && row.thumbnailAssetId ? { id: row.id, thumbnailAssetId: row.thumbnailAssetId } : null;
+  }
+
   findSeriesLabel(seriesId: string) {
     return this.prisma.series.findUnique({ where: { id: seriesId }, select: { slug: true, titleAr: true, titleEn: true, synopsis: true } });
   }

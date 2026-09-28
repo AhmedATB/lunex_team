@@ -4,6 +4,19 @@ export interface CreatedChapter {
   id: string;
 }
 
+/** One of the four pictures offered for a chapter's featured picture: which page it comes from, and a small copy of it (a data address). */
+export interface ThumbnailSuggestion {
+  pageNumber: number;
+  preview: string;
+}
+
+export interface ThumbnailSuggestions {
+  items: ThumbnailSuggestion[];
+  /** How many rounds there are before they start over. */
+  rounds: number;
+  pages: number;
+}
+
 export interface DriveInfo {
   configured: boolean;
   /** The address a private Drive folder has to be shared with. */
@@ -38,6 +51,21 @@ export const chapterApi = {
     form.append("file", file);
     return callForm<{ pageNumber: number }>(`/api/chapters/${encodeURIComponent(chapterId)}/pages/${pageNumber}`, form, "PUT");
   },
+
+  /** Four suggestions for the featured picture, from the chapter's own pages; `round` 1, 2 … gives others. */
+  thumbnailSuggestions: (chapterId: string, round: number) => call<ThumbnailSuggestions>(`/api/chapters/${encodeURIComponent(chapterId)}/thumbnail-suggestions?round=${round}`, "GET"),
+
+  /** The featured picture from one of the chapter's own pages. */
+  thumbnailFromPage: (chapterId: string, pageNumber: number) => call<{ thumbnailAssetId: string }>(`/api/chapters/${encodeURIComponent(chapterId)}/thumbnail/page`, "PUT", { pageNumber }),
+
+  /** The featured picture from a picture on the device. */
+  thumbnailUpload: (chapterId: string, file: File) => {
+    const form = new FormData();
+    form.append("file", file);
+    return callForm<{ thumbnailAssetId: string }>(`/api/chapters/${encodeURIComponent(chapterId)}/thumbnail`, form, "PUT");
+  },
+
+  thumbnailRemove: (chapterId: string) => call<void>(`/api/chapters/${encodeURIComponent(chapterId)}/thumbnail`, "DELETE"),
 
   setPublished: (chapterId: string, isPublished: boolean) => call<unknown>(`/api/chapters/${encodeURIComponent(chapterId)}`, "PATCH", { isPublished }),
 

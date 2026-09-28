@@ -23,6 +23,8 @@ self.addEventListener("push", (event) => {
     self.registration.showNotification(title, {
       body: typeof data.body === "string" ? data.body : undefined,
       icon: "/icons/icon-192.png",
+      // A picture that comes with it (a new chapter's featured picture): a path on this site only.
+      image: typeof data.image === "string" && data.image.startsWith("/") && !data.image.startsWith("//") ? data.image : undefined,
       // A newer notification with the same tag replaces the one still showing (one line per chat, not one per message).
       tag: typeof data.tag === "string" ? data.tag : undefined,
       renotify: typeof data.tag === "string",

@@ -13,6 +13,7 @@ import { Progress } from "@/components/ui/progress";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Switch } from "@/components/ui/switch";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { applyThumbnailChoice, ThumbnailPicker, type ThumbnailChoice } from "@/components/admin/thumbnail-picker";
 
 export interface UploadTarget {
   id: string;
@@ -31,9 +32,10 @@ const isImage = (file: File) => file.type.startsWith("image/");
 /**
  * Upload a chapter's pages: pictures chosen from the device, a ZIP of them (opened here, in the browser), or a Google Drive
  * folder (fetched by the server). Pages go up in reading order, one after the other, because a long picture is cut into
- * several pages by the server and the next one is numbered after them; the chapter is published when they are all there (or
- * kept as a draft). If anything fails the half-made chapter is removed, so nothing is left behind. A work with no team can
- * be published too: the chapter then belongs to no team.
+ * several pages by the server and the next one is numbered after them. When they are all there the person picks the chapter's
+ * featured picture (four suggestions from its own pages, or their own), and only then is it published (or kept as a draft). If
+ * the pages fail the half-made chapter is removed, so nothing is left behind. A work with no team can be published too: the
+ * chapter then belongs to no team.
  */
 export function ChapterUploadDialog({
   open,
@@ -73,6 +75,10 @@ function Form({ series, initialFiles, onClose, onDone }: { series: UploadTarget[
   const [busy, setBusy] = useState(false);
   const [progress, setProgress] = useState<{ label: string; done: number; total: number } | null>(null);
   const [error, setError] = useState("");
+  /** Set once the pages are all there: the chapter exists (as a draft) and its featured picture is being chosen. */
+  const [created, setCreated] = useState<{ id: string } | null>(null);
+  const [choice, setChoice] = useState<ThumbnailChoice>(null);
+  const [finishing, setFinishing] = useState(false);
   const cancelled = useRef(false);
 
   useEffect(() => {
@@ -188,14 +194,32 @@ function Form({ series, initialFiles, onClose, onDone }: { series: UploadTarget[
       }
     }
 
-    if (publish) {
-      setProgress({ label: "نشر الفصل...", done: 1, total: 1 });
-      const published = await chapterApi.setPublished(chapterId, true);
-      if (!published.ok) return fail(`رُفعت الصفحات لكن تعذر النشر: ${published.message}. ستجد الفصل في القائمة كمسودة.`, true);
-    }
-
-    useToast.getState().push({ title: publish ? "نُشر الفصل" : "حُفظ الفصل كمسودة", description: `${target.titleAr} — ${title.trim()}` });
+    // The pages are in: the chapter waits (as a draft) for its featured picture, then is published or kept.
     setBusy(false);
+    setProgress(null);
+    setCreated({ id: chapterId });
+  }
+
+  /** Saves the chosen featured picture, then publishes (or keeps the chapter as a draft) and closes. */
+  async function finish() {
+    if (!created || !target || finishing) return;
+    setFinishing(true);
+    setError("");
+    const problem = await applyThumbnailChoice(created.id, choice);
+    if (problem) {
+      setFinishing(false);
+      return setError(`تعذر حفظ الصورة البارزة: ${problem}`);
+    }
+    if (publish) {
+      const published = await chapterApi.setPublished(created.id, true);
+      if (!published.ok) {
+        setFinishing(false);
+        onDone();
+        return setError(`رُفعت الصفحات لكن تعذر النشر: ${published.message}. ستجد الفصل في القائمة كمسودة.`);
+      }
+    }
+    useToast.getState().push({ title: publish ? "نُشر الفصل" : "حُفظ الفصل كمسودة", description: `${target.titleAr} — ${title.trim()}` });
+    setFinishing(false);
     onDone();
     onClose();
   }
@@ -205,6 +229,24 @@ function Form({ series, initialFiles, onClose, onDone }: { series: UploadTarget[
     setProgress(null);
     setError(message);
     if (keep) onDone();
+  }
+
+  if (created) {
+    return (
+      <div className="space-y-4">
+        <DialogHeader>
+          <DialogTitle>الفصل جاهز — اختر صورته البارزة</DialogTitle>
+        </DialogHeader>
+        <p className="text-sm text-lunex-gray">
+          {target?.titleAr} — {title.trim()}. {publish ? "سيُنشر الفصل بعد هذه الخطوة." : "سيُحفظ الفصل كمسودة."}
+        </p>
+        <ThumbnailPicker chapterId={created.id} value={choice} onChange={setChoice} autoChoose disabled={finishing} />
+        {error && <p className="text-sm text-red-400" role="alert">{error}</p>}
+        <Button onClick={finish} disabled={finishing} className="w-full">
+          {finishing && <Loader2 className="h-4 w-4 animate-spin" />} {finishing ? "جارِ الحفظ..." : publish ? "نشر الفصل" : "حفظ كمسودة"}
+        </Button>
+      </div>
+    );
   }
 
   return (
@@ -300,7 +342,7 @@ function Form({ series, initialFiles, onClose, onDone }: { series: UploadTarget[
       <label className="flex items-center justify-between gap-3 rounded-xl border border-white/10 p-3">
         <span>
           <span className="block text-sm font-semibold text-white">نشر الفصل بعد الرفع</span>
-          <span className="block text-xs text-lunex-gray">عند النشر يصل إشعار لمن أضاف العمل إلى مفضلته. أوقفه لتحفظ الفصل مسودة.</span>
+          <span className="block text-xs text-lunex-gray">بعد رفع الصفحات تختار الصورة البارزة ثم يُنشر. عند النشر يصل إشعار لمن أضاف العمل إلى مفضلته. أوقفه لتحفظ الفصل مسودة.</span>
         </span>
         <Switch checked={publish} onCheckedChange={setPublish} disabled={busy} />
       </label>
@@ -317,7 +359,7 @@ function Form({ series, initialFiles, onClose, onDone }: { series: UploadTarget[
       {error && <p className="text-sm text-red-400" role="alert">{error}</p>}
 
       <Button onClick={submit} disabled={!ready || busy || zipBusy} className="w-full">
-        {busy && <Loader2 className="h-4 w-4 animate-spin" />} {busy ? "جارِ العمل..." : publish ? "رفع ونشر الفصل" : "رفع وحفظ كمسودة"}
+        {busy && <Loader2 className="h-4 w-4 animate-spin" />} {busy ? "جارِ العمل..." : "رفع الصفحات والمتابعة"}
       </Button>
     </div>
   );

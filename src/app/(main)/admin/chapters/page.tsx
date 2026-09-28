@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { UploadCloud, Trash2, Search, Plus, BookText, ShieldCheck, X, GripVertical } from "lucide-react";
 import { ChapterUploadDialog } from "@/components/admin/chapter-upload-dialog";
+import { applyThumbnailChoice, chapterThumbnailUrl, ThumbnailPicker, type ThumbnailChoice } from "@/components/admin/thumbnail-picker";
 import { useCatalog } from "@/components/catalog-provider";
 import { useSession } from "@/store/session";
 import { useTeamManagement } from "@/store/team-management";
@@ -35,6 +36,7 @@ interface RealChapter {
   isPublished: boolean;
   createdAt: string;
   pages: { id: string; pageNumber: number }[];
+  thumbnailAssetId?: string | null;
 }
 
 interface Row {
@@ -49,6 +51,8 @@ interface Row {
   isPublished: boolean;
   at: string;
   isReal: boolean;
+  /** The address of its featured picture, when it has one (real chapters only). */
+  thumbnail?: string;
 }
 
 export default function AdminChaptersPage() {
@@ -105,6 +109,7 @@ export default function AdminChaptersPage() {
       isPublished: c.isPublished,
       at: c.createdAt,
       isReal: true,
+      thumbnail: c.thumbnailAssetId ? chapterThumbnailUrl(c.id, c.thumbnailAssetId) : undefined,
     }));
     return [...mockRows, ...realRows]
       .sort((a, b) => +new Date(b.at) - +new Date(a.at))
@@ -238,7 +243,12 @@ export default function AdminChaptersPage() {
                       <span>{r.contentLabel}</span>
                       <span>· {timeAgo(r.at)}</span>
                     </div>
-                    {r.isReal && r.pageCount > 0 && <ReplacePageDialog chapterId={r.id} label={chapterLabel(r)} pageCount={r.pageCount} onDone={loadRealChapters} />}
+                    {r.isReal && r.pageCount > 0 && (
+                      <div className="flex flex-wrap items-center gap-1">
+                        <ReplacePageDialog chapterId={r.id} label={chapterLabel(r)} pageCount={r.pageCount} onDone={loadRealChapters} />
+                        <ThumbnailDialog chapterId={r.id} label={chapterLabel(r)} current={r.thumbnail} onDone={loadRealChapters} />
+                      </div>
+                    )}
                   </div>
                 </li>
               ))}
@@ -291,7 +301,12 @@ export default function AdminChaptersPage() {
                   </td>
                   <td className="p-3 text-lunex-gray">{timeAgo(r.at)}</td>
                   <td className="p-3 text-end">
-                    {r.isReal && r.pageCount > 0 && <ReplacePageDialog chapterId={r.id} label={chapterLabel(r)} pageCount={r.pageCount} onDone={loadRealChapters} />}
+                    {r.isReal && r.pageCount > 0 && (
+                      <div className="flex flex-wrap items-center justify-end gap-1">
+                        <ReplacePageDialog chapterId={r.id} label={chapterLabel(r)} pageCount={r.pageCount} onDone={loadRealChapters} />
+                        <ThumbnailDialog chapterId={r.id} label={chapterLabel(r)} current={r.thumbnail} onDone={loadRealChapters} />
+                      </div>
+                    )}
                   </td>
                 </tr>
               ))}
@@ -303,6 +318,55 @@ export default function AdminChaptersPage() {
         </CardContent>
       </Card>
     </div>
+  );
+}
+
+/** Choosing or changing a chapter's featured picture after it was made: the same suggestions as when uploading, then save. */
+function ThumbnailDialog({ chapterId, label, current, onDone }: { chapterId: string; label: string; current?: string; onDone: () => void }) {
+  const [open, setOpen] = useState(false);
+  const [choice, setChoice] = useState<ThumbnailChoice>(null);
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState("");
+
+  function close(next: boolean) {
+    setOpen(next);
+    if (!next) {
+      setChoice(null);
+      setError("");
+    }
+  }
+
+  async function save() {
+    setBusy(true);
+    setError("");
+    const problem = await applyThumbnailChoice(chapterId, choice);
+    setBusy(false);
+    if (problem) return setError(problem);
+    useToast.getState().push({ title: "حُفظت الصورة البارزة", description: label });
+    close(false);
+    onDone();
+  }
+
+  return (
+    <Dialog open={open} onOpenChange={close}>
+      <DialogTrigger asChild>
+        <Button type="button" size="sm" variant="ghost" className="gap-1.5 text-primary-300">
+          {current ? (
+            // eslint-disable-next-line @next/next/no-img-element
+            <img src={current} alt="" className="h-4 w-7 rounded-sm object-cover" />
+          ) : null}
+          صورة بارزة
+        </Button>
+      </DialogTrigger>
+      <DialogContent className="max-h-[90vh] max-w-xl overflow-y-auto">
+        <DialogHeader><DialogTitle>الصورة البارزة — {label}</DialogTitle></DialogHeader>
+        {open && <ThumbnailPicker chapterId={chapterId} current={current} value={choice} onChange={setChoice} disabled={busy} />}
+        {error && <p className="text-sm text-red-400" role="alert">{error}</p>}
+        <Button type="button" className="w-full" onClick={save} disabled={busy || !choice}>
+          {busy ? "جارِ الحفظ..." : "حفظ الصورة البارزة"}
+        </Button>
+      </DialogContent>
+    </Dialog>
   );
 }
 

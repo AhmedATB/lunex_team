@@ -5,7 +5,7 @@ import { ACCESS_TOKEN_COOKIE } from "@/lib/session-cookies";
 
 type Context = { params: Promise<{ path: string[] }> };
 
-const IMAGE_ENDPOINT = /^(series\/[^/]+\/(cover|banner)|teams\/[^/]+\/logo|news\/[^/]+\/cover)$/;
+const IMAGE_ENDPOINT = /^(series\/[^/]+\/(cover|banner)|teams\/[^/]+\/logo|news\/[^/]+\/cover|chapters\/[^/]+\/thumbnail)$/;
 
 /**
  * BFF door for /v1/catalog: the public catalogue reads, the pictures, and the
