@@ -4,6 +4,8 @@ import { PrismaService } from "../../prisma/prisma.service";
 const PERSON = { id: true, username: true, displayName: true, avatarMimeType: true, updatedAt: true } as const;
 /** The pictures of a message, in the order they were added (their bytes stay in their own table). */
 const PICTURES = { attachments: { select: { id: true, width: true, height: true }, orderBy: { createdAt: "asc" as const } } };
+/** Whether a group has a picture, and when it last changed (its bytes are only loaded to show it). */
+const PHOTO_VERSION = { select: { updatedAt: true } } as const;
 /** The newest message of a chat for the list: just whether it carries pictures. */
 const NEWEST = { orderBy: { createdAt: "desc" as const }, take: 1, include: { _count: { select: { attachments: true } } } };
 
@@ -58,6 +60,7 @@ export class MessagesRepository {
       include: {
         members: { include: { user: { select: PERSON } } },
         messages: NEWEST,
+        photo: PHOTO_VERSION,
       },
     });
   }
@@ -71,6 +74,7 @@ export class MessagesRepository {
       include: {
         members: { include: { user: { select: PERSON } } },
         messages: NEWEST,
+        photo: PHOTO_VERSION,
       },
     });
   }
@@ -164,6 +168,46 @@ export class MessagesRepository {
     await this.prisma.conversationMember.delete({ where: { conversationId_userId: { conversationId, userId } } });
     if ((await this.prisma.conversationMember.count({ where: { conversationId } })) === 0) {
       await this.prisma.conversation.delete({ where: { id: conversationId } });
+      return;
     }
+    // A group whose owner left is handed to its longest-standing admin, or else its longest-standing member.
+    const conversation = await this.prisma.conversation.findUnique({ where: { id: conversationId }, select: { isGroup: true, createdById: true } });
+    if (conversation?.isGroup && conversation.createdById === userId) {
+      const heir =
+        (await this.prisma.conversationMember.findFirst({ where: { conversationId, role: "admin" }, orderBy: { joinedAt: "asc" }, select: { userId: true } })) ??
+        (await this.prisma.conversationMember.findFirst({ where: { conversationId }, orderBy: { joinedAt: "asc" }, select: { userId: true } }));
+      if (heir) {
+        await this.prisma.$transaction([
+          this.prisma.conversation.update({ where: { id: conversationId }, data: { createdById: heir.userId } }),
+          this.prisma.conversationMember.update({ where: { conversationId_userId: { conversationId, userId: heir.userId } }, data: { role: "member" } }),
+        ]);
+      }
+    }
+  }
+
+  // ---- managing a group ------------------------------------------------------
+
+  updateTitle(conversationId: string, title: string | null) {
+    return this.prisma.conversation.update({ where: { id: conversationId }, data: { title }, select: { id: true } });
+  }
+
+  setPhoto(conversationId: string, data: Buffer) {
+    return this.prisma.conversationPhoto.upsert({ where: { conversationId }, update: { data }, create: { conversationId, data }, select: { conversationId: true } });
+  }
+
+  removePhoto(conversationId: string) {
+    return this.prisma.conversationPhoto.deleteMany({ where: { conversationId } });
+  }
+
+  findPhoto(conversationId: string) {
+    return this.prisma.conversationPhoto.findUnique({ where: { conversationId }, select: { data: true } });
+  }
+
+  removeMember(conversationId: string, userId: string) {
+    return this.prisma.conversationMember.delete({ where: { conversationId_userId: { conversationId, userId } } });
+  }
+
+  setMemberRole(conversationId: string, userId: string, role: string) {
+    return this.prisma.conversationMember.update({ where: { conversationId_userId: { conversationId, userId } }, data: { role } });
   }
 }

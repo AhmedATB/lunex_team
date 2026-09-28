@@ -624,3 +624,14 @@ A comment can carry **one** picture and a chat message **up to ten**, with or wi
 - **On the pages:** a picture button beside the comment box and the reply box (one), and beside the emoji button in a chat (several, shown as previews with a remove button and an upload spinner; sent in the order chosen); a message's pictures show as one large picture or a grid; tapping opens all of them full size with arrows. The privacy page says what is kept.
 - Checked against Postgres (upload, the four kinds of viewer, one picture on two comments refused, someone else's picture refused, picture-only comment and message, 11 pictures refused, delete-with-message, a moderator's removal) and in the browser at phone width; 25 new unit tests.
 
+## §59 — Managing a group
+
+Until now a group's only power was its starter's: adding people. Now (migration `20260930330000_add_group_roles_and_photo`; `conversation_members.role`, `conversation_photos`) a group has an **owner** (whoever started it, `createdById`), **admins**, and ordinary members:
+- **Owner:** everything below, plus making a member an admin or taking admin off (`PATCH /v1/conversations/:id/members/:userId` `{ role }`), removing anyone, and it cannot be changed or removed by anyone else.
+- **Admin:** change the name (`PATCH /v1/conversations/:id` `{ title }`, empty takes it off), the picture (`PUT`/`DELETE …/photo`, a square WebP of 256 px cropped on the server from a device upload, 5 MB), add people, and remove **ordinary members** (`DELETE …/members/:userId`) — never the owner, another admin, or themselves (that is leaving, `400 use_leave`).
+- **Member:** read, write, leave. Everything above is `403` for them, and `404` for someone not in the group (whether it exists is not theirs to learn); a chat between two people is `400 not_a_group`.
+- The picture is shown to the group's members only (`GET …/photo`, private), by an address that carries its version, so a changed picture is a new address. Each conversation now carries `photoVersion`, and each member `role` (`owner`/`admin`/`member`).
+- **When the owner leaves**, the group passes to its longest-standing admin, or else its longest-standing member, so a group is never left without one.
+- **On the page:** tapping a group's name opens its page — picture (camera button for admins), name (pencil), every member as a link to their account with their standing and, for those who may, a menu (make admin / take admin off / remove), add people, leave. In a group chat each sender's name now has their small picture beside it, linked to their account ("عضو سابق" for a message from someone no longer in it).
+- Checked against Postgres (every permission both ways, the photo upload and view, ownership passing on) and in the browser; 10 new unit tests.
+

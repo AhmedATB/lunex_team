@@ -1,17 +1,18 @@
 "use client";
 
 import { Suspense, useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
-import Image from "next/image";
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
-import { ArrowRight, Ban, Keyboard, LogOut, Loader2, MessageCircle, Pencil, Plus, Send, Smile, Trash2, UserCheck, UserPlus, Users } from "lucide-react";
+import { ArrowRight, Ban, Keyboard, Loader2, MessageCircle, Pencil, Plus, Send, Smile, Trash2, UserCheck } from "lucide-react";
 import { useSession } from "@/store/session";
 import { chatApi, conversationName, MESSAGES_CHANGED, previewOf, type BlockedPerson, type ChatMessage, type Conversation, type Person } from "@/lib/messages-api";
-import { resolveAvatarUrl, cn } from "@/lib/utils";
+import { cn } from "@/lib/utils";
 import { useMuteStatus } from "@/lib/use-mute-status";
 import { MuteNotice } from "@/components/moderation/mute-notice";
 import { UserPicker } from "@/components/messages/user-picker";
 import { EmojiPanel } from "@/components/messages/emoji-panel";
+import { ChatAvatar, PersonAvatar } from "@/components/messages/chat-avatars";
+import { GroupInfoDialog } from "@/components/messages/group-info-dialog";
 import { PictureButton, PictureGrid, PicturePreviews, usePictures } from "@/components/shared/pictures";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
@@ -36,26 +37,6 @@ export default function MessagesPage() {
       <MessagesPageInner />
     </Suspense>
   );
-}
-
-function PersonAvatar({ person, size }: { person: Person; size: number }) {
-  return (
-    <span className="relative shrink-0 overflow-hidden rounded-full ring-2 ring-primary-500/30" style={{ width: size, height: size }}>
-      <Image src={resolveAvatarUrl(person.id, person.avatarVersion, person.id)} alt="" fill sizes={`${size}px`} className="object-cover" unoptimized />
-    </span>
-  );
-}
-
-function ChatAvatar({ conversation, myId, size }: { conversation: Conversation; myId: string | null; size: number }) {
-  const other = conversation.members.find((m) => m.id !== myId);
-  if (conversation.isGroup || !other) {
-    return (
-      <span className="flex shrink-0 items-center justify-center rounded-full bg-primary-500/20 text-primary-200 ring-2 ring-primary-500/30" style={{ width: size, height: size }}>
-        <Users className="h-1/2 w-1/2" aria-hidden />
-      </span>
-    );
-  }
-  return <PersonAvatar person={other} size={size} />;
 }
 
 const RUN_GAP_MS = 5 * 60_000;
@@ -147,6 +128,7 @@ function MessagesPageInner() {
   const [blockedOpen, setBlockedOpen] = useState(false);
 
   const [emojiOpen, setEmojiOpen] = useState(false);
+  const [groupInfoOpen, setGroupInfoOpen] = useState(false);
   /** The pictures being added to the message being written (several can go with one message). */
   const pictures = usePictures(MAX_PICTURES);
 
@@ -539,13 +521,18 @@ function MessagesPageInner() {
                     </div>
                   </Link>
                 ) : (
-                  <div className="flex min-w-0 flex-1 items-center gap-3 px-1">
+                  <button
+                    type="button"
+                    onClick={() => setGroupInfoOpen(true)}
+                    aria-label="معلومات المجموعة"
+                    className="flex min-w-0 flex-1 items-center gap-3 rounded-xl px-1 py-0.5 text-start transition-colors hover:bg-white/5"
+                  >
                     <ChatAvatar conversation={active} myId={myId} size={38} />
                     <div className="min-w-0 flex-1">
                       <p className="truncate font-display font-bold text-white">{conversationName(active, myId)}</p>
-                      {active.isGroup && <p className="truncate text-xs text-lunex-gray">{active.members.map((m) => m.displayName).join("، ")}</p>}
+                      <p className="truncate text-xs text-lunex-gray">{active.members.length} أعضاء</p>
                     </div>
-                  </div>
+                  </button>
                 )}
                 {peer && (
                   <Button
@@ -557,16 +544,6 @@ function MessagesPageInner() {
                     className={peerBlocked ? "text-primary-300" : "text-red-400 hover:bg-red-500/10"}
                   >
                     {peerBlocked ? <UserCheck className="h-4 w-4" /> : <Ban className="h-4 w-4" />}
-                  </Button>
-                )}
-                {active.isGroup && active.createdById === myId && (
-                  <Button variant="ghost" size="icon" onClick={() => setAddOpen(true)} aria-label="إضافة أشخاص">
-                    <UserPlus className="h-4 w-4" />
-                  </Button>
-                )}
-                {active.isGroup && (
-                  <Button variant="ghost" size="icon" onClick={leave} aria-label="مغادرة المجموعة" className="text-red-400 hover:bg-red-500/10">
-                    <LogOut className="h-4 w-4" />
                   </Button>
                 )}
               </div>
@@ -629,8 +606,19 @@ function MessagesPageInner() {
                           </div>
                         )}
                         <div className={cn("max-w-[82%] rounded-2xl px-3 py-1.5 text-sm", row.mine ? "bg-lunex-gradient text-white" : "bg-white/5 text-lunex-gray")}>
-                          {row.first && !row.mine && active.isGroup && row.sender && (
-                            <p className="mb-0.5 text-[11px] font-semibold text-primary-300">{row.sender.displayName}</p>
+                          {row.first && !row.mine && active.isGroup && (
+                            row.sender ? (
+                              <Link
+                                href={`/profile/${encodeURIComponent(row.sender.username)}`}
+                                className="mb-1 flex items-center gap-1.5 text-[11px] font-semibold text-primary-300 hover:underline"
+                                aria-label={`الملف الشخصي لـ ${row.sender.displayName}`}
+                              >
+                                <PersonAvatar person={row.sender} size={18} />
+                                <span className="truncate">{row.sender.displayName}</span>
+                              </Link>
+                            ) : (
+                              <p className="mb-0.5 text-[11px] font-semibold text-lunex-gray">عضو سابق</p>
+                            )
                           )}
                           {editing?.id === row.message.id ? (
                             <div className="space-y-1.5">
@@ -769,6 +757,24 @@ function MessagesPageInner() {
           if (blocked.length <= 1) setBlockedOpen(false);
         }}
       />
+
+      {active && active.isGroup && (
+        <GroupInfoDialog
+          open={groupInfoOpen}
+          onClose={() => setGroupInfoOpen(false)}
+          conversation={active}
+          myId={myId}
+          onUpdated={(conversation) => setConversations((list) => list.map((c) => (c.id === conversation.id ? conversation : c)))}
+          onAddPeople={() => {
+            setGroupInfoOpen(false);
+            setAddOpen(true);
+          }}
+          onLeave={async () => {
+            setGroupInfoOpen(false);
+            await leave();
+          }}
+        />
+      )}
 
       {active && active.isGroup && (
         <AddPeopleDialog

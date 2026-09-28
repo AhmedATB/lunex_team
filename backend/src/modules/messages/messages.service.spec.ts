@@ -1,4 +1,5 @@
 import { BadRequestException, ForbiddenException, NotFoundException } from "@nestjs/common";
+import sharp from "sharp";
 import type { AttachmentsService } from "../attachments/attachments.service";
 import type { MessagesRepository } from "./messages.repository";
 import { MessagesService } from "./messages.service";
@@ -41,6 +42,12 @@ function build(overrides: Record<string, unknown> = {}) {
     findMessage: jest.fn().mockResolvedValue({ id: "m1", conversationId: "c1", senderId: "me", createdAt: new Date(), _count: { attachments: 0 } }),
     deleteMessage: jest.fn().mockResolvedValue(undefined),
     updateMessageText: jest.fn(async (id: string, text: string) => ({ id, senderId: "me", text, createdAt: new Date(), editedAt: new Date() })),
+    updateTitle: jest.fn().mockResolvedValue({ id: "c1" }),
+    setPhoto: jest.fn().mockResolvedValue({ conversationId: "c1" }),
+    removePhoto: jest.fn().mockResolvedValue({ count: 1 }),
+    findPhoto: jest.fn().mockResolvedValue(null),
+    removeMember: jest.fn().mockResolvedValue(undefined),
+    setMemberRole: jest.fn().mockResolvedValue(undefined),
     addBlock: jest.fn().mockResolvedValue(undefined),
     removeBlock: jest.fn().mockResolvedValue(undefined),
     listBlocked: jest.fn().mockResolvedValue([{ createdAt: new Date("2026-09-26T00:00:00Z"), blocked: person("sara") }]),
@@ -271,6 +278,123 @@ describe("messages with pictures", () => {
     const { service } = build({ listFor: jest.fn().mockResolvedValue([row]) });
     const { conversations } = await service.list("me");
     expect(conversations[0].lastMessage).toMatchObject({ text: "", imageCount: 3 });
+  });
+});
+
+/** A group of four: "boss" started it, "adm" is an admin, "sara" and "omar" are ordinary members. */
+const groupRow = (overrides: Record<string, unknown> = {}) =>
+  conversationRow({
+    isGroup: true,
+    createdById: "boss",
+    members: [
+      { userId: "boss", role: "member", user: person("boss") },
+      { userId: "adm", role: "admin", user: person("adm") },
+      { userId: "sara", role: "member", user: person("sara") },
+      { userId: "omar", role: "member", user: person("omar") },
+    ],
+    ...overrides,
+  });
+const asGroup = (actor: string, overrides: Record<string, unknown> = {}) =>
+  build({
+    findActor: jest.fn().mockResolvedValue({ id: actor, isBanned: false, bannedUntil: null, mutedUntil: null }),
+    membership: jest.fn().mockResolvedValue({ conversationId: "c1", userId: actor }),
+    findConversation: jest.fn().mockResolvedValue(groupRow()),
+    ...overrides,
+  });
+
+describe("who is what in a group", () => {
+  it("shows each member's standing — the one who started it is the owner, the others admin or member — and whether it has a picture", async () => {
+    const { service } = asGroup("sara", { findConversation: jest.fn().mockResolvedValue(groupRow({ photo: { updatedAt: new Date("2026-09-20T00:00:00Z") } })) });
+    const { conversations } = await asGroup("sara", { listFor: jest.fn().mockResolvedValue([groupRow({ photo: { updatedAt: new Date("2026-09-20T00:00:00Z") } })]) }).service.list("sara");
+    expect(conversations[0].members.map((m) => [m.id, m.role])).toEqual([["boss", "owner"], ["adm", "admin"], ["sara", "member"], ["omar", "member"]]);
+    expect(conversations[0].photoVersion).toBe("2026-09-20T00:00:00.000Z");
+    void service;
+  });
+
+  it("has no standings in a chat between two people, and no picture", async () => {
+    const { conversations } = await build().service.list("me");
+    expect(conversations[0].members.every((m) => m.role === "member")).toBe(true);
+    expect(conversations[0].photoVersion).toBeNull();
+  });
+});
+
+describe("managing a group", () => {
+  it("lets the owner and an admin add people, but not an ordinary member", async () => {
+    await expect(asGroup("boss").service.addMembers("boss", "c1", { usernames: ["sara"] })).resolves.toBeDefined();
+    await expect(asGroup("adm").service.addMembers("adm", "c1", { usernames: ["sara"] })).resolves.toBeDefined();
+    await expect(asGroup("sara").service.addMembers("sara", "c1", { usernames: ["omar"] })).rejects.toBeInstanceOf(ForbiddenException);
+  });
+
+  it("lets the owner and an admin change the name (an empty one takes it off), and no one else", async () => {
+    const owner = asGroup("boss");
+    await owner.service.updateGroup("boss", "c1", { title: "  فريق الترجمة " });
+    expect(owner.repo.updateTitle).toHaveBeenCalledWith("c1", "فريق الترجمة");
+    const admin = asGroup("adm");
+    await admin.service.updateGroup("adm", "c1", { title: "   " });
+    expect(admin.repo.updateTitle).toHaveBeenCalledWith("c1", null);
+    const member = asGroup("sara");
+    await expect(member.service.updateGroup("sara", "c1", { title: "x" })).rejects.toBeInstanceOf(ForbiddenException);
+    expect(member.repo.updateTitle).not.toHaveBeenCalled();
+    await expect(build().service.updateGroup("me", "c1", { title: "x" })).rejects.toMatchObject({ response: { code: "not_a_group" } });
+  });
+
+  it("crops a group's picture to a small square WebP, for the owner and admins only, and refuses what is not a picture", async () => {
+    const photo = await sharp({ create: { width: 800, height: 400, channels: 3, background: "#aa3366" } }).jpeg().toBuffer();
+    const { service, repo } = asGroup("adm");
+    await service.setGroupPhoto("adm", "c1", { buffer: photo } as Express.Multer.File);
+    const saved = repo.setPhoto.mock.calls[0][1] as Buffer;
+    const meta = await sharp(saved).metadata();
+    expect([meta.format, meta.width, meta.height]).toEqual(["webp", 256, 256]);
+    await expect(service.setGroupPhoto("adm", "c1", { buffer: Buffer.from("nope") } as Express.Multer.File)).rejects.toMatchObject({ response: { code: "invalid_image" } });
+    await expect(service.setGroupPhoto("adm", "c1", undefined)).rejects.toMatchObject({ response: { code: "no_file" } });
+    await expect(asGroup("sara").service.setGroupPhoto("sara", "c1", { buffer: photo } as Express.Multer.File)).rejects.toBeInstanceOf(ForbiddenException);
+    await service.removeGroupPhoto("adm", "c1");
+    expect(repo.removePhoto).toHaveBeenCalledWith("c1");
+  });
+
+  it("shows a group's picture to its members only, and says so plainly when there is none", async () => {
+    const withPhoto = asGroup("sara", { findPhoto: jest.fn().mockResolvedValue({ data: Buffer.from("img") }) });
+    expect((await withPhoto.service.groupPhoto("sara", "c1")).data.toString()).toBe("img");
+    await expect(asGroup("sara").service.groupPhoto("sara", "c1")).rejects.toMatchObject({ response: { code: "image_not_found" } });
+    const outsider = asGroup("stranger", { membership: jest.fn().mockResolvedValue(null) });
+    await expect(outsider.service.groupPhoto("stranger", "c1")).rejects.toBeInstanceOf(NotFoundException);
+  });
+
+  it("lets the owner remove anyone, and an admin only ordinary members — never the owner, another admin, or themselves", async () => {
+    const owner = asGroup("boss");
+    await owner.service.removeMember("boss", "c1", "adm");
+    expect(owner.repo.removeMember).toHaveBeenCalledWith("c1", "adm");
+
+    const admin = asGroup("adm");
+    await admin.service.removeMember("adm", "c1", "sara");
+    expect(admin.repo.removeMember).toHaveBeenCalledWith("c1", "sara");
+    admin.repo.removeMember.mockClear();
+    await expect(admin.service.removeMember("adm", "c1", "boss")).rejects.toBeInstanceOf(ForbiddenException);
+    await expect(admin.service.removeMember("adm", "c1", "adm")).rejects.toMatchObject({ response: { code: "use_leave" } });
+    const twoAdmins = asGroup("adm", { findConversation: jest.fn().mockResolvedValue(groupRow({ members: [{ userId: "boss", role: "member", user: person("boss") }, { userId: "adm", role: "admin", user: person("adm") }, { userId: "adm2", role: "admin", user: person("adm2") }] })) });
+    await expect(twoAdmins.service.removeMember("adm", "c1", "adm2")).rejects.toBeInstanceOf(ForbiddenException);
+    await expect(admin.service.removeMember("adm", "c1", "ghost")).rejects.toMatchObject({ response: { code: "member_not_found" } });
+    expect(admin.repo.removeMember).not.toHaveBeenCalled();
+
+    const member = asGroup("sara");
+    await expect(member.service.removeMember("sara", "c1", "omar")).rejects.toBeInstanceOf(ForbiddenException);
+  });
+
+  it("lets only the owner make someone an admin or take it off — and never touches the owner's own standing", async () => {
+    const owner = asGroup("boss");
+    await owner.service.setMemberRole("boss", "c1", "sara", { role: "admin" });
+    expect(owner.repo.setMemberRole).toHaveBeenCalledWith("c1", "sara", "admin");
+    await expect(owner.service.setMemberRole("boss", "c1", "boss", { role: "member" })).rejects.toMatchObject({ response: { code: "cannot_change_owner" } });
+    await expect(owner.service.setMemberRole("boss", "c1", "ghost", { role: "admin" })).rejects.toMatchObject({ response: { code: "member_not_found" } });
+    const admin = asGroup("adm");
+    await expect(admin.service.setMemberRole("adm", "c1", "sara", { role: "admin" })).rejects.toBeInstanceOf(ForbiddenException);
+    expect(admin.repo.setMemberRole).not.toHaveBeenCalled();
+  });
+
+  it("treats a conversation the caller is not in as nonexistent for all of this", async () => {
+    const outsider = asGroup("stranger", { membership: jest.fn().mockResolvedValue(null) });
+    await expect(outsider.service.updateGroup("stranger", "c1", { title: "x" })).rejects.toBeInstanceOf(NotFoundException);
+    await expect(outsider.service.removeMember("stranger", "c1", "sara")).rejects.toBeInstanceOf(NotFoundException);
   });
 });
 

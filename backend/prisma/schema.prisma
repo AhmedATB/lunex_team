@@ -763,6 +763,8 @@ model Conversation {
 
   members  ConversationMember[]
   messages Message[]
+  /// A group's picture, if it has one (kept in its own table so lists of chats never load the bytes).
+  photo    ConversationPhoto?
 
   @@index([lastMessageAt])
   @@map("conversations")
@@ -776,10 +778,23 @@ model ConversationMember {
   joinedAt       DateTime     @default(now())
   /// Everything up to this moment has been read by this member; later messages from others are unread.
   lastReadAt     DateTime     @default(now())
+  /// In a group: "member", or "admin" (may change the name and picture, add people and remove members). The person who started
+  /// the group (`Conversation.createdById`) is its owner, above the admins; nothing here applies to a chat between two people.
+  role           String       @default("member")
 
   @@id([conversationId, userId])
   @@index([userId])
   @@map("conversation_members")
+}
+
+/// A group's picture: a small square WebP, chosen by an admin from their device.
+model ConversationPhoto {
+  conversationId String       @id
+  conversation   Conversation @relation(fields: [conversationId], references: [id], onDelete: Cascade)
+  data           Bytes
+  updatedAt      DateTime     @updatedAt
+
+  @@map("conversation_photos")
 }
 
 model Message {

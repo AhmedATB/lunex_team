@@ -1,14 +1,17 @@
 import { BadRequestException, ForbiddenException, Injectable, NotFoundException } from "@nestjs/common";
+import sharp from "sharp";
 import { fixTanween } from "../../common/text/arabic.util";
 import { AttachmentsService } from "../attachments/attachments.service";
 import { isEffectivelyBanned, isMuted } from "../moderation/moderation.util";
-import { MAX_MESSAGE_IMAGES, MAX_OTHER_MEMBERS, type AddMembersDto, type CreateConversationDto, type ListMessagesQueryDto, type SendMessageDto } from "./dto/messages.dto";
+import { MAX_MESSAGE_IMAGES, MAX_OTHER_MEMBERS, type AddMembersDto, type CreateConversationDto, type ListMessagesQueryDto, type SendMessageDto, type SetMemberRoleDto, type UpdateConversationDto } from "./dto/messages.dto";
 import { MessagesRepository } from "./messages.repository";
 
 /** A message can be corrected for a day, not rewritten weeks later (a reported message has to stay what it was). */
 const EDIT_WINDOW_MS = 24 * 60 * 60 * 1000;
 const LIST_LIMIT = 100;
 const DEFAULT_PAGE = 40;
+/** A group's picture is a small square, whatever was chosen. */
+const GROUP_PHOTO_SIZE = 256;
 
 interface PersonRow {
   id: string;
@@ -26,6 +29,10 @@ export const toPerson = (row: PersonRow) => ({
 });
 
 const cleanUsername = (name: string) => name.trim().replace(/^@/, "");
+
+/** A member's standing in a group: its owner (who started it), an admin, or an ordinary member. */
+const roleOf = (createdById: string | null, member: { userId: string; role: string }): "owner" | "admin" | "member" =>
+  member.userId === createdById ? "owner" : member.role === "admin" ? "admin" : "member";
 
 /** A message as the chat shows it: the words, and the pictures that go with them (in the order they were added). */
 const toMessage = (m: { id: string; senderId: string | null; text: string; createdAt: Date; editedAt: Date | null; attachments?: { id: string; width: number; height: number }[] }) => ({
@@ -159,12 +166,9 @@ export class MessagesService {
     await this.repo.leave(conversationId, actorId);
   }
 
-  /** The person who started a group can add people to it. */
+  /** The person who started a group, and its admins, can add people to it. */
   async addMembers(actorId: string, conversationId: string, dto: AddMembersDto) {
-    await this.requireMember(conversationId, actorId);
-    const conversation = await this.repo.findConversation(conversationId);
-    if (!conversation?.isGroup) throw new BadRequestException({ code: "not_a_group", message: "People can only be added to a group." });
-    if (conversation.createdById !== actorId) throw new ForbiddenException({ code: "insufficient_permissions", message: "Only the person who started the group can add people." });
+    const { conversation } = await this.requireManager(conversationId, actorId);
 
     const usernames = [...new Set(dto.usernames.map(cleanUsername).filter(Boolean))];
     const found = await this.repo.findPeople({ usernames });
@@ -176,6 +180,68 @@ export class MessagesService {
     }
     await this.requireNotBlocked(actorId, newcomers.map((p) => p.id));
     await this.repo.addMembers(conversationId, newcomers.map((p) => p.id));
+    return this.summary(conversationId, actorId);
+  }
+
+  // ---- managing a group ------------------------------------------------------
+
+  /** The name of a group: for its owner and admins. Empty takes it off. */
+  async updateGroup(actorId: string, conversationId: string, dto: UpdateConversationDto) {
+    await this.requireManager(conversationId, actorId);
+    await this.repo.updateTitle(conversationId, dto.title.trim() ? dto.title.trim() : null);
+    return this.summary(conversationId, actorId);
+  }
+
+  /** A group's picture, chosen from the device: cropped to a small square WebP. For its owner and admins. */
+  async setGroupPhoto(actorId: string, conversationId: string, file: Express.Multer.File | undefined) {
+    await this.requireManager(conversationId, actorId);
+    if (!file?.buffer?.length) throw new BadRequestException({ code: "no_file", message: "Choose a picture first." });
+    let data: Buffer;
+    try {
+      data = await sharp(file.buffer, { limitInputPixels: 50_000_000 }).rotate().resize(GROUP_PHOTO_SIZE, GROUP_PHOTO_SIZE, { fit: "cover" }).webp({ quality: 82 }).toBuffer();
+    } catch {
+      throw new BadRequestException({ code: "invalid_image", message: "This file could not be read as a picture." });
+    }
+    await this.repo.setPhoto(conversationId, data);
+    return this.summary(conversationId, actorId);
+  }
+
+  async removeGroupPhoto(actorId: string, conversationId: string) {
+    await this.requireManager(conversationId, actorId);
+    await this.repo.removePhoto(conversationId);
+    return this.summary(conversationId, actorId);
+  }
+
+  /** The picture of a group, for its members only. */
+  async groupPhoto(actorId: string, conversationId: string) {
+    await this.requireMember(conversationId, actorId);
+    const photo = await this.repo.findPhoto(conversationId);
+    if (!photo) throw new NotFoundException({ code: "image_not_found", message: "This group has no picture." });
+    return { data: Buffer.from(photo.data), mimeType: "image/webp" };
+  }
+
+  /**
+   * Takes someone out of a group. The owner may remove anyone; an admin may remove ordinary members only (never the owner or
+   * another admin); nobody removes themselves this way (that is leaving).
+   */
+  async removeMember(actorId: string, conversationId: string, targetId: string) {
+    const { conversation, isOwner } = await this.requireManager(conversationId, actorId);
+    if (targetId === actorId) throw new BadRequestException({ code: "use_leave", message: "Leave the group instead." });
+    const target = conversation.members.find((m) => m.userId === targetId);
+    if (!target) throw new NotFoundException({ code: "member_not_found", message: "This person is not in the group." });
+    if (targetId === conversation.createdById || (target.role === "admin" && !isOwner)) {
+      throw new ForbiddenException({ code: "insufficient_permissions", message: "You cannot remove this person." });
+    }
+    await this.repo.removeMember(conversationId, targetId);
+    return this.summary(conversationId, actorId);
+  }
+
+  /** Makes a member an admin, or takes admin off: for the owner only. */
+  async setMemberRole(actorId: string, conversationId: string, targetId: string, dto: SetMemberRoleDto) {
+    const { conversation } = await this.requireManager(conversationId, actorId, true);
+    if (targetId === conversation.createdById) throw new BadRequestException({ code: "cannot_change_owner", message: "The owner's role cannot be changed." });
+    if (!conversation.members.some((m) => m.userId === targetId)) throw new NotFoundException({ code: "member_not_found", message: "This person is not in the group." });
+    await this.repo.setMemberRole(conversationId, targetId, dto.role);
     return this.summary(conversationId, actorId);
   }
 
@@ -225,7 +291,8 @@ export class MessagesService {
       isGroup: boolean;
       createdById: string | null;
       lastMessageAt: Date;
-      members: { user: PersonRow }[];
+      photo?: { updatedAt: Date } | null;
+      members: { userId: string; role: string; user: PersonRow }[];
       messages: { id: string; senderId: string | null; text: string; createdAt: Date; _count?: { attachments: number } }[];
     },
     unread: number
@@ -236,7 +303,8 @@ export class MessagesService {
       title: fixTanween(row.title),
       isGroup: row.isGroup,
       createdById: row.createdById,
-      members: row.members.map((m) => toPerson(m.user)),
+      photoVersion: row.photo ? row.photo.updatedAt.toISOString() : null,
+      members: row.members.map((m) => ({ ...toPerson(m.user), role: row.isGroup ? roleOf(row.createdById, m) : "member" })),
       lastMessage: last ? { id: last.id, senderId: last.senderId, text: fixTanween(last.text), imageCount: last._count?.attachments ?? 0, createdAt: last.createdAt } : null,
       unreadCount: unread,
       lastMessageAt: row.lastMessageAt,
@@ -248,6 +316,20 @@ export class MessagesService {
     if (!actor) throw new NotFoundException({ code: "user_not_found", message: "Account no longer exists." });
     if (isEffectivelyBanned(actor)) throw new ForbiddenException({ code: "account_banned", message: "This account has been banned." });
     return actor;
+  }
+
+  /** The person who started a group and its admins (`ownerOnly`: only the owner) — refused for anyone else, and for a chat between two. */
+  private async requireManager(conversationId: string, actorId: string, ownerOnly = false) {
+    await this.requireMember(conversationId, actorId);
+    const conversation = await this.repo.findConversation(conversationId);
+    if (!conversation) throw new NotFoundException({ code: "conversation_not_found", message: "This conversation does not exist." });
+    if (!conversation.isGroup) throw new BadRequestException({ code: "not_a_group", message: "This is only for groups." });
+    const isOwner = conversation.createdById === actorId;
+    const isAdmin = conversation.members.find((m) => m.userId === actorId)?.role === "admin";
+    if (ownerOnly ? !isOwner : !(isOwner || isAdmin)) {
+      throw new ForbiddenException({ code: "insufficient_permissions", message: ownerOnly ? "Only the owner of the group can do this." : "Only the group's owner and admins can do this." });
+    }
+    return { conversation, isOwner };
   }
 
   /** 404 rather than 403 for a conversation the caller is not in: whether it exists is not theirs to learn. */

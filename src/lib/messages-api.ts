@@ -7,6 +7,8 @@ export interface Person {
   username: string;
   displayName: string;
   avatarVersion: string | null;
+  /** In a group: the member's standing (its owner is who started it). */
+  role?: "owner" | "admin" | "member";
 }
 
 export interface ChatMessage {
@@ -30,6 +32,8 @@ export interface Conversation {
   title: string | null;
   isGroup: boolean;
   createdById: string | null;
+  /** When a group's picture last changed (part of its address, so a new picture is a new address); null without one. */
+  photoVersion?: string | null;
   members: Person[];
   lastMessage: ChatMessage | null;
   unreadCount: number;
@@ -52,6 +56,11 @@ const MESSAGES: Record<string, string> = {
   cannot_block_self: "لا يمكنك حظر نفسك.",
   message_not_found: "هذه الرسالة غير موجودة.",
   empty_message: "اكتب شيئًا أو أرفق صورة أولًا.",
+  invalid_image: "تعذرت قراءة هذا الملف كصورة.",
+  no_file: "اختر صورة أولًا.",
+  use_leave: "لمغادرة المجموعة استخدم زر المغادرة.",
+  member_not_found: "هذا الشخص ليس في المجموعة.",
+  cannot_change_owner: "لا يمكن تغيير دور مالك المجموعة.",
   invalid_attachment: "إحدى الصور لم تعد متاحة. أضفها من جديد.",
   too_many_images: "الحد الأقصى 10 صور في الرسالة.",
 };
@@ -75,6 +84,22 @@ async function call<T>(path: string, method: "GET" | "POST" | "PUT" | "PATCH" | 
   }
 }
 
+async function uploadGroupPhoto(id: string, file: File): Promise<ApiResult<Conversation>> {
+  try {
+    const form = new FormData();
+    form.append("file", file);
+    const res = await fetch(`/api/conversations/${encodeURIComponent(id)}/photo`, { method: "PUT", body: form, cache: "no-store" });
+    const json = await res.json().catch(() => null);
+    if (!res.ok) {
+      const code = (json as { code?: string } | null)?.code;
+      return { ok: false, status: res.status, message: (code && MESSAGES[code]) || "فشلت العملية." };
+    }
+    return { ok: true, body: json as Conversation };
+  } catch {
+    return { ok: false, status: 0, message: "تعذر الاتصال بالخادم." };
+  }
+}
+
 export const chatApi = {
   list: () => call<{ conversations: Conversation[] }>("/api/conversations", "GET"),
   unread: () => call<{ unreadConversations: number; unreadMessages: number }>("/api/conversations/unread-count", "GET"),
@@ -91,6 +116,16 @@ export const chatApi = {
   markRead: (id: string) => call<void>(`/api/conversations/${encodeURIComponent(id)}/read`, "POST", {}),
   addMembers: (id: string, usernames: string[]) => call<Conversation>(`/api/conversations/${encodeURIComponent(id)}/members`, "POST", { usernames }),
   leave: (id: string) => call<void>(`/api/conversations/${encodeURIComponent(id)}/members/me`, "DELETE"),
+  // ---- managing a group (its owner and admins) ----
+  /** The name of a group; empty takes it off. */
+  updateGroup: (id: string, title: string) => call<Conversation>(`/api/conversations/${encodeURIComponent(id)}`, "PATCH", { title }),
+  /** A picture chosen from the device (cropped to a square on the server). */
+  setGroupPhoto: (id: string, file: File) => uploadGroupPhoto(id, file),
+  removeGroupPhoto: (id: string) => call<Conversation>(`/api/conversations/${encodeURIComponent(id)}/photo`, "DELETE"),
+  removeMember: (id: string, userId: string) => call<Conversation>(`/api/conversations/${encodeURIComponent(id)}/members/${encodeURIComponent(userId)}`, "DELETE"),
+  /** Makes a member an admin or takes admin off (the owner only). */
+  setMemberRole: (id: string, userId: string, role: "admin" | "member") =>
+    call<Conversation>(`/api/conversations/${encodeURIComponent(id)}/members/${encodeURIComponent(userId)}`, "PATCH", { role }),
   /** Takes back a message the member wrote: it disappears for everyone in the chat. */
   editMessage: (id: string, messageId: string, text: string) =>
     call<ChatMessage>(`/api/conversations/${encodeURIComponent(id)}/messages/${encodeURIComponent(messageId)}`, "PATCH", { text }),

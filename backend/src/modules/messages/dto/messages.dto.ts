@@ -1,5 +1,5 @@
 import { Type } from "class-transformer";
-import { ArrayMaxSize, IsArray, IsDateString, IsInt, IsOptional, IsString, Max, MaxLength, Min, MinLength } from "class-validator";
+import { ArrayMaxSize, IsArray, IsDateString, IsIn, IsInt, IsOptional, IsString, Max, MaxLength, Min, MinLength } from "class-validator";
 
 /** Up to this many people besides the one starting the chat. */
 export const MAX_OTHER_MEMBERS = 19;
@@ -67,4 +67,17 @@ export class AddMembersDto {
   @IsString({ each: true })
   @MaxLength(41, { each: true })
   usernames!: string[];
+}
+
+/** A group's name; empty takes it off (the group then goes by its members' names). */
+export class UpdateConversationDto {
+  @IsString()
+  @MaxLength(60)
+  title!: string;
+}
+
+export const MEMBER_ROLES = ["admin", "member"] as const;
+export class SetMemberRoleDto {
+  @IsIn(MEMBER_ROLES)
+  role!: (typeof MEMBER_ROLES)[number];
 }
