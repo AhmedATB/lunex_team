@@ -20,14 +20,17 @@ export interface TeamPatch {
   status?: "active" | "suspended" | "archived";
   /** Empty string clears the leader. */
   leaderUsername?: string;
-  /** The team's own Discord webhook (its own server); empty string clears it. Kept out of every other read — see {@link teamApi.getDiscordSettings}. */
-  discordWebhookUrl?: string;
-  /** The role to ping on the team's own server; empty string clears it. Only has an effect together with `discordWebhookUrl`. */
+  /** The team's own Discord webhook for a new chapter (its own server); empty string clears it. Independent of `discordSeriesWebhookUrl`. Kept out of every other read — see {@link teamApi.getDiscordSettings}. */
+  discordChapterWebhookUrl?: string;
+  /** Same, for when this team's series is listed as a new work. */
+  discordSeriesWebhookUrl?: string;
+  /** The role to ping on the team's own server, for either webhook above; empty string clears it. Only has an effect together with at least one of them. */
   discordRoleId?: string;
 }
 
 export interface TeamDiscordSettings {
-  discordWebhookUrl: string | null;
+  discordChapterWebhookUrl: string | null;
+  discordSeriesWebhookUrl: string | null;
   discordRoleId: string | null;
 }
 

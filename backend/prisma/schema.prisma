@@ -636,11 +636,14 @@ model Team {
   /// ImageAsset id of the logo, or null (the UI draws a coloured initial instead).
   logoAssetId       String?
   discordUrl        String?
-  /// A Discord webhook address for the team's own server: chapter and new-work announcements about this team's series are also
-  /// posted there. Set by the team's own lead or a site manager; never shown on the team's public page.
-  discordWebhookUrl String?
-  /// The role on the team's own server to ping there (that server's roles are the team's own, not the site's, so the site's role
-  /// ids never apply). Only used together with discordWebhookUrl; without it nobody is pinged on the team's server.
+  /// A Discord webhook address for the team's own server: a new chapter of this team's series is also posted there. Independent
+  /// of discordSeriesWebhookUrl — a team may set either, both, or neither. Set by the team's own lead or a site manager; never
+  /// shown on the team's public page.
+  discordChapterWebhookUrl String?
+  /// Same, for when this team's series is listed as a new work.
+  discordSeriesWebhookUrl  String?
+  /// The role on the team's own server to ping there, for either webhook above (that server's roles are the team's own, not the
+  /// site's, so the site's role ids never apply). Only has an effect together with at least one of the webhooks above.
   discordRoleId     String?
   websiteUrl        String?
   category          String   @default("mixed") // manhwa | manhua | manga | novel | mixed

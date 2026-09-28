@@ -264,10 +264,8 @@ export class CatalogAdminService {
     }
 
     const leaderId = dto.leaderUsername === undefined ? undefined : dto.leaderUsername === "" ? null : await this.userIdByUsername(dto.leaderUsername);
-    const discordWebhookUrl = dto.discordWebhookUrl === undefined ? undefined : dto.discordWebhookUrl.trim() || null;
-    if (discordWebhookUrl && !isDiscordWebhookUrl(discordWebhookUrl)) {
-      throw new BadRequestException({ code: "invalid_discord_webhook", message: "This is not a Discord webhook address." });
-    }
+    const discordChapterWebhookUrl = this.normalizedWebhook(dto.discordChapterWebhookUrl);
+    const discordSeriesWebhookUrl = this.normalizedWebhook(dto.discordSeriesWebhookUrl);
     const discordRoleId = dto.discordRoleId === undefined ? undefined : dto.discordRoleId.trim() || null;
     if (discordRoleId && !isDiscordSnowflake(discordRoleId)) {
       throw new BadRequestException({ code: "invalid_discord_role", message: "This is not a Discord role id." });
@@ -279,7 +277,8 @@ export class CatalogAdminService {
       color: dto.color,
       category: dto.category,
       discordUrl: dto.discordUrl,
-      discordWebhookUrl,
+      discordChapterWebhookUrl,
+      discordSeriesWebhookUrl,
       discordRoleId,
       websiteUrl: dto.websiteUrl,
       recruiting: dto.recruiting,
@@ -289,20 +288,34 @@ export class CatalogAdminService {
     await this.audit(actor, "catalog.team_updated", id, ctx);
     if (dto.status !== undefined && dto.status !== team.status) await this.activity.record(id, "team_status_changed", { actorId: actor.id, detail: dto.status });
     if (leaderId !== undefined && leaderId !== team.leaderId) await this.activity.record(id, "leader_changed", { actorId: actor.id, subjectId: leaderId });
-    const infoFields = [dto.name, dto.description, dto.goals, dto.color, dto.category, dto.discordUrl, discordWebhookUrl, discordRoleId, dto.websiteUrl, dto.recruiting];
+    const infoFields = [dto.name, dto.description, dto.goals, dto.color, dto.category, dto.discordUrl, discordChapterWebhookUrl, discordSeriesWebhookUrl, discordRoleId, dto.websiteUrl, dto.recruiting];
     if (infoFields.some((value) => value !== undefined)) await this.activity.record(id, "team_updated", { actorId: actor.id });
     this.catalog.invalidate();
     return toTeamDto(row as TeamRow, 0, null);
   }
 
-  /** The team's own Discord setup (its server's webhook and the role to ping there), for whoever may edit the team — never part of the public team page. */
-  async getTeamDiscordSettings(actorId: string, id: string): Promise<{ discordWebhookUrl: string | null; discordRoleId: string | null }> {
+  /** Trims a Discord webhook field, clearing it on an empty string, and refuses anything non-empty that is not really Discord's. */
+  private normalizedWebhook(value: string | undefined): string | null | undefined {
+    if (value === undefined) return undefined;
+    const trimmed = value.trim() || null;
+    if (trimmed && !isDiscordWebhookUrl(trimmed)) {
+      throw new BadRequestException({ code: "invalid_discord_webhook", message: "This is not a Discord webhook address." });
+    }
+    return trimmed;
+  }
+
+  /** The team's own Discord setup (its server's webhooks and the role to ping there), for whoever may edit the team — never part of the public team page. */
+  async getTeamDiscordSettings(actorId: string, id: string): Promise<{ discordChapterWebhookUrl: string | null; discordSeriesWebhookUrl: string | null; discordRoleId: string | null }> {
     const actor = await this.requireActor(actorId);
     const team = await this.requireTeam(id);
     if (!TEAM_MANAGERS.has(actor.role) && !(await this.isTeamLead(actor.id, team.id))) {
       throw new ForbiddenException({ code: "insufficient_permissions", message: "You cannot manage this team." });
     }
-    return { discordWebhookUrl: team.discordWebhookUrl ?? null, discordRoleId: team.discordRoleId ?? null };
+    return {
+      discordChapterWebhookUrl: team.discordChapterWebhookUrl ?? null,
+      discordSeriesWebhookUrl: team.discordSeriesWebhookUrl ?? null,
+      discordRoleId: team.discordRoleId ?? null,
+    };
   }
 
   async deleteTeam(actorId: string, id: string, ctx: RequestContext): Promise<void> {

@@ -23,11 +23,16 @@ export class AnnouncementsRepository {
     return (await this.prisma.team.findUnique({ where: { id: teamId }, select: { name: true } }))?.name ?? null;
   }
 
-  /** The team's own Discord server, if it set a webhook there: the address, and the role to ping (that server's roles are the team's own, never the site's). */
-  async teamDiscord(teamId: string | null): Promise<{ webhookUrl: string; roleId: string | null } | null> {
+  /**
+   * The team's own Discord server, if it set a webhook there for this `kind` of post: the address, and the role to ping (that
+   * server's roles are the team's own, never the site's). The two webhooks are independent — a team may set either, both, or
+   * neither.
+   */
+  async teamDiscord(teamId: string | null, kind: "chapter" | "series"): Promise<{ webhookUrl: string; roleId: string | null } | null> {
     if (!teamId) return null;
-    const team = await this.prisma.team.findUnique({ where: { id: teamId }, select: { discordWebhookUrl: true, discordRoleId: true } });
-    return team?.discordWebhookUrl ? { webhookUrl: team.discordWebhookUrl, roleId: team.discordRoleId } : null;
+    const team = await this.prisma.team.findUnique({ where: { id: teamId }, select: { discordChapterWebhookUrl: true, discordSeriesWebhookUrl: true, discordRoleId: true } });
+    const webhookUrl = kind === "chapter" ? team?.discordChapterWebhookUrl : team?.discordSeriesWebhookUrl;
+    return webhookUrl ? { webhookUrl, roleId: team?.discordRoleId ?? null } : null;
   }
 
   /** The featured picture of the newest of these chapters that has one (the batch's face), if any. */

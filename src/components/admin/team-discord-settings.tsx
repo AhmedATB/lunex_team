@@ -9,15 +9,16 @@ import { Label } from "@/components/ui/label";
 import { useToast } from "@/store/toast";
 
 /**
- * A team's own Discord server: chapter and new-work announcements about this team can also post there, with a webhook and role
- * this team supplies — every server has its own, so the site's own webhook and role never apply here. Shown only to this team's
- * own leader (from the team's dashboard) or a site manager (from «إدارة الفرق»); its data is fetched from its own endpoint so
- * it never rides on the team's public page.
+ * A team's own Discord server: a new chapter, and a new work, can each post there through their own webhook — independent of
+ * each other, and independent of the site's own webhooks and role (every server has its own). Shown only to this team's own
+ * leader (from the team's dashboard) or a site manager (from «إدارة الفرق»); its data is fetched from its own endpoint so it
+ * never rides on the team's public page.
  */
 export function TeamDiscordSettings({ teamId }: { teamId: string }) {
   const [loaded, setLoaded] = useState(false);
   const [loadError, setLoadError] = useState("");
-  const [webhook, setWebhook] = useState("");
+  const [chapterWebhook, setChapterWebhook] = useState("");
+  const [seriesWebhook, setSeriesWebhook] = useState("");
   const [role, setRole] = useState("");
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
@@ -28,7 +29,8 @@ export function TeamDiscordSettings({ teamId }: { teamId: string }) {
     void teamApi.getDiscordSettings(teamId).then((result) => {
       if (cancelled) return;
       if (result.ok) {
-        setWebhook(result.body.discordWebhookUrl ?? "");
+        setChapterWebhook(result.body.discordChapterWebhookUrl ?? "");
+        setSeriesWebhook(result.body.discordSeriesWebhookUrl ?? "");
         setRole(result.body.discordRoleId ?? "");
         setLoadError("");
       } else {
@@ -44,7 +46,11 @@ export function TeamDiscordSettings({ teamId }: { teamId: string }) {
   async function save() {
     setBusy(true);
     setError("");
-    const result = await teamApi.update(teamId, { discordWebhookUrl: webhook.trim(), discordRoleId: role.trim() });
+    const result = await teamApi.update(teamId, {
+      discordChapterWebhookUrl: chapterWebhook.trim(),
+      discordSeriesWebhookUrl: seriesWebhook.trim(),
+      discordRoleId: role.trim(),
+    });
     setBusy(false);
     if (!result.ok) return setError(result.message);
     useToast.getState().push({ title: "حُفظت إعدادات ديسكورد" });
@@ -55,7 +61,7 @@ export function TeamDiscordSettings({ teamId }: { teamId: string }) {
       <div>
         <p className="text-sm font-semibold text-white">إشعارات على سيرفر الفريق في ديسكورد</p>
         <p className="mt-0.5 text-xs text-lunex-gray">
-          فصل جديد أو عمل جديد لهذا الفريق يُنشر أيضًا على سيرفركم في ديسكورد، بالإضافة إلى قناة الموقع الرئيسية. لا يظهر هذا القسم لغير قائد الفريق ومدراء الموقع.
+          كل واحد من الرابطين اختياري ومستقل عن الآخر — فعّلوا أحدهما أو كليهما. تُنشر الإشعارات هناك بالإضافة إلى قناة الموقع الرئيسية. لا يظهر هذا القسم لغير قائد الفريق ومدراء الموقع.
         </p>
       </div>
 
@@ -71,18 +77,34 @@ export function TeamDiscordSettings({ teamId }: { teamId: string }) {
             </p>
           )}
           <div className="space-y-1.5">
-            <Label htmlFor={`discord-webhook-${teamId}`}>رابط الويبهوك</Label>
+            <Label htmlFor={`discord-chapter-webhook-${teamId}`}>ويبهوك الفصول الجديدة</Label>
             <Input
-              id={`discord-webhook-${teamId}`}
+              id={`discord-chapter-webhook-${teamId}`}
               dir="ltr"
-              value={webhook}
-              onChange={(e) => setWebhook(e.target.value)}
+              value={chapterWebhook}
+              onChange={(e) => setChapterWebhook(e.target.value)}
               placeholder="https://discord.com/api/webhooks/..."
               autoComplete="off"
               disabled={busy}
             />
-            <p className="text-xs text-lunex-gray">من إعدادات القناة في سيرفركم ← التكاملات ← ويبهوكس ← إنشاء ويبهوك، ثم انسخوا الرابط هنا. اتركوه فارغًا لإيقاف الإرسال لسيرفركم.</p>
+            <p className="text-xs text-lunex-gray">يُنشر إليه عند صدور فصل جديد من إحدى أعمال الفريق.</p>
           </div>
+          <div className="space-y-1.5">
+            <Label htmlFor={`discord-series-webhook-${teamId}`}>ويبهوك الأعمال الجديدة</Label>
+            <Input
+              id={`discord-series-webhook-${teamId}`}
+              dir="ltr"
+              value={seriesWebhook}
+              onChange={(e) => setSeriesWebhook(e.target.value)}
+              placeholder="https://discord.com/api/webhooks/..."
+              autoComplete="off"
+              disabled={busy}
+            />
+            <p className="text-xs text-lunex-gray">يُنشر إليه عند إضافة عمل جديد للفريق إلى الموقع. يمكن أن يكون نفس رابط الأعلى أو رابطًا آخر — أو تتركوه فارغًا.</p>
+          </div>
+          <p className="text-xs text-lunex-gray">
+            من إعدادات القناة في سيرفركم ← التكاملات ← ويبهوكس ← إنشاء ويبهوك، ثم انسخوا الرابط. كرّروا الخطوة لقناة ثانية إذا أردتم فصل الإشعارين.
+          </p>
           <div className="space-y-1.5">
             <Label htmlFor={`discord-role-${teamId}`}>الرتبة المذكورة عند النشر (اختياري)</Label>
             <Input
@@ -94,7 +116,7 @@ export function TeamDiscordSettings({ teamId }: { teamId: string }) {
               autoComplete="off"
               disabled={busy}
             />
-            <p className="text-xs text-lunex-gray">فعّلوا «وضع المطوّر» من إعدادات ديسكورد، ثم بيمين الرتبة في سيرفركم ← «نسخ المعرّف». اتركوه فارغًا لعدم ذكر أي رتبة.</p>
+            <p className="text-xs text-lunex-gray">تُذكر عند النشر على أي من الرابطين أعلاه. فعّلوا «وضع المطوّر» من إعدادات ديسكورد، ثم بيمين الرتبة في سيرفركم ← «نسخ المعرّف». اتركوه فارغًا لعدم ذكر أي رتبة.</p>
           </div>
           {error && (
             <p className="text-sm text-red-400" role="alert">

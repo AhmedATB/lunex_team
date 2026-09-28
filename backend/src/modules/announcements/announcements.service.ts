@@ -151,7 +151,7 @@ export class AnnouncementsService implements OnModuleDestroy {
     const numbers = await this.repo.stillPublished(seriesId, published);
     if (numbers.length === 0) return;
 
-    const [team, genres, teamDiscord] = await Promise.all([this.repo.teamName(series.teamId), this.repo.genres(seriesId), this.repo.teamDiscord(series.teamId)]);
+    const [team, genres, teamDiscord] = await Promise.all([this.repo.teamName(series.teamId), this.repo.genres(seriesId), this.repo.teamDiscord(series.teamId, "chapter")]);
     const name = series.titleAr || series.titleEn;
     const label = numbers.length === 1 ? `الفصل ${numbers[0]}` : `الفصول ${numbers[0]}–${numbers[numbers.length - 1]}`;
     const seriesUrl = `${this.site}/series/${encodeURIComponent(series.slug)}`;
@@ -170,7 +170,7 @@ export class AnnouncementsService implements OnModuleDestroy {
   private async announceSeries(seriesId: string) {
     const series = await this.repo.findSeries(seriesId);
     if (!series || series.state !== "approved") return;
-    const [team, genres, teamDiscord] = await Promise.all([this.repo.teamName(series.teamId), this.repo.genres(seriesId), this.repo.teamDiscord(series.teamId)]);
+    const [team, genres, teamDiscord] = await Promise.all([this.repo.teamName(series.teamId), this.repo.genres(seriesId), this.repo.teamDiscord(series.teamId, "series")]);
     const seriesUrl = `${this.site}/series/${encodeURIComponent(series.slug)}`;
     await Promise.all([
       this.postDiscordSeries({ name: series.titleAr || series.titleEn, link: seriesUrl, cover: this.coverOf(series), summary: clip(series.synopsis, 400), team }, genres, teamDiscord),
