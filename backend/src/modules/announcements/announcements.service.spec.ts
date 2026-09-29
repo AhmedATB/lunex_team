@@ -62,7 +62,7 @@ afterEach(() => {
   fetchMock.mockRestore();
 });
 
-/** Publishes, lets the minute pass and the queue run. */
+/** Publishes, lets the batching window pass and the queue run. */
 async function publishAndWait(service: AnnouncementsService, seriesId: string, ...numbers: number[]) {
   for (const n of numbers) service.chapterPublished(seriesId, n);
   const done = service.flush(seriesId);
@@ -271,7 +271,7 @@ describe("announcing a chapter", () => {
   });
 });
 
-/** Adds a work and lets the minute pass and the queue run. */
+/** Adds a work and lets the batching window pass and the queue run. */
 async function addAndWait(service: AnnouncementsService, seriesId: string) {
   service.seriesAdded(seriesId);
   const done = service.flushSeries(seriesId);
@@ -356,10 +356,10 @@ describe("announcing a new work", () => {
     expect(fetchMock).not.toHaveBeenCalled();
   });
 
-  it("waits a minute by itself, and never posts anything to Telegram", async () => {
+  it("waits ten minutes by itself, and never posts anything to Telegram", async () => {
     const { service } = build({ DISCORD_NEW_SERIES_WEBHOOK_URL: SERIES_HOOK, ...TELEGRAM });
     service.seriesAdded("s1");
-    await jest.advanceTimersByTimeAsync(59_000);
+    await jest.advanceTimersByTimeAsync(9 * 60_000 + 59_000);
     expect(fetchMock).not.toHaveBeenCalled();
     await jest.advanceTimersByTimeAsync(10_000);
     expect(calls("discord.com")).toHaveLength(1);

@@ -3,11 +3,12 @@ import { ConfigService } from "@nestjs/config";
 import { AnnouncementsRepository } from "./announcements.repository";
 
 /**
- * A chapter published in the minute after another of the same work goes out in one announcement, not one each: publishing a batch
- * must not flood a channel. And two announcements are never closer than this, whichever works they are about. A new work waits the
- * same minute, so the team has time to give it its cover before it is announced.
+ * A chapter published within this long of another of the same work goes out in one announcement, not one each — ten chapters
+ * released together become one post ("صدرت الفصول 1–10"), never ten. Publishing a batch must not flood a channel. And two
+ * announcements are never closer than SPACING_MS, whichever works they are about. A new work waits the same stretch, so the team
+ * has time to give it its cover before it is announced.
  */
-const GATHER_MS = 60_000;
+const GATHER_MS = 10 * 60_000;
 const SPACING_MS = 1_500;
 const SEND_TIMEOUT_MS = 8_000;
 
