@@ -16,7 +16,7 @@ export default function robots(): MetadataRoute.Robots {
         ],
         // Pages that need an account (a crawler would only be sent to the sign-in page), and the site's own data routes.
         // The chapter pages (/series/<work>/<number>) are open to search engines on purpose: their images stay behind tokens.
-        disallow: ["/admin", "/api", "/messages", "/store", "/profile", "/bookmarks", "/teams/create", "/teams/*/dashboard", "/login", "/register", "/forgot-password", "/reset-password"],
+        disallow: ["/admin", "/api", "/messages", "/store", "/profile", "/bookmarks", "/teams/create", "/teams/*/dashboard", "/login", "/register", "/forgot-password", "/reset-password", "/partners"],
       },
     ],
     sitemap: `${SITE_URL}/sitemap.xml`,

@@ -8,8 +8,12 @@
  * page brings the visitor back to it.)
  */
 
-/** Reachable without an account: signing in/up, password reset, and the terms and privacy policy (linked from the sign-up form). */
-export const PUBLIC_PAGES = ["/login", "/register", "/forgot-password", "/reset-password", "/terms", "/privacy"] as const;
+/**
+ * Reachable without an account: signing in/up, password reset, and the terms and privacy policy (linked from the sign-up form).
+ * `/partners/terms` is the same kind of page (a static rules document, no account needed to read it — a prospective team has none
+ * yet) but deliberately unlinked from any page or nav; it is disallowed in `robots.ts` too, so only whoever is handed the URL finds it.
+ */
+export const PUBLIC_PAGES = ["/login", "/register", "/forgot-password", "/reset-password", "/terms", "/privacy", "/partners/terms"] as const;
 
 /**
  * The pages a follower may open. A series' own page is one segment (`/series/<slug>`); the reader is one deeper
