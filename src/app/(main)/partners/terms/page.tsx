@@ -7,6 +7,7 @@ import {
   History,
   ShieldAlert,
   ShieldCheck,
+  ShieldOff,
   Sparkles,
   Target,
   TimerReset,
@@ -102,7 +103,20 @@ export default function PartnerTermsPage() {
         </ul>
       </Section>
 
-      <Section n="02" icon={Coins} title="المستحقات">
+      <Section n="02" icon={ShieldOff} title="المحتوى الممنوع">
+        <p>لا يجوز نشر أي عمل يحتوي على:</p>
+        <ul className="list-disc space-y-2 ps-5 marker:text-red-400">
+          <li>مشاهد جنسية صريحة أو محتوى مصنّف +18.</li>
+          <li>محتوى خادش للحياء العام.</li>
+          <li>دعوة صريحة للكفر أو إساءة مباشرة للأديان والمعتقدات.</li>
+        </ul>
+        <p>
+          أي عمل كهذا <span className="font-semibold text-white">يُرفض في مرحلة المراجعة قبل النشر</span>. وإن اكتُشف بعد
+          النشر، يُحذف فورًا، ويُعامل الفريق حسب خطورة الحالة — بنفس تدرّج العقوبة المذكور بسياسة المحتوى المسروق أدناه.
+        </p>
+      </Section>
+
+      <Section n="03" icon={Coins} title="المستحقات">
         <p>تُحتسب مستحقات <span className="font-semibold text-white">كل فصل بناءً على المشاهدات والجودة</span> معًا — لا سعر ثابت لكل الفصول.</p>
         <p>التدقيق مسؤولية LUNEX أصلًا، أو يُتفق مع الفريق على قيامه به إذا كان لديهم شخص مناسب لهذه المهمة.</p>
         <p>
@@ -112,7 +126,7 @@ export default function PartnerTermsPage() {
         </p>
       </Section>
 
-      <Section n="03" icon={ShieldCheck} title="الحصرية والملكية">
+      <Section n="04" icon={ShieldCheck} title="الحصرية والملكية">
         <p>
           كل عمل يُنشر عبر LUNEX TEAM يصبح <span className="font-semibold text-white">حصريًا للموقع</span> — لا يُنشر على أي
           موقع أو قناة أخرى بعد نشره معنا.
@@ -124,7 +138,7 @@ export default function PartnerTermsPage() {
         </p>
       </Section>
 
-      <Section n="04" icon={Target} title="الالتزام والحد الأدنى">
+      <Section n="05" icon={Target} title="الالتزام والحد الأدنى">
         <div className="flex flex-wrap items-center gap-3 rounded-xl border border-white/10 bg-white/[0.03] p-4">
           <div className="flex items-baseline gap-2">
             <span className="font-display text-3xl font-black text-white">٥</span>
@@ -142,7 +156,7 @@ export default function PartnerTermsPage() {
         </p>
       </Section>
 
-      <Section n="05" icon={TimerReset} title="التأخير والتوقف">
+      <Section n="06" icon={TimerReset} title="التأخير والتوقف">
         <ol className="space-y-0">
           {LADDER.map((step, i) => (
             <li key={step.title} className="relative flex gap-3 pb-4 last:pb-0">
@@ -159,7 +173,7 @@ export default function PartnerTermsPage() {
         </ol>
       </Section>
 
-      <Section n="06" icon={ShieldAlert} title="المحتوى المسروق">
+      <Section n="07" icon={ShieldAlert} title="المحتوى المسروق">
         <div className="grid gap-3 sm:grid-cols-2">
           <div className="rounded-xl border border-red-400/25 bg-red-400/[0.06] p-3.5">
             <p className="text-sm font-bold text-white">سرقتم فصلًا من فريق آخر بدون إخبارنا</p>
@@ -174,7 +188,7 @@ export default function PartnerTermsPage() {
         </div>
       </Section>
 
-      <Section n="07" icon={Copyright} title="حقوق النشر والعلامات">
+      <Section n="08" icon={Copyright} title="حقوق النشر والعلامات">
         <p>
           صفحة بداية الفصل هي صفحتكم الخاصة كفريق. أما باقي الفصل، فلا يجوز وضع أي علامة مائية أو شعار خاص بالفريق فيه، ولا
           كعلامة متكررة على صفحاته.
@@ -182,7 +196,7 @@ export default function PartnerTermsPage() {
         <p><span className="font-semibold text-white">العلامة المائية حق لـ LUNEX TEAM</span> وتوضع بشكل متكرر على كل صفحات الفصل.</p>
       </Section>
 
-      <Section n="08" icon={History} title="أعمال منشورة مسبقًا في موقع آخر">
+      <Section n="09" icon={History} title="أعمال منشورة مسبقًا في موقع آخر">
         <p>إذا كان عندكم فصول مترجمة ومنشورة مسبقًا في موقع آخر وتريدون نشرها معنا:</p>
         <p>
           <span className="font-semibold text-white">يجب إثبات أنكم المترجمون الأصليون</span> لها أولًا — لا تُقبل بدون إثبات،
@@ -198,7 +212,7 @@ export default function PartnerTermsPage() {
         </div>
       </Section>
 
-      <Section n="09" icon={Handshake} title="الاستمرارية">
+      <Section n="10" icon={Handshake} title="الاستمرارية">
         <p>التعاون قائم على الالتزام من الطرفين، وأي توقف لفترة طويلة يُفضَّل إبلاغ الإدارة به مسبقًا.</p>
         <p>المستحقات الخاصة بالأعمال المنجزة تبقى محفوظة حسب الاتفاق حتى في حال انتهاء التعاون.</p>
       </Section>
