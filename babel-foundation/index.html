@@ -1,0 +1,507 @@
+<!doctype html>
+<html lang="ar" dir="rtl">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="description" content="مؤسسة بابل ومهرجان بابل الثقافي">
+<title>مؤسسة بابل</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Reem+Kufi:wght@500;600;700&family=IBM+Plex+Sans+Arabic:wght@400;500;600&display=swap">
+<style>
+/* Layout: بوابة عشتار — شريط آجر مزجّج يفصل بين بابين؛ الصفحة الرئيسية بابان متجاوران، وكل باب يفتح قسمه (المؤسسة / المهرجان) */
+:root {
+  --bg: #f3f1ec;          /* طين مجفف فاتح */
+  --surface: #fbfaf7;
+  --fg: #1b2233;
+  --muted: #5b6275;
+  --line: #d9d5cb;
+  --lapis: #1f3f8f;       /* لازورد بوابة عشتار */
+  --lapis-deep: #142a63;
+  --gold: #b8862b;        /* ذهب الأسود المزجّجة */
+  --glaze: #1b7a8c;       /* فيروزي الآجر للمهرجان */
+  --on-accent: #fbfaf7;
+  --accent: var(--lapis);
+  --font-display: "Reem Kufi", "Noto Kufi Arabic", "Segoe UI", Tahoma, sans-serif;
+  --font-body: "IBM Plex Sans Arabic", "Segoe UI", Tahoma, Arial, sans-serif;
+  --step-0: 1rem; --step-1: 1.25rem; --step-2: 1.6rem; --step-3: 2.1rem; --step-4: clamp(2.2rem, 6vw, 3.6rem);
+  --radius: 6px;
+  --gutter: clamp(16px, 4vw, 40px);
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --bg: #0f1422; --surface: #161d30; --fg: #eceae3; --muted: #a3a8b8; --line: #2a3350;
+    --lapis: #6d8fe0; --lapis-deep: #1a2c5e; --gold: #d9a948; --glaze: #45b3c4; --on-accent: #0f1422;
+    color-scheme: dark;
+  }
+}
+:root[data-theme="dark"] {
+  --bg: #0f1422; --surface: #161d30; --fg: #eceae3; --muted: #a3a8b8; --line: #2a3350;
+  --lapis: #6d8fe0; --lapis-deep: #1a2c5e; --gold: #d9a948; --glaze: #45b3c4; --on-accent: #0f1422;
+  color-scheme: dark;
+}
+[data-view="festival"] { --accent: var(--glaze); }
+
+* { box-sizing: border-box; }
+html { scroll-behavior: smooth; }
+@media (prefers-reduced-motion: reduce) { html { scroll-behavior: auto; } * { transition: none !important; animation: none !important; } }
+body {
+  margin: 0; background: var(--bg); color: var(--fg);
+  font-family: var(--font-body); font-size: var(--step-0); line-height: 1.8;
+}
+h1, h2, h3 { font-family: var(--font-display); line-height: 1.3; text-wrap: balance; margin: 0; font-weight: 600; }
+p { margin: 0; }
+a { color: var(--accent); }
+:focus-visible { outline: 3px solid var(--gold); outline-offset: 3px; }
+.wrap { max-width: 1120px; margin-inline: auto; padding-inline: var(--gutter); }
+
+/* شريط الآجر المزجّج */
+.bricks {
+  height: 18px;
+  background:
+    linear-gradient(90deg, transparent 0 calc(100% - 2px), var(--bg) calc(100% - 2px)) 0 0 / 36px 9px,
+    linear-gradient(90deg, transparent 0 calc(100% - 2px), var(--bg) calc(100% - 2px)) 18px 9px / 36px 9px,
+    linear-gradient(180deg, transparent 0 7px, var(--bg) 7px 9px) 0 0 / 100% 9px,
+    var(--accent);
+  background-repeat: repeat-x, repeat-x, repeat, no-repeat;
+}
+
+/* الترويسة */
+header.site {
+  position: sticky; top: env(safe-area-inset-top, 0px); z-index: 10;
+  background: color-mix(in srgb, var(--bg) 92%, transparent);
+  backdrop-filter: blur(8px); border-bottom: 1px solid var(--line);
+}
+.bar { display: flex; align-items: center; justify-content: space-between; gap: 16px; padding-block: 12px; flex-wrap: wrap; }
+.brand { display: flex; align-items: center; gap: 10px; text-decoration: none; color: var(--fg); font-family: var(--font-display); font-size: var(--step-1); font-weight: 700; }
+.brand svg { width: 34px; height: 34px; color: var(--gold); flex: none; }
+.switch { display: flex; gap: 4px; padding: 4px; border: 1px solid var(--line); border-radius: 999px; background: var(--surface); }
+.switch a {
+  text-decoration: none; color: var(--muted); padding: 6px 16px; border-radius: 999px;
+  font-family: var(--font-display); font-weight: 600; font-size: .95rem; white-space: nowrap;
+}
+.switch a[aria-current="page"] { background: var(--accent); color: var(--on-accent); }
+[data-view="home"] .switch a[aria-current="page"] { background: var(--fg); color: var(--bg); }
+
+/* الصفحة الرئيسية: بابان */
+.gates { display: grid; grid-template-columns: 1fr 1fr; gap: clamp(16px, 3vw, 32px); padding-block: clamp(32px, 6vw, 72px); }
+.gate {
+  position: relative; display: flex; flex-direction: column; justify-content: flex-end; gap: 12px;
+  min-height: 420px; padding: clamp(24px, 4vw, 44px); text-decoration: none; color: #f6f1e4;
+  border-radius: 220px 220px var(--radius) var(--radius); overflow: hidden; isolation: isolate;
+  transition: transform .25s ease;
+}
+.gate::before {
+  content: ""; position: absolute; inset: 0; z-index: -1;
+  background:
+    linear-gradient(90deg, transparent 0 calc(100% - 2px), rgba(0,0,0,.18) calc(100% - 2px)) 0 0 / 44px 22px,
+    linear-gradient(90deg, transparent 0 calc(100% - 2px), rgba(0,0,0,.18) calc(100% - 2px)) 22px 22px / 44px 44px,
+    linear-gradient(180deg, transparent 0 20px, rgba(0,0,0,.18) 20px 22px) 0 0 / 100% 22px,
+    var(--gate-color);
+}
+.gate::after { content: ""; position: absolute; inset: 0; z-index: -1; background: linear-gradient(0deg, rgba(8,12,28,.78), rgba(8,12,28,.05) 70%); }
+.gate:hover { transform: translateY(-4px); }
+.gate--foundation { --gate-color: #1f3f8f; }
+.gate--festival { --gate-color: #16707f; }
+.gate .emblem { position: absolute; top: 56px; inset-inline: 0; margin-inline: auto; width: 96px; height: 96px; color: #e2b457; }
+.gate .eyebrow { font-size: .85rem; letter-spacing: .04em; color: #e2b457; font-weight: 600; }
+.gate h2 { font-size: var(--step-3); color: #fff; }
+.gate p { color: #dfe3ee; max-width: 38ch; }
+.gate .go { font-family: var(--font-display); font-weight: 600; color: #fff; }
+
+.intro { padding-block: clamp(40px, 6vw, 64px) 8px; display: grid; gap: 14px; max-width: 62ch; }
+.intro h1 { font-size: var(--step-4); }
+.intro h1 span { color: var(--gold); }
+.intro p { color: var(--muted); font-size: var(--step-1); }
+
+/* الأقسام */
+section.block { padding-block: clamp(40px, 6vw, 72px); border-top: 1px solid var(--line); }
+section.block:first-of-type { border-top: 0; }
+.head { display: grid; gap: 8px; margin-bottom: 28px; max-width: 62ch; }
+.eyebrow { font-size: .85rem; font-weight: 600; letter-spacing: .04em; color: var(--gold); }
+.head h2 { font-size: var(--step-3); }
+.head p { color: var(--muted); }
+
+.hero { padding-block: clamp(40px, 7vw, 84px); display: grid; gap: 18px; }
+.hero h1 { font-size: var(--step-4); max-width: 18ch; }
+.hero h1 em { font-style: normal; color: var(--accent); }
+.hero .lead { font-size: var(--step-1); color: var(--muted); max-width: 58ch; }
+.actions { display: flex; gap: 12px; flex-wrap: wrap; }
+.btn {
+  display: inline-flex; align-items: center; gap: 8px; padding: 10px 22px; border-radius: var(--radius);
+  font-family: var(--font-display); font-weight: 600; font-size: 1rem; text-decoration: none; cursor: pointer;
+  border: 2px solid var(--accent); background: var(--accent); color: var(--on-accent);
+}
+.btn--ghost { background: transparent; color: var(--accent); }
+
+.pillars { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 32px; }
+.pillars h3 { font-size: var(--step-1); margin-bottom: 6px; }
+.pillars p { color: var(--muted); }
+.pillars > div { border-top: 3px solid var(--accent); padding-top: 14px; }
+
+.grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(240px, 1fr)); gap: 16px; }
+.card { background: var(--surface); border: 1px solid var(--line); border-radius: var(--radius); padding: 22px; display: grid; gap: 8px; align-content: start; }
+.card h3 { font-size: var(--step-1); }
+.card p { color: var(--muted); font-size: .95rem; }
+.card .tag { font-size: .8rem; color: var(--accent); font-weight: 600; }
+
+.stats { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 16px; margin-top: 36px; }
+.stats div { display: grid; }
+.stats b { font-family: var(--font-display); font-size: var(--step-3); color: var(--accent); font-variant-numeric: tabular-nums; }
+.stats span { color: var(--muted); font-size: .9rem; }
+
+.news { display: grid; gap: 0; }
+.news article { display: grid; grid-template-columns: 9rem minmax(0, 1fr); gap: 20px; padding-block: 18px; border-bottom: 1px solid var(--line); }
+.news time { color: var(--muted); font-size: .9rem; font-variant-numeric: tabular-nums; }
+.news h3 { font-size: var(--step-1); margin-bottom: 4px; }
+.news p { color: var(--muted); }
+
+/* برنامج المهرجان */
+.days { display: flex; gap: 6px; flex-wrap: wrap; margin-bottom: 20px; }
+.days button {
+  font: inherit; font-family: var(--font-display); font-weight: 600; cursor: pointer;
+  padding: 8px 16px; border-radius: var(--radius); border: 1px solid var(--line); background: var(--surface); color: var(--fg);
+}
+.days button[aria-selected="true"] { background: var(--accent); color: var(--on-accent); border-color: var(--accent); }
+.schedule { list-style: none; margin: 0; padding: 0; display: grid; }
+.schedule li { display: grid; grid-template-columns: 5.5rem minmax(0, 1fr) auto; gap: 16px; align-items: baseline; padding-block: 14px; border-bottom: 1px solid var(--line); }
+.schedule time { font-family: var(--font-display); font-weight: 600; color: var(--accent); font-variant-numeric: tabular-nums; }
+.schedule strong { display: block; font-weight: 600; }
+.schedule small { color: var(--muted); }
+.schedule .where { font-size: .85rem; color: var(--muted); white-space: nowrap; }
+
+.edition { display: inline-flex; gap: 10px; align-items: center; flex-wrap: wrap; font-family: var(--font-display); font-weight: 600; color: var(--gold); }
+.edition span + span::before { content: "•"; margin-inline-end: 10px; color: var(--line); }
+
+/* النماذج */
+form { display: grid; gap: 14px; max-width: 640px; }
+.row2 { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; }
+label { display: grid; gap: 6px; font-weight: 500; font-size: .95rem; }
+input, select, textarea {
+  font: inherit; padding: 10px 12px; border-radius: var(--radius); border: 1px solid var(--line);
+  background: var(--surface); color: var(--fg); width: 100%;
+}
+textarea { min-height: 110px; resize: vertical; }
+.note { color: var(--muted); font-size: .9rem; }
+.ok { padding: 12px 16px; border-radius: var(--radius); background: color-mix(in srgb, var(--accent) 14%, transparent); color: var(--fg); }
+
+.contact { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1.3fr); gap: 40px; }
+.contact dl { margin: 0; display: grid; gap: 14px; }
+.contact dt { color: var(--muted); font-size: .85rem; }
+.contact dd { margin: 0; font-weight: 500; user-select: all; }
+
+footer { border-top: 1px solid var(--line); padding-block: 28px; color: var(--muted); font-size: .9rem; }
+footer .wrap { display: flex; justify-content: space-between; gap: 16px; flex-wrap: wrap; }
+.placeholder { background: color-mix(in srgb, var(--gold) 22%, transparent); padding-inline: 4px; border-radius: 3px; }
+
+@media (max-width: 760px) {
+  .gates, .pillars, .contact, .row2 { grid-template-columns: 1fr; }
+  .gate { min-height: 360px; border-radius: 160px 160px var(--radius) var(--radius); }
+  .gate .emblem { top: 40px; width: 72px; height: 72px; }
+  .stats { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .news article { grid-template-columns: 1fr; gap: 4px; }
+  .schedule li { grid-template-columns: 4.5rem minmax(0, 1fr); }
+  .schedule .where { grid-column: 2; }
+}
+</style>
+</head>
+<body>
+
+
+<svg width="0" height="0" style="position:absolute" aria-hidden="true">
+  <!-- نجمة عشتار الثمانية -->
+  <symbol id="star" viewBox="0 0 100 100">
+    <g fill="currentColor">
+      <polygon points="50,2 57,38 50,50 43,38"/><polygon points="50,98 43,62 50,50 57,62"/>
+      <polygon points="2,50 38,43 50,50 38,57"/><polygon points="98,50 62,57 50,50 62,43"/>
+      <polygon points="16,16 44,40 50,50 40,44"/><polygon points="84,84 56,60 50,50 60,56"/>
+      <polygon points="84,16 60,44 50,50 56,40"/><polygon points="16,84 40,56 50,50 44,60"/>
+      <circle cx="50" cy="50" r="7"/>
+    </g>
+  </symbol>
+</svg>
+
+<div id="app" data-view="home" dir="rtl" lang="ar">
+<header class="site">
+  <div class="wrap bar">
+    <a class="brand" href="#home"><svg aria-hidden="true"><use href="#star"/></svg>مؤسسة بابل</a>
+    <nav class="switch" aria-label="أقسام الموقع">
+      <a href="#foundation" data-nav="foundation">المؤسسة</a>
+      <a href="#festival" data-nav="festival">مهرجان بابل الثقافي</a>
+    </nav>
+  </div>
+  <div class="bricks" aria-hidden="true"></div>
+</header>
+
+<main>
+<!-- ================= الرئيسية ================= -->
+<div id="view-home" data-page="home">
+  <div class="wrap">
+    <div class="intro">
+      <h1>من أرض بابل، <span>ثقافةٌ تُبنى</span> وتُحتفى بها</h1>
+      <p>مؤسسة ثقافية تعمل على صون تراث بابل ودعم المبدعين، وتنظّم كل عام مهرجان بابل الثقافي. اختر الباب الذي تريد الدخول منه.</p>
+    </div>
+    <div class="gates">
+      <a class="gate gate--foundation" href="#foundation">
+        <svg class="emblem" aria-hidden="true"><use href="#star"/></svg>
+        <span class="eyebrow">القسم الأول</span>
+        <h2>مؤسسة بابل</h2>
+        <p>من نحن، ورسالتنا، وبرامجنا في الثقافة والتراث والتعليم، وآخر أخبارنا.</p>
+        <span class="go">ادخل إلى المؤسسة ←</span>
+      </a>
+      <a class="gate gate--festival" href="#festival">
+        <svg class="emblem" aria-hidden="true"><use href="#star"/></svg>
+        <span class="eyebrow">القسم الثاني</span>
+        <h2>مهرجان بابل الثقافي</h2>
+        <p>الشعر والمسرح والموسيقى والفنون التشكيلية على أرض بابل. البرنامج والضيوف والتسجيل.</p>
+        <span class="go">ادخل إلى المهرجان ←</span>
+      </a>
+    </div>
+  </div>
+</div>
+
+<!-- ================= المؤسسة ================= -->
+<div id="view-foundation" data-page="foundation" hidden>
+  <div class="wrap">
+    <div class="hero">
+      <span class="eyebrow">مؤسسة بابل</span>
+      <h1>نحفظ ذاكرة بابل، <em>ونفتح أبوابها</em> للأجيال القادمة</h1>
+      <p class="lead">مؤسسة ثقافية مستقلة غير ربحية، تعمل في مجالات التراث والفنون والتعليم، وتجمع المثقفين والفنانين والباحثين حول مشروع ثقافي واحد.</p>
+      <div class="actions">
+        <a class="btn" href="#f-programs">برامجنا</a>
+        <a class="btn btn--ghost" href="#f-contact">تواصل معنا</a>
+      </div>
+    </div>
+  </div>
+
+  <section class="block" id="f-about">
+    <div class="wrap">
+      <div class="head">
+        <span class="eyebrow">من نحن</span>
+        <h2>الرؤية والرسالة والقيم</h2>
+      </div>
+      <div class="pillars">
+        <div><h3>الرؤية</h3><p>أن تكون بابل مركزاً ثقافياً حيّاً، يلتقي فيه إرثها العريق بالإبداع المعاصر.</p></div>
+        <div><h3>الرسالة</h3><p>دعم المبدعين، وصون التراث المادي وغير المادي، ونشر المعرفة عبر برامج مفتوحة للجميع.</p></div>
+        <div><h3>القيم</h3><p>الاستقلالية، والشفافية، والانفتاح على كل الأصوات، واحترام الأرض وأهلها.</p></div>
+      </div>
+      <div class="stats" aria-label="أرقام المؤسسة (أمثلة)">
+        <div><b class="placeholder">٠٠</b><span>سنة من العمل</span></div>
+        <div><b class="placeholder">٠٠</b><span>برنامجاً ومشروعاً</span></div>
+        <div><b class="placeholder">٠٠</b><span>فناناً وباحثاً</span></div>
+        <div><b class="placeholder">٠٠</b><span>دورة للمهرجان</span></div>
+      </div>
+    </div>
+  </section>
+
+  <section class="block" id="f-programs">
+    <div class="wrap">
+      <div class="head">
+        <span class="eyebrow">البرامج</span>
+        <h2>مجالات عمل المؤسسة</h2>
+        <p>برامج دائمة تعمل على مدار السنة، إلى جانب المهرجان السنوي.</p>
+      </div>
+      <div class="grid">
+        <div class="card"><span class="tag">تراث</span><h3>صون التراث البابلي</h3><p>توثيق المواقع والحِرف والحكايات الشعبية، والتعاون مع المختصين في حمايتها.</p></div>
+        <div class="card"><span class="tag">فنون</span><h3>دعم الفنانين</h3><p>منح إنتاج وإقامات فنية ومعارض للفنانين الشباب من بابل وخارجها.</p></div>
+        <div class="card"><span class="tag">تعليم</span><h3>ورش ودورات</h3><p>ورش في الكتابة والخط العربي والمسرح والتصوير، مفتوحة للطلبة والهواة.</p></div>
+        <div class="card"><span class="tag">نشر</span><h3>الإصدارات</h3><p>نشر كتب ودراسات عن تاريخ بابل وأدبها، وإعادة طباعة المخطوطات النادرة.</p></div>
+      </div>
+    </div>
+  </section>
+
+  <section class="block" id="f-news">
+    <div class="wrap">
+      <div class="head">
+        <span class="eyebrow">الأخبار</span>
+        <h2>آخر الأخبار</h2>
+        <p class="note">أخبار تجريبية لعرض الشكل، تُستبدل بالأخبار الحقيقية.</p>
+      </div>
+      <div class="news">
+        <article><time>[التاريخ]</time><div><h3>فتح باب المشاركة في الدورة القادمة من مهرجان بابل الثقافي</h3><p>تستقبل المؤسسة طلبات الفنانين والفرق للمشاركة في البرنامج الرسمي.</p></div></article>
+        <article><time>[التاريخ]</time><div><h3>انطلاق ورشة الخط العربي للشباب</h3><p>ورشة لمدة أربعة أسابيع بإشراف خطاطين من المدينة.</p></div></article>
+        <article><time>[التاريخ]</time><div><h3>إصدار جديد عن تاريخ بابل</h3><p>كتاب يجمع دراسات لباحثين عراقيين حول المدينة القديمة.</p></div></article>
+      </div>
+    </div>
+  </section>
+
+  <section class="block" id="f-contact">
+    <div class="wrap contact">
+      <div>
+        <div class="head"><span class="eyebrow">تواصل معنا</span><h2>راسل المؤسسة</h2></div>
+        <dl>
+          <div><dt>العنوان</dt><dd class="placeholder">[العنوان] — الحلة، بابل، العراق</dd></div>
+          <div><dt>البريد الإلكتروني</dt><dd class="placeholder">[البريد الإلكتروني]</dd></div>
+          <div><dt>الهاتف</dt><dd class="placeholder">[رقم الهاتف]</dd></div>
+        </dl>
+      </div>
+      <form data-form="contact">
+        <div class="row2">
+          <label for="c-name">الاسم<input id="c-name" name="name" required></label>
+          <label for="c-email">البريد الإلكتروني<input id="c-email" name="email" type="email" required dir="ltr"></label>
+        </div>
+        <label for="c-msg">رسالتك<textarea id="c-msg" name="message" required></textarea></label>
+        <div class="actions"><button class="btn" type="submit">إرسال الرسالة</button></div>
+        <p class="ok" role="status" hidden></p>
+      </form>
+    </div>
+  </section>
+</div>
+
+<!-- ================= المهرجان ================= -->
+<div id="view-festival" data-page="festival" hidden>
+  <div class="wrap">
+    <div class="hero">
+      <div class="edition"><span>الدورة <span class="placeholder">[رقم الدورة]</span></span><span class="placeholder">[تاريخ المهرجان]</span><span>بابل، العراق</span></div>
+      <h1>مهرجان بابل الثقافي: <em>أيام من الشعر والمسرح والموسيقى</em> على أرض بابل</h1>
+      <p class="lead">مهرجان سنوي تنظّمه مؤسسة بابل، يجمع الشعراء والمسرحيين والموسيقيين والفنانين من العراق والعالم العربي في أمسيات مفتوحة للجمهور.</p>
+      <div class="actions">
+        <a class="btn" href="#x-program">البرنامج</a>
+        <a class="btn btn--ghost" href="#x-register">سجّل مشاركتك</a>
+      </div>
+    </div>
+  </div>
+
+  <section class="block" id="x-tracks">
+    <div class="wrap">
+      <div class="head">
+        <span class="eyebrow">محاور المهرجان</span>
+        <h2>ستة فنون في مهرجان واحد</h2>
+      </div>
+      <div class="grid">
+        <div class="card"><span class="tag">أمسيات</span><h3>الشعر</h3><p>أمسيات للشعر الفصيح والشعبي، ومسابقة للشعراء الشباب.</p></div>
+        <div class="card"><span class="tag">عروض</span><h3>المسرح</h3><p>عروض لفرق عراقية وعربية، وقراءات مسرحية لنصوص جديدة.</p></div>
+        <div class="card"><span class="tag">حفلات</span><h3>الموسيقى</h3><p>المقام العراقي والموسيقى المعاصرة في حفلات مسائية.</p></div>
+        <div class="card"><span class="tag">معرض</span><h3>الفنون التشكيلية</h3><p>معرض جماعي لفنانين من بابل والمحافظات.</p></div>
+        <div class="card"><span class="tag">عروض</span><h3>السينما</h3><p>أفلام قصيرة ووثائقية، ونقاشات مع صنّاعها.</p></div>
+        <div class="card"><span class="tag">معرض</span><h3>الكتاب</h3><p>معرض لدور النشر، وحفلات توقيع، وندوات فكرية.</p></div>
+      </div>
+    </div>
+  </section>
+
+  <section class="block" id="x-program">
+    <div class="wrap">
+      <div class="head">
+        <span class="eyebrow">البرنامج</span>
+        <h2>برنامج أيام المهرجان</h2>
+        <p class="note">برنامج تجريبي لعرض الشكل، يُستبدل بالبرنامج الرسمي عند إعلانه.</p>
+      </div>
+      <div class="days" role="tablist" aria-label="أيام المهرجان"></div>
+      <ol class="schedule" id="schedule"></ol>
+    </div>
+  </section>
+
+  <section class="block" id="x-register">
+    <div class="wrap">
+      <div class="head">
+        <span class="eyebrow">المشاركة</span>
+        <h2>سجّل مشاركتك في المهرجان</h2>
+        <p>للفنانين والفرق ودور النشر والمتطوعين. سنتواصل معك بعد مراجعة الطلب.</p>
+      </div>
+      <form data-form="register">
+        <div class="row2">
+          <label for="r-name">الاسم الكامل أو اسم الفرقة<input id="r-name" name="name" required></label>
+          <label for="r-email">البريد الإلكتروني<input id="r-email" name="email" type="email" required dir="ltr"></label>
+        </div>
+        <div class="row2">
+          <label for="r-type">نوع المشاركة
+            <select id="r-type" name="type" required>
+              <option value="">اختر…</option>
+              <option>شعر</option><option>مسرح</option><option>موسيقى</option>
+              <option>فنون تشكيلية</option><option>سينما</option><option>دار نشر</option><option>متطوع</option>
+            </select>
+          </label>
+          <label for="r-city">المدينة / البلد<input id="r-city" name="city"></label>
+        </div>
+        <label for="r-about">نبذة عن المشاركة<textarea id="r-about" name="about"></textarea></label>
+        <div class="actions"><button class="btn" type="submit">إرسال الطلب</button></div>
+        <p class="ok" role="status" hidden></p>
+      </form>
+    </div>
+  </section>
+</div>
+</main>
+
+<footer>
+  <div class="wrap">
+    <span>© مؤسسة بابل. جميع الحقوق محفوظة.</span>
+    <span><a href="#foundation">المؤسسة</a> · <a href="#festival">مهرجان بابل الثقافي</a></span>
+  </div>
+</footer>
+</div>
+
+<script>
+(function () {
+  var app = document.getElementById("app");
+  var views = ["home", "foundation", "festival"];
+  // أقسام كل صفحة، حتى تعمل روابط مثل #f-programs أيضاً
+  var owner = { f: "foundation", x: "festival" };
+
+  function show() {
+    var h = (location.hash || "#home").slice(1);
+    var view = views.indexOf(h) >= 0 ? h : owner[h.split("-")[0]] || "home";
+    app.dataset.view = view;
+    document.querySelectorAll("[data-page]").forEach(function (el) { el.hidden = el.dataset.page !== view; });
+    document.querySelectorAll("[data-nav]").forEach(function (a) {
+      if (a.dataset.nav === view) a.setAttribute("aria-current", "page"); else a.removeAttribute("aria-current");
+    });
+    document.title = view === "festival" ? "مهرجان بابل الثقافي" : "مؤسسة بابل";
+    if (views.indexOf(h) >= 0) window.scrollTo(0, 0);
+    else { var t = document.getElementById(h); if (t) t.scrollIntoView(); }
+  }
+  window.addEventListener("hashchange", show);
+  show();
+
+  // برنامج تجريبي — يُعدّل هنا
+  var program = [
+    { day: "اليوم الأول", items: [
+      ["17:00", "حفل الافتتاح الرسمي", "كلمة المؤسسة وعرض موسيقي افتتاحي", "المسرح الرئيسي"],
+      ["19:00", "أمسية شعرية", "شعراء من بابل والمحافظات", "القاعة الكبرى"],
+      ["21:00", "حفل المقام العراقي", "فرقة موسيقية ضيفة", "المسرح الرئيسي"] ] },
+    { day: "اليوم الثاني", items: [
+      ["10:00", "افتتاح معرض الفنون التشكيلية", "معرض جماعي", "قاعة المعارض"],
+      ["16:00", "ندوة: بابل في الأدب العربي", "باحثون وأكاديميون", "القاعة الصغرى"],
+      ["20:00", "عرض مسرحي", "فرقة مسرحية عراقية", "المسرح الرئيسي"] ] },
+    { day: "اليوم الثالث", items: [
+      ["11:00", "معرض الكتاب وحفلات التوقيع", "دور نشر عراقية وعربية", "الساحة"],
+      ["18:00", "عروض أفلام قصيرة", "مع نقاش مفتوح", "قاعة السينما"],
+      ["20:30", "حفل الختام وتوزيع الجوائز", "", "المسرح الرئيسي"] ] }
+  ];
+  var tabs = document.querySelector(".days"), list = document.getElementById("schedule");
+  function renderDay(i) {
+    tabs.querySelectorAll("button").forEach(function (b, j) { b.setAttribute("aria-selected", String(i === j)); });
+    list.innerHTML = "";
+    program[i].items.forEach(function (it) {
+      var li = document.createElement("li");
+      li.innerHTML = '<time></time><div><strong></strong><small></small></div><span class="where"></span>';
+      li.querySelector("time").textContent = it[0];
+      li.querySelector("strong").textContent = it[1];
+      li.querySelector("small").textContent = it[2];
+      li.querySelector(".where").textContent = it[3];
+      list.appendChild(li);
+    });
+  }
+  program.forEach(function (d, i) {
+    var b = document.createElement("button");
+    b.type = "button"; b.setAttribute("role", "tab"); b.textContent = d.day;
+    b.addEventListener("click", function () { renderDay(i); });
+    tabs.appendChild(b);
+  });
+  renderDay(0);
+
+  // النماذج: لا يوجد خادم بعد، نعرض رسالة تأكيد فقط
+  document.querySelectorAll("form[data-form]").forEach(function (f) {
+    f.addEventListener("submit", function (e) {
+      e.preventDefault();
+      var msg = f.querySelector(".ok");
+      msg.textContent = f.dataset.form === "register"
+        ? "هذا نموذج تجريبي: لم يُرسَل الطلب لأن النموذج غير مربوط بخادم بعد."
+        : "هذا نموذج تجريبي: لم تُرسَل الرسالة لأن النموذج غير مربوط ببريد بعد.";
+      msg.hidden = false;
+    });
+  });
+})();
+</script>
+
+</body>
+</html>
