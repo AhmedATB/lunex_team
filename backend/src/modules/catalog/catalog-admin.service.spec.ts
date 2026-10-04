@@ -70,6 +70,7 @@ function build(roles: Record<string, string>) {
     teamSlugTaken: jest.fn(async () => false),
     findTagsBySlugs: jest.fn(async (slugs: string[]) => slugs.filter((s) => s !== "nope").map((s) => ({ id: `id-${s}`, slug: s, nameEn: s, nameAr: s, group: "genre" }))),
     createSeries: jest.fn(async (_d: unknown) => seriesRow()),
+    listSeriesForReview: jest.fn(async (_teamId?: string) => [seriesRow({ state: "pending" })]),
     updateSeries: jest.fn(async (_id: string, _d: unknown, _t?: unknown) => seriesRow()),
     deleteSeriesCascade: jest.fn().mockResolvedValue([]),
     approvedSeriesIds: jest.fn(async (ids: string[]) => ids.filter((id) => id !== "gone")),
@@ -150,6 +151,60 @@ describe("series permissions", () => {
     await expect(service.updateSeries("editor", "s1", { isFeatured: true }, CTX)).resolves.toBeDefined();
   });
 
+  it("keeps a work a team's leader adds waiting for approval: no announcement, no notification, and the editors' own works go live at once", async () => {
+    const { service, repo, announcements, notifications } = build(roster);
+    const created = await service.createSeries("leader", { titleAr: "س", teamId: "t1" }, CTX);
+    expect(repo.createSeries).toHaveBeenCalledWith(expect.objectContaining({ state: "pending" }));
+    expect(created.state).toBe("pending");
+    expect(announcements.seriesAdded).not.toHaveBeenCalled();
+    expect(notifications.seriesAdded).not.toHaveBeenCalled();
+    await service.createSeries("editor", { titleAr: "س", teamId: "t1" }, CTX);
+    expect(repo.createSeries).toHaveBeenLastCalledWith(expect.objectContaining({ state: "approved" }));
+    expect(announcements.seriesAdded).toHaveBeenCalledTimes(1);
+  });
+});
+
+describe("approving a team's work", () => {
+  it("lists it and announces it once when an editor approves it — never again for a later edit", async () => {
+    const { service, repo, announcements, notifications } = build(roster);
+    repo.findSeriesById.mockResolvedValue(seriesRow({ state: "pending" }));
+    await service.updateSeries("editor", "s1", { state: "approved" }, CTX);
+    expect(repo.updateSeries).toHaveBeenCalledWith("s1", expect.objectContaining({ state: "approved" }), undefined);
+    expect(announcements.seriesAdded).toHaveBeenCalledTimes(1);
+    expect(notifications.seriesAdded).toHaveBeenCalledTimes(1);
+    repo.findSeriesById.mockResolvedValue(seriesRow({ state: "approved" }));
+    await service.updateSeries("editor", "s1", { state: "approved", synopsis: "x" }, CTX);
+    await service.updateSeries("editor", "s1", { synopsis: "y" }, CTX);
+    expect(announcements.seriesAdded).toHaveBeenCalledTimes(1);
+  });
+
+  it("is the site's call: a team's leader can neither approve nor turn down, only send a turned-down work back for review", async () => {
+    const { service, repo, announcements } = build(roster);
+    repo.findSeriesById.mockResolvedValue(seriesRow({ state: "pending" }));
+    for (const state of ["approved", "rejected", "draft"]) {
+      await expect(service.updateSeries("leader", "s1", { state }, CTX)).rejects.toMatchObject({ response: { code: "global_editor_only" } });
+    }
+    await expect(service.updateSeries("leader", "s1", { state: "pending", synopsis: "same" }, CTX)).resolves.toBeDefined(); // no change of state: fine
+    repo.findSeriesById.mockResolvedValue(seriesRow({ state: "rejected" }));
+    await expect(service.updateSeries("leader", "s1", { state: "pending" }, CTX)).resolves.toBeDefined();
+    await expect(service.updateSeries("leader", "s1", { state: "approved" }, CTX)).rejects.toBeInstanceOf(ForbiddenException);
+    expect(announcements.seriesAdded).not.toHaveBeenCalled();
+  });
+
+  it("shows every waiting work to the editors, and one team's to that team's leader — nobody else", async () => {
+    const { service, repo } = build(roster);
+    await expect(service.listSeriesForReview("editor")).resolves.toEqual([expect.objectContaining({ state: "pending" })]);
+    expect(repo.listSeriesForReview).toHaveBeenCalledWith(undefined);
+    await expect(service.listSeriesForReview("leader")).rejects.toBeInstanceOf(ForbiddenException); // the whole list is the editors'
+    await service.listSeriesForReview("leader", "t1");
+    expect(repo.listSeriesForReview).toHaveBeenLastCalledWith("t1");
+    await expect(service.listSeriesForReview("member", "t1")).rejects.toBeInstanceOf(ForbiddenException);
+    await expect(service.listSeriesForReview("reader", "t1")).rejects.toBeInstanceOf(ForbiddenException);
+    await service.listSeriesForReview("manager", "t1"); // a site team manager may look too
+  });
+});
+
+describe("series permissions (continued)", () => {
   it("only lets global editors delete", async () => {
     const { service, repo } = build(roster);
     await expect(service.deleteSeries("leader", "s1", CTX)).rejects.toBeInstanceOf(ForbiddenException);

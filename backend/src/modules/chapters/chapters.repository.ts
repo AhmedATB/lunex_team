@@ -37,9 +37,16 @@ export class ChaptersRepository {
     });
   }
 
-  /** Everything, newest first — the admin table's view, including drafts. */
-  listRecent(limit: number) {
+  /** Who owns a series and whether it has been approved — what decides who may work on its chapters and whether they may go live. */
+  seriesAccess(id: string) {
+    return this.prisma.series.findUnique({ where: { id }, select: { teamId: true, state: true } });
+  }
+
+  /** Everything, newest first — the admin table's view, including drafts. `teamIds` narrows it to the series those teams own. */
+  async listRecent(limit: number, teamIds?: string[]) {
+    const seriesIds = teamIds ? (await this.prisma.series.findMany({ where: { teamId: { in: teamIds } }, select: { id: true } })).map((row) => row.id) : null;
     return this.prisma.chapter.findMany({
+      where: seriesIds ? { seriesId: { in: seriesIds } } : undefined,
       orderBy: { createdAt: "desc" },
       take: limit,
       include: { pages: true },

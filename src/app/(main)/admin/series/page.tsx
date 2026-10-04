@@ -13,6 +13,7 @@ import { prepareSearchQuery, rankByTier, searchTier, seriesSearchFields } from "
 import { seriesApi } from "@/lib/series-api";
 import type { Series, SeriesStatus } from "@/lib/types";
 import { SeriesFormDialog } from "@/components/admin/series-form-dialog";
+import { SeriesReviewPanel } from "@/components/admin/series-review-panel";
 import { TransferSeriesDialog } from "@/components/admin/transfer-series-dialog";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
@@ -150,6 +151,8 @@ export default function AdminSeriesPage() {
           )}
         </div>
       </div>
+
+      {canManage && <SeriesReviewPanel />}
 
       {canManage && selected.size > 0 && (
         <div className="flex flex-wrap items-center gap-2 rounded-xl border border-primary-500/30 bg-primary-500/10 p-3">

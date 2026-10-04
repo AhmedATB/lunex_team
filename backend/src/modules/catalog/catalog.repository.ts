@@ -29,6 +29,15 @@ export class CatalogRepository {
     return this.prisma.series.findMany({ where: { state: "approved" }, include: WITH_TAGS, orderBy: { updatedAt: "desc" } });
   }
 
+  /** Works not listed yet: sent by a team and waiting for approval, or turned down. `teamId` narrows to one team's. */
+  listSeriesForReview(teamId?: string) {
+    return this.prisma.series.findMany({
+      where: { state: { in: ["pending", "rejected"] }, ...(teamId ? { teamId } : {}) },
+      include: WITH_TAGS,
+      orderBy: { createdAt: "desc" },
+    });
+  }
+
   /** The listed series, only as much as the sitemap needs. */
   listSitemapSeries() {
     return this.prisma.series.findMany({ where: { state: "approved" }, select: { id: true, slug: true, updatedAt: true }, orderBy: { updatedAt: "desc" } });

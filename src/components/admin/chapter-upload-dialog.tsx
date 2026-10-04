@@ -42,6 +42,7 @@ export function ChapterUploadDialog({
   onClose,
   series,
   initialFiles,
+  canPublish = true,
   onDone,
 }: {
   open: boolean;
@@ -49,18 +50,20 @@ export function ChapterUploadDialog({
   series: UploadTarget[];
   /** Files dropped on the page's upload area: pictures, or one ZIP. */
   initialFiles?: File[];
+  /** false for a team's uploader: the chapter is always kept as a draft, for a lead or a publisher to put live. */
+  canPublish?: boolean;
   onDone: () => void;
 }) {
   return (
     <Dialog open={open} onOpenChange={(v) => !v && onClose()}>
       <DialogContent className="max-h-[90vh] max-w-xl overflow-y-auto">
-        {open && <Form series={series} initialFiles={initialFiles} onClose={onClose} onDone={onDone} />}
+        {open && <Form series={series} initialFiles={initialFiles} canPublish={canPublish} onClose={onClose} onDone={onDone} />}
       </DialogContent>
     </Dialog>
   );
 }
 
-function Form({ series, initialFiles, onClose, onDone }: { series: UploadTarget[]; initialFiles?: File[]; onClose: () => void; onDone: () => void }) {
+function Form({ series, initialFiles, canPublish, onClose, onDone }: { series: UploadTarget[]; initialFiles?: File[]; canPublish: boolean; onClose: () => void; onDone: () => void }) {
   const [seriesId, setSeriesId] = useState(series[0]?.id ?? "");
   const target = series.find((s) => s.id === seriesId);
   const [number, setNumber] = useState(() => (series[0] ? series[0].latestChapterNumber + 1 : 1));
@@ -71,7 +74,7 @@ function Form({ series, initialFiles, onClose, onDone }: { series: UploadTarget[
   const [zipBusy, setZipBusy] = useState(false);
   const [driveLink, setDriveLink] = useState("");
   const [drive, setDrive] = useState<DriveInfo | null>(null);
-  const [publish, setPublish] = useState(true);
+  const [publish, setPublish] = useState(canPublish);
   const [busy, setBusy] = useState(false);
   const [progress, setProgress] = useState<{ label: string; done: number; total: number } | null>(null);
   const [error, setError] = useState("");
@@ -339,13 +342,17 @@ function Form({ series, initialFiles, onClose, onDone }: { series: UploadTarget[
         </div>
       )}
 
-      <label className="flex items-center justify-between gap-3 rounded-xl border border-white/10 p-3">
-        <span>
-          <span className="block text-sm font-semibold text-white">نشر الفصل بعد الرفع</span>
-          <span className="block text-xs text-lunex-gray">بعد رفع الصفحات تختار الصورة البارزة ثم يُنشر. عند النشر يصل إشعار لمن أضاف العمل إلى مفضلته. أوقفه لتحفظ الفصل مسودة.</span>
-        </span>
-        <Switch checked={publish} onCheckedChange={setPublish} disabled={busy} />
-      </label>
+      {canPublish ? (
+        <label className="flex items-center justify-between gap-3 rounded-xl border border-white/10 p-3">
+          <span>
+            <span className="block text-sm font-semibold text-white">نشر الفصل بعد الرفع</span>
+            <span className="block text-xs text-lunex-gray">بعد رفع الصفحات تختار الصورة البارزة ثم يُنشر. عند النشر يصل إشعار لمن أضاف العمل إلى مفضلته. أوقفه لتحفظ الفصل مسودة.</span>
+          </span>
+          <Switch checked={publish} onCheckedChange={setPublish} disabled={busy} />
+        </label>
+      ) : (
+        <p className="rounded-xl border border-white/10 p-3 text-xs leading-relaxed text-lunex-gray">يُحفظ الفصل مسودة، وينشره قائد الفريق أو الناشر.</p>
+      )}
 
       {progress && (
         <div className="space-y-1.5" role="status">

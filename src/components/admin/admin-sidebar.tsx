@@ -4,11 +4,21 @@ import { useEffect, useRef } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { cn } from "@/lib/utils";
-import { ADMIN_NAV } from "@/components/layout/nav-items";
+import { LayoutDashboard } from "lucide-react";
+import { useSession } from "@/store/session";
+import { ADMIN_NAV, type NavItem } from "@/components/layout/nav-items";
 
 export function AdminSidebar() {
   const pathname = usePathname();
   const nav = useRef<HTMLElement>(null);
+  const user = useSession((s) => s.user);
+
+  // Someone who holds no site role (a team's leader, publisher or uploader) manages through their team's own page; the rest of this
+  // area is the site's staff — most of it would only answer "not allowed" to them.
+  const teamOnly = !!user && (user.role === "reader" || user.role === "verified_member");
+  const items: NavItem[] = teamOnly
+    ? [ADMIN_NAV[0], ...(user.teamAccess ?? []).map((access) => ({ href: `/teams/${access.slug}/dashboard`, label: `${access.level === "lead" ? "إدارة" : "فصول"} ${access.name}`, icon: LayoutDashboard }))]
+    : ADMIN_NAV;
 
   // On a phone the links sit in one row that scrolls: bring the current page's link into view (inside the row, not the page).
   useEffect(() => {
@@ -23,7 +33,7 @@ export function AdminSidebar() {
   return (
     <aside className="w-full shrink-0 lg:w-56">
       <nav ref={nav} className="flex gap-1 overflow-x-auto no-scrollbar lg:flex-col lg:overflow-visible">
-        {ADMIN_NAV.map((item) => {
+        {items.map((item) => {
           const active = pathname === item.href;
           const Icon = item.icon;
           return (

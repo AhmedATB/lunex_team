@@ -164,7 +164,7 @@ export class UpdateSeriesDto {
   isRecommended?: boolean;
 
   @IsOptional()
-  @IsIn(["draft", "approved"])
+  @IsIn(["draft", "approved", "pending", "rejected"])
   state?: string;
 
   @IsOptional()

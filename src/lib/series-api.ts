@@ -17,13 +17,39 @@ export interface SeriesInput {
   teamId?: string;
   isFeatured?: boolean;
   isRecommended?: boolean;
-  state?: "draft" | "approved";
+  state?: "draft" | "approved" | "pending" | "rejected";
   tagSlugs?: string[];
 }
 
 export interface SeriesSummary {
   id: string;
   slug: string;
+}
+
+/**
+ * A work that is not listed yet: sent by a team's leader and waiting for the site's approval, or turned down. Only the fields the
+ * edit window and the review lists read; the server sends the whole series.
+ */
+export interface ReviewSeries {
+  id: string;
+  slug: string;
+  title: string;
+  titleAr: string;
+  alternativeTitles: string[];
+  cover: string;
+  banner: string;
+  synopsis: string;
+  type: string;
+  status: string;
+  country: string;
+  author: string;
+  artist: string;
+  year: number;
+  contentRating: string;
+  teamId: string;
+  isRecommended: boolean;
+  genreIds: string[];
+  state: "pending" | "rejected";
 }
 
 export const MAX_IMAGE_BYTES = 8 * 1024 * 1024;
@@ -44,6 +70,12 @@ export const seriesApi = {
   update: (id: string, patch: SeriesInput) => call<SeriesSummary>(`/api/catalog/series/${enc(id)}`, "PATCH", patch),
 
   remove: (id: string) => call<void>(`/api/catalog/series/${enc(id)}`, "DELETE"),
+
+  /** Every work waiting for approval or turned down (the site's editors). */
+  reviewList: () => call<ReviewSeries[]>("/api/catalog/admin/series-review", "GET"),
+
+  /** One team's works that wait or were turned down (its leads). */
+  teamReviewList: (teamId: string) => call<ReviewSeries[]>(`/api/catalog/teams/${enc(teamId)}/series-review`, "GET"),
 
   /** A cover or banner from the device: the server resizes it, turns it into WebP and stores it. */
   uploadImage: (id: string, kind: "cover" | "banner", file: File) => {

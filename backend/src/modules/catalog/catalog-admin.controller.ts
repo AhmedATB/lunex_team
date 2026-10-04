@@ -56,6 +56,22 @@ export class CatalogAdminController {
 
   // ---- series ----
 
+  /** Every work waiting for approval or turned down (the site's editors). */
+  @Get("admin/series-review")
+  @HttpCode(HttpStatus.OK)
+  @Throttle({ default: { limit: 60, ttl: 60_000 } })
+  seriesForReview(@CurrentUser() actor: AccessTokenPayload) {
+    return this.admin.listSeriesForReview(actor.sub);
+  }
+
+  /** The works one team sent that are waiting or were turned down (its leads, or the site's team managers). */
+  @Get("teams/:id/series-review")
+  @HttpCode(HttpStatus.OK)
+  @Throttle({ default: { limit: 60, ttl: 60_000 } })
+  teamSeriesForReview(@Param("id") id: string, @CurrentUser() actor: AccessTokenPayload) {
+    return this.admin.listSeriesForReview(actor.sub, id);
+  }
+
   @Post("series")
   @HttpCode(HttpStatus.CREATED)
   @Throttle({ default: { limit: 30, ttl: 60_000 } })

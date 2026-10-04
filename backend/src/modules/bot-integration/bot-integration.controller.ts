@@ -19,12 +19,15 @@ import { Throttle } from "@nestjs/throttler";
 import { memoryStorage } from "multer";
 import { Public } from "../../common/decorators/public.decorator";
 import { ServiceKeyGuard } from "../../common/guards/service-key.guard";
-import { ChaptersService } from "../chapters/chapters.service";
+import { ChaptersService, type ChapterActor } from "../chapters/chapters.service";
 import { CreateChapterDto } from "../chapters/dto/create-chapter.dto";
 import { UpdateChapterDto } from "../chapters/dto/update-chapter.dto";
 import { UploadPageDto } from "../chapters/dto/upload-page.dto";
 
 const MAX_PAGE_UPLOAD_BYTES = 15 * 1024 * 1024;
+
+/** The bot has no account: it acts with the site role that publishes, and no team standing. */
+const BOT: ChapterActor = { id: null, role: "uploader" };
 
 /**
  * Machine-to-machine only — the Discord bot pushing a finished chapter's
@@ -62,7 +65,7 @@ export class BotIntegrationController {
   @HttpCode(HttpStatus.CREATED)
   @Throttle({ default: { limit: 30, ttl: 60_000 } })
   create(@Body() dto: CreateChapterDto) {
-    return this.chapters.create("uploader", dto);
+    return this.chapters.create(BOT, dto);
   }
 
   @Post(":id/pages")
@@ -74,12 +77,12 @@ export class BotIntegrationController {
     @Body() dto: UploadPageDto,
     @UploadedFile() file: Express.Multer.File | undefined
   ) {
-    return this.chapters.uploadPage("uploader", chapterId, dto.pageNumber, file);
+    return this.chapters.uploadPage(BOT, chapterId, dto.pageNumber, file);
   }
 
   @Patch(":id")
   @Throttle({ default: { limit: 30, ttl: 60_000 } })
   update(@Param("id") id: string, @Body() dto: UpdateChapterDto) {
-    return this.chapters.update("uploader", id, dto);
+    return this.chapters.update(BOT, id, dto);
   }
 }

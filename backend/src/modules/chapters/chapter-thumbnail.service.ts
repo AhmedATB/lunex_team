@@ -3,7 +3,7 @@ import { randomUUID } from "node:crypto";
 import { CatalogService } from "../catalog/catalog.service";
 import { StorageService } from "../images/storage/storage.interface";
 import { ChaptersRepository } from "./chapters.repository";
-import { ChaptersService } from "./chapters.service";
+import { ChaptersService, type ChapterActor } from "./chapters.service";
 import { makeThumbnail, previewOf, scorePage, suggestionGroups, ThumbnailImageError, type Thumbnail } from "./chapter-thumbnail.util";
 
 /** How many pictures one round of suggestions offers. */
@@ -22,7 +22,7 @@ export interface ThumbnailSuggestion {
 
 /**
  * A chapter's featured picture: chosen from four suggestions taken from its own pages (the parts of them that look best), from any
- * page, or uploaded. Only the people who publish may set it; showing it is the catalogue's job.
+ * page, or uploaded. Only the people who work on the series' chapters may set it; showing it is the catalogue's job.
  */
 @Injectable()
 export class ChapterThumbnailService {
@@ -36,9 +36,8 @@ export class ChapterThumbnailService {
   ) {}
 
   /** Round `round` (0, 1, 2 … wrapping round) of suggestions for the chapter's pages. */
-  async suggestions(role: string, chapterId: string, round: number): Promise<{ items: ThumbnailSuggestion[]; rounds: number; pages: number }> {
-    this.chapters.requirePublisher(role);
-    const chapter = await this.chapters.get(chapterId);
+  async suggestions(actor: ChapterActor, chapterId: string, round: number): Promise<{ items: ThumbnailSuggestion[]; rounds: number; pages: number }> {
+    const chapter = await this.chapters.requireUploader(actor, chapterId);
     if (chapter.pages.length === 0) return { items: [], rounds: 0, pages: 0 };
 
     const groups = await this.groupsFor(chapterId, chapter.pages);
@@ -50,24 +49,21 @@ export class ChapterThumbnailService {
   }
 
   /** The featured picture from one of the chapter's own pages. */
-  async fromPage(role: string, chapterId: string, pageNumber: number): Promise<{ thumbnailAssetId: string }> {
-    this.chapters.requirePublisher(role);
-    const chapter = await this.chapters.get(chapterId);
+  async fromPage(actor: ChapterActor, chapterId: string, pageNumber: number): Promise<{ thumbnailAssetId: string }> {
+    const chapter = await this.chapters.requireUploader(actor, chapterId);
     return this.set(chapter.id, await this.thumbnailOfPage(chapter.pages, pageNumber, "crop"));
   }
 
   /** The featured picture from a picture the person uploads. */
-  async upload(role: string, chapterId: string, file: Express.Multer.File | undefined): Promise<{ thumbnailAssetId: string }> {
-    this.chapters.requirePublisher(role);
-    const chapter = await this.chapters.get(chapterId);
+  async upload(actor: ChapterActor, chapterId: string, file: Express.Multer.File | undefined): Promise<{ thumbnailAssetId: string }> {
+    const chapter = await this.chapters.requireUploader(actor, chapterId);
     if (!file) throw new BadRequestException({ code: "missing_file", message: "No image file was uploaded." });
     return this.set(chapter.id, await this.make(file.buffer, "keep"));
   }
 
   /** Takes the featured picture off (the stored picture stays in storage, as a replaced page does; nothing points to it). */
-  async remove(role: string, chapterId: string): Promise<void> {
-    this.chapters.requirePublisher(role);
-    const chapter = await this.chapters.get(chapterId);
+  async remove(actor: ChapterActor, chapterId: string): Promise<void> {
+    const chapter = await this.chapters.requireUploader(actor, chapterId);
     if (!chapter.thumbnailAssetId) return;
     await this.repo.update(chapter.id, { thumbnailAssetId: null });
     this.catalog.invalidate();

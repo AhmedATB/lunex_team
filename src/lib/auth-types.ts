@@ -1,5 +1,15 @@
 import type { ProfileVisibility } from "@/lib/profile-types";
 
+/** What a person's place in a team lets them do with its chapters (backend team-access.service.ts): a lead does everything, a publisher uploads and publishes, an uploader only uploads (drafts). */
+export type TeamLevel = "lead" | "publisher" | "uploader";
+
+export interface TeamAccess {
+  teamId: string;
+  slug: string;
+  name: string;
+  level: TeamLevel;
+}
+
 /** Mirrors backend/src/modules/auth/auth.service.ts's PublicUser — kept manually in sync since the two apps don't share a types package (yet; see the infra doc's monorepo/packages/contracts note for the long-term fix). */
 export interface BackendPublicUser {
   id: string;
@@ -20,6 +30,8 @@ export interface BackendPublicUser {
   profileVisibility: ProfileVisibility;
   historyVisibility: ProfileVisibility;
   favoritesVisibility: ProfileVisibility;
+  /** The teams this person may work on chapters in, from /auth/me only (the sign-in answers leave it out). */
+  teamAccess?: TeamAccess[];
 }
 
 export interface BackendAuthResponse {

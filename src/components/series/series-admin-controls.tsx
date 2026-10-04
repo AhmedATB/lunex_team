@@ -9,6 +9,7 @@ import { useCatalog } from "@/components/catalog-provider";
 import { useSession } from "@/store/session";
 import { useToast } from "@/store/toast";
 import { can } from "@/lib/rbac";
+import { accessIn } from "@/lib/team-access";
 import { seriesApi } from "@/lib/series-api";
 import type { SeriesStatus } from "@/lib/types";
 import { SeriesFormDialog } from "@/components/admin/series-form-dialog";
@@ -47,6 +48,7 @@ export function SeriesAdminControls({
   const router = useRouter();
   const db = useCatalog();
   const currentUserId = useSession((s) => s.currentUserId);
+  const sessionUser = useSession((s) => s.user);
   const [ready, setReady] = useState(false);
   useEffect(() => setReady(true), []);
 
@@ -59,7 +61,7 @@ export function SeriesAdminControls({
   const team = db.teams.find((t) => t.id === teamId);
 
   const isGlobalEditor = !!currentUser && can(currentUser, "manage_series");
-  const leadsTeam = !!currentUser && !!team && team.leaderId === currentUser.id;
+  const leadsTeam = !!currentUser && !!team && (team.leaderId === currentUser.id || accessIn(sessionUser, team.id)?.level === "lead");
 
   if (!ready || !currentUser || !series || (!isGlobalEditor && !leadsTeam)) return null;
 

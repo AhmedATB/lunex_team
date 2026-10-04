@@ -1,7 +1,7 @@
 import { BadRequestException, ConflictException, Injectable, Logger, NotFoundException, Optional, ServiceUnavailableException } from "@nestjs/common";
 import { ConfigService } from "@nestjs/config";
 import { readFileSync } from "node:fs";
-import { ChaptersService } from "./chapters.service";
+import { ChaptersService, type ChapterActor } from "./chapters.service";
 import { DriveError, FOLDER_MIME, GoogleDriveClient, isZipFile, loadDriveCredentials, parseDriveLink } from "./drive/google-drive.client";
 import { listZipImages, readZipImage, ZipImportError } from "./zip-images.util";
 
@@ -106,9 +106,8 @@ export class ChapterImportService {
    * Checks the link (a folder of pictures, or a ZIP file) and starts the background import. For a folder it answers with how many
    * pictures it found; for a ZIP the file still has to be fetched, so `total` is 0 until the status says the pictures are counted.
    */
-  async startDrive(role: string, chapterId: string, link: string): Promise<{ total: number; kind: "folder" | "zip" }> {
-    this.chapters.requirePublisher(role);
-    const chapter = await this.chapters.get(chapterId);
+  async startDrive(actor: ChapterActor, chapterId: string, link: string): Promise<{ total: number; kind: "folder" | "zip" }> {
+    const chapter = await this.chapters.requireUploader(actor, chapterId);
 
     const client = this.drive();
     if (!client) {

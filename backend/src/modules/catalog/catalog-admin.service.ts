@@ -62,6 +62,8 @@ export class CatalogAdminService {
       throw new ForbiddenException({ code: "insufficient_permissions", message: "You cannot add series." });
     }
     const isGlobal = SERIES_EDITORS.has(actor.role);
+    // A work a team's lead adds waits for the site's approval; the site's own editors list theirs at once.
+    const state = isGlobal ? "approved" : "pending";
 
     const tagIds = await this.resolveTags(dto.tagSlugs ?? []);
     const slug = await uniqueSlug(slugify(dto.titleEn || dto.titleAr, "series"), (s) => this.repo.seriesSlugTaken(s));
@@ -82,15 +84,35 @@ export class CatalogAdminService {
       // Editorial flags are a global editor's call, never a team lead's.
       isFeatured: isGlobal ? (dto.isFeatured ?? false) : false,
       isRecommended: isGlobal ? (dto.isRecommended ?? false) : false,
-      state: "approved",
+      state,
       tagIds,
     });
 
     await this.audit(actor, "catalog.series_created", row.id, ctx);
     this.catalog.invalidate();
-    void this.notifications.seriesAdded(row.id);
-    this.announcements.seriesAdded(row.id); // the community (Discord) hears of it a minute later, once it has its cover
-    return toSeriesDto(row as SeriesRow, EMPTY_STATS);
+    if (state === "approved") this.announceSeries(row.id);
+    return { ...toSeriesDto(row as SeriesRow, EMPTY_STATS), state };
+  }
+
+  /** The followers and the community (Discord, about a minute later, once it has its cover) hear of a work when it is listed — never while it waits for approval. */
+  private announceSeries(id: string) {
+    void this.notifications.seriesAdded(id);
+    this.announcements.seriesAdded(id);
+  }
+
+  /**
+   * The works waiting for approval, or turned down: all of them for the site's editors, or one team's own for its leads (so they
+   * can see where a work stands and fix a turned-down one). The public lists show approved works only, so these never appear there.
+   */
+  async listSeriesForReview(actorId: string, teamId?: string) {
+    const actor = await this.requireActor(actorId);
+    if (teamId) {
+      await this.requireTeamManagement(actor, teamId);
+    } else if (!SERIES_EDITORS.has(actor.role)) {
+      throw new ForbiddenException({ code: "global_editor_only", message: "Only an editor can see every work waiting for approval." });
+    }
+    const rows = await this.repo.listSeriesForReview(teamId);
+    return rows.map((row) => ({ ...toSeriesDto(row as SeriesRow, EMPTY_STATS), state: row.state }));
   }
 
   async updateSeries(actorId: string, id: string, dto: UpdateSeriesDto, ctx: RequestContext) {
@@ -100,8 +122,11 @@ export class CatalogAdminService {
     if (!isGlobal && !(series.teamId && (await this.isTeamLead(actor.id, series.teamId)))) {
       throw new ForbiddenException({ code: "insufficient_permissions", message: "You cannot edit this series." });
     }
-    const editorial = dto.isFeatured !== undefined || dto.isRecommended !== undefined || dto.state !== undefined || dto.teamId !== undefined;
-    if (editorial && !isGlobal) {
+    const editorial = dto.isFeatured !== undefined || dto.isRecommended !== undefined || dto.teamId !== undefined;
+    // A team's lead may only send a turned-down work back for review; approving, turning down or hiding is the site's call.
+    const resubmitting = series.state === "rejected" && dto.state === "pending";
+    const changesState = dto.state !== undefined && dto.state !== series.state;
+    if ((editorial || (changesState && !resubmitting)) && !isGlobal) {
       throw new ForbiddenException({ code: "global_editor_only", message: "Only an editor can change featuring, visibility or the team." });
     }
 
@@ -133,8 +158,9 @@ export class CatalogAdminService {
     );
     await this.audit(actor, "catalog.series_updated", id, ctx);
     this.catalog.invalidate();
+    if (dto.state === "approved" && series.state !== "approved") this.announceSeries(id);
     const stats = await this.repo.statsFor([id]);
-    return toSeriesDto(row as SeriesRow, stats.get(id) ?? EMPTY_STATS);
+    return { ...toSeriesDto(row as SeriesRow, stats.get(id) ?? EMPTY_STATS), state: row.state };
   }
 
   async deleteSeries(actorId: string, id: string, ctx: RequestContext): Promise<void> {

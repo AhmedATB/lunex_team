@@ -6,6 +6,7 @@ import { Public } from "../../common/decorators/public.decorator";
 import { RequirePow } from "../../common/decorators/require-pow.decorator";
 import { RequireTurnstile } from "../../common/decorators/require-turnstile.decorator";
 import type { AccessTokenPayload } from "../../common/guards/jwt-auth.guard";
+import { TeamAccessService } from "../team-access/team-access.service";
 import { AuthService } from "./auth.service";
 import { ChangePasswordDto } from "./dto/change-password.dto";
 import { LoginDto } from "./dto/login.dto";
@@ -21,7 +22,10 @@ import { UsernameAvailabilityDto } from "./dto/username-availability.dto";
  */
 @Controller("v1/auth")
 export class AuthController {
-  constructor(private readonly auth: AuthService) {}
+  constructor(
+    private readonly auth: AuthService,
+    private readonly teamAccess: TeamAccessService
+  ) {}
 
   @Public()
   @RequirePow() // CPU-cost gate on top of the rate limit — see ProofOfWorkService for why
@@ -64,11 +68,15 @@ export class AuthController {
     return this.auth.refresh(dto.refreshToken, req.context);
   }
 
-  /** No @Public() — the global JwtAuthGuard requires a valid access token, which is exactly what "who am I" should mean. */
+  /**
+   * No @Public() — the global JwtAuthGuard requires a valid access token, which is exactly what "who am I" should mean.
+   * `teamAccess` is where this person may work on a team's chapters (and at which level), so the pages show the buttons the server will honour.
+   */
   @Get("me")
   @HttpCode(HttpStatus.OK)
-  me(@CurrentUser() user: AccessTokenPayload) {
-    return this.auth.me(user.sub);
+  async me(@CurrentUser() user: AccessTokenPayload) {
+    const [profile, teamAccess] = await Promise.all([this.auth.me(user.sub), this.teamAccess.accessFor(user.sub)]);
+    return { ...profile, teamAccess };
   }
 
   /** Always answers the same for any address (see AuthService.requestPasswordReset); proof of work + a tight limit keep it from being used to flood inboxes. */

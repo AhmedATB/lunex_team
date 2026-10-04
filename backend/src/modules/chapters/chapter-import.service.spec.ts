@@ -19,6 +19,9 @@ const three: Image[] = [
   { id: "c", name: "3.jpg", mimeType: "image/jpeg" },
 ];
 
+const OWNER = { id: "u1", role: "owner" };
+const READER = { id: "u2", role: "reader" };
+
 function build(
   options: {
     images?: Image[];
@@ -52,10 +55,10 @@ function build(
     }),
   };
   const chapters = {
-    requirePublisher: jest.fn((role: string) => {
-      if (role !== "owner") throw new ForbiddenException({ code: "insufficient_permissions" });
+    requireUploader: jest.fn(async (actor: { role: string }) => {
+      if (actor.role !== "owner") throw new ForbiddenException({ code: "insufficient_permissions" });
+      return { id: "ch1", pages: (options.existingPages ?? []).map((pageNumber) => ({ pageNumber })) };
     }),
-    get: jest.fn(async () => ({ id: "ch1", pages: (options.existingPages ?? []).map((pageNumber) => ({ pageNumber })) })),
     // The pictures are prepared first (a long one is cut into several pages), then linked in reading order.
     preparePages: jest.fn(async (bytes: Buffer) => {
       const name = bytes.toString();
@@ -74,7 +77,7 @@ function build(
 describe("Drive import of a folder", () => {
   it("fetches every image of the folder, in order, into the chapter's next pages", async () => {
     const { service, drive, chapters } = build({ existingPages: [1, 2] });
-    await expect(service.startDrive("owner", "ch1", FOLDER)).resolves.toEqual({ total: 3, kind: "folder" });
+    await expect(service.startDrive(OWNER, "ch1", FOLDER)).resolves.toEqual({ total: 3, kind: "folder" });
     expect(service.status("ch1")?.state).toBe("running");
     await finished(service);
     expect(service.status("ch1")).toMatchObject({ state: "done", phase: "importing", total: 3, done: 3, error: null });
@@ -85,7 +88,7 @@ describe("Drive import of a folder", () => {
   it("links the pages in reading order even when a later picture arrives first", async () => {
     const delays: Record<string, number> = { a: 60, b: 30, c: 0 };
     const { service, chapters } = build({ downloadDelay: (id) => delays[id] ?? 0 });
-    await service.startDrive("owner", "ch1", FOLDER);
+    await service.startDrive(OWNER, "ch1", FOLDER);
     await finished(service);
     const linked = chapters.storePrepared.mock.calls.map((c) => (c[2] as { data: Buffer }[])[0].data.toString());
     expect(linked).toEqual(["bytes-a#0", "bytes-b#0", "bytes-c#0"]);
@@ -95,7 +98,7 @@ describe("Drive import of a folder", () => {
   it("fetches several pictures at once, but never more than four", async () => {
     const many = Array.from({ length: 12 }, (_, i) => ({ id: `p${i}`, name: `${i + 1}.jpg`, mimeType: "image/jpeg" }));
     const { service, mostInFlight } = build({ images: many, downloadDelay: () => 15 });
-    await service.startDrive("owner", "ch1", FOLDER);
+    await service.startDrive(OWNER, "ch1", FOLDER);
     await finished(service);
     expect(service.status("ch1")).toMatchObject({ state: "done", done: 12 });
     expect(mostInFlight()).toBeGreaterThan(1);
@@ -104,7 +107,7 @@ describe("Drive import of a folder", () => {
 
   it("numbers the next picture after the pages a long one was cut into", async () => {
     const { service, chapters } = build({ pagesPerImage: { a: 3 } }); // the first picture became three pages
-    await service.startDrive("owner", "ch1", FOLDER);
+    await service.startDrive(OWNER, "ch1", FOLDER);
     await finished(service);
     expect(chapters.storePrepared.mock.calls.map((c) => c[1])).toEqual([1, 4, 5]);
     expect(service.status("ch1")).toMatchObject({ state: "done", total: 3, done: 3 });
@@ -112,35 +115,35 @@ describe("Drive import of a folder", () => {
 
   it("is for people who publish, and needs a working link, a set-up account and a folder with images", async () => {
     const { service } = build();
-    await expect(service.startDrive("reader", "ch1", FOLDER)).rejects.toBeInstanceOf(ForbiddenException);
-    await expect(service.startDrive("owner", "ch1", "https://example.com/nothing")).rejects.toMatchObject({ response: { code: "invalid_drive_link" } });
-    await expect(build({ configured: false }).service.startDrive("owner", "ch1", FOLDER)).rejects.toBeInstanceOf(ServiceUnavailableException);
-    await expect(build({ images: [] }).service.startDrive("owner", "ch1", FOLDER)).rejects.toMatchObject({ response: { code: "no_images" } });
-    await expect(build({ images: Array.from({ length: 301 }, (_, i) => ({ id: `${i}`, name: `${i}.jpg`, mimeType: "image/jpeg" })) }).service.startDrive("owner", "ch1", FOLDER)).rejects.toMatchObject({ response: { code: "too_many_images" } });
+    await expect(service.startDrive(READER, "ch1", FOLDER)).rejects.toBeInstanceOf(ForbiddenException);
+    await expect(service.startDrive(OWNER, "ch1", "https://example.com/nothing")).rejects.toMatchObject({ response: { code: "invalid_drive_link" } });
+    await expect(build({ configured: false }).service.startDrive(OWNER, "ch1", FOLDER)).rejects.toBeInstanceOf(ServiceUnavailableException);
+    await expect(build({ images: [] }).service.startDrive(OWNER, "ch1", FOLDER)).rejects.toMatchObject({ response: { code: "no_images" } });
+    await expect(build({ images: Array.from({ length: 301 }, (_, i) => ({ id: `${i}`, name: `${i}.jpg`, mimeType: "image/jpeg" })) }).service.startDrive(OWNER, "ch1", FOLDER)).rejects.toMatchObject({ response: { code: "too_many_images" } });
   });
 
   it("names the address to share with when the link is private", async () => {
     const { service } = build({ fileError: new DriveError("not_shared", "private") });
-    const error = await service.startDrive("owner", "ch1", FOLDER).catch((e) => e);
+    const error = await service.startDrive(OWNER, "ch1", FOLDER).catch((e) => e);
     expect(error).toBeInstanceOf(NotFoundException);
     expect(error.response).toMatchObject({ code: "drive_folder_not_shared", serviceEmail: "reader@project.iam.gserviceaccount.com" });
   });
 
   it("refuses a link to something that is neither a folder nor a ZIP", async () => {
     const { service } = build({ file: { name: "cover.png", mimeType: "image/png", size: 100 } });
-    await expect(service.startDrive("owner", "ch1", FOLDER)).rejects.toMatchObject({ response: { code: "drive_unsupported_file" } });
+    await expect(service.startDrive(OWNER, "ch1", FOLDER)).rejects.toMatchObject({ response: { code: "drive_unsupported_file" } });
   });
 
   it("does not start a second import of the same chapter while one is running", async () => {
     const { service } = build({ downloadDelay: () => 20 });
-    await service.startDrive("owner", "ch1", FOLDER);
-    await expect(service.startDrive("owner", "ch1", FOLDER)).rejects.toBeInstanceOf(ConflictException);
+    await service.startDrive(OWNER, "ch1", FOLDER);
+    await expect(service.startDrive(OWNER, "ch1", FOLDER)).rejects.toBeInstanceOf(ConflictException);
     await finished(service);
   });
 
   it("stops and says why when a page cannot be stored", async () => {
     const { service } = build({ storeFails: true });
-    await service.startDrive("owner", "ch1", FOLDER);
+    await service.startDrive(OWNER, "ch1", FOLDER);
     await finished(service);
     expect(service.status("ch1")).toMatchObject({ state: "failed", done: 0, error: "disk full" });
   });
@@ -158,7 +161,7 @@ describe("Drive import of a ZIP", () => {
   it("fetches the ZIP, opens it on the server and links its pictures in reading order", async () => {
     const zipBytes = archive({ "10.jpg": "ten", "2.jpg": "two", "1.jpg": "one", "__MACOSX/._1.jpg": "junk", "notes.txt": "not a picture", "sub/": "" });
     const { service, drive, chapters } = build({ file: zipFile, zipBytes, existingPages: [1] });
-    await expect(service.startDrive("owner", "ch1", ZIP_LINK)).resolves.toEqual({ total: 0, kind: "zip" });
+    await expect(service.startDrive(OWNER, "ch1", ZIP_LINK)).resolves.toEqual({ total: 0, kind: "zip" });
     expect(service.status("ch1")).toMatchObject({ state: "running", phase: "downloading", total: 0 });
     await finished(service);
     expect(service.status("ch1")).toMatchObject({ state: "done", phase: "importing", total: 3, done: 3, error: null });
@@ -171,25 +174,25 @@ describe("Drive import of a ZIP", () => {
 
   it("also recognises a ZIP by its name when Drive files it as a plain binary", async () => {
     const { service } = build({ file: { name: "chapter.ZIP", mimeType: "application/octet-stream", size: null }, zipBytes: archive({ "1.jpg": "one" }) });
-    await expect(service.startDrive("owner", "ch1", ZIP_LINK)).resolves.toMatchObject({ kind: "zip" });
+    await expect(service.startDrive(OWNER, "ch1", ZIP_LINK)).resolves.toMatchObject({ kind: "zip" });
     await finished(service);
     expect(service.status("ch1")).toMatchObject({ state: "done", total: 1 });
   });
 
   it("refuses a ZIP that is too big before fetching it", async () => {
     const { service, drive } = build({ file: { ...zipFile, size: 400 * 1024 * 1024 } });
-    await expect(service.startDrive("owner", "ch1", ZIP_LINK)).rejects.toMatchObject({ response: { code: "drive_file_too_large" } });
+    await expect(service.startDrive(OWNER, "ch1", ZIP_LINK)).rejects.toMatchObject({ response: { code: "drive_file_too_large" } });
     expect(drive.download).not.toHaveBeenCalled();
   });
 
   it("fails clearly for an archive with no pictures, or one that is not a ZIP", async () => {
     const none = build({ file: zipFile, zipBytes: archive({ "readme.txt": "nothing" }) });
-    await none.service.startDrive("owner", "ch1", ZIP_LINK);
+    await none.service.startDrive(OWNER, "ch1", ZIP_LINK);
     await finished(none.service);
     expect(none.service.status("ch1")).toMatchObject({ state: "failed", error: "The ZIP has no images." });
 
     const broken = build({ file: zipFile, zipBytes: Buffer.from("this is not a zip at all") });
-    await broken.service.startDrive("owner", "ch1", ZIP_LINK);
+    await broken.service.startDrive(OWNER, "ch1", ZIP_LINK);
     await finished(broken.service);
     expect(broken.service.status("ch1")).toMatchObject({ state: "failed", error: "This file is not a readable ZIP archive." });
   });

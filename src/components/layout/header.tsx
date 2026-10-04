@@ -4,7 +4,7 @@ import Link from "next/link";
 import Image from "next/image";
 import { usePathname, useRouter } from "next/navigation";
 import { useEffect, useMemo, useState } from "react";
-import { Search, LogOut, Settings, User as UserIcon, ShieldCheck, Coins, Palette, Users } from "lucide-react";
+import { Search, LogOut, Settings, User as UserIcon, ShieldCheck, Coins, Palette, Users, LayoutDashboard } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Avatar, AvatarImage, AvatarFallback } from "@/components/ui/avatar";
@@ -35,6 +35,7 @@ export function Header() {
   const pathname = usePathname();
   const { logout } = useSession();
   const currentUserId = useSignedInUserId();
+  const teamAccess = useSession((s) => s.user?.teamAccess);
   const [query, setQuery] = useState("");
   const [mobileSearchOpen, setMobileSearchOpen] = useState(false);
   const [scrolled, setScrolled] = useState(false);
@@ -202,6 +203,13 @@ export function Header() {
                         <Link href="/admin"><ShieldCheck className="h-4 w-4" /> لوحة الإدارة</Link>
                       </DropdownMenuItem>
                     )}
+                    {teamAccess?.map((access) => (
+                      <DropdownMenuItem key={access.teamId} asChild>
+                        <Link href={`/teams/${access.slug}/dashboard`}>
+                          <LayoutDashboard className="h-4 w-4" /> {access.level === "lead" ? "إدارة" : "فصول"} {access.name}
+                        </Link>
+                      </DropdownMenuItem>
+                    ))}
                     <DropdownMenuSeparator />
                     <DropdownMenuItem onClick={handleLogout} className="text-red-400 focus:bg-red-500/10">
                       <LogOut className="h-4 w-4" /> تسجيل الخروج

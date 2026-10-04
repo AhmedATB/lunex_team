@@ -147,7 +147,11 @@ function Form({ series, canEditorial, fixedTeamId, teams = [], onClose, onSaved 
     useToast.getState().push(
       failures.length > 0
         ? { title: editing ? "حُفظت السلسلة، لكن تعذر رفع صورة" : "أُنشئت السلسلة، لكن تعذر رفع صورة", description: failures.join(" · ") }
-        : { title: editing ? "حُفظت التعديلات" : "أُنشئت السلسلة", description: titleAr.trim() }
+        : editing
+          ? { title: "حُفظت التعديلات", description: titleAr.trim() }
+          : canEditorial
+            ? { title: "أُنشئت السلسلة", description: titleAr.trim() }
+            : { title: "أُرسلت السلسلة للمراجعة", description: "تظهر للقراء بعد موافقة إدارة الموقع." }
     );
     router.refresh();
     onSaved?.();

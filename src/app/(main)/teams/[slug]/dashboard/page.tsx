@@ -51,6 +51,10 @@ import { CollaborationPanel } from "@/components/teams/collaboration-panel";
 import { RecruitmentPanel } from "@/components/teams/recruitment-panel";
 import { ImagePicker } from "@/components/admin/image-picker";
 import { TeamDiscordSettings } from "@/components/admin/team-discord-settings";
+import { TeamChaptersPanel } from "@/components/teams/team-chapters-panel";
+import { TeamSeriesPanel } from "@/components/teams/team-series-panel";
+import { accessIn } from "@/lib/team-access";
+import type { TeamLevel } from "@/lib/auth-types";
 import { teamApi, type MemberRole, type TeamPatch } from "@/lib/team-api";
 import { useToast } from "@/store/toast";
 
@@ -91,6 +95,7 @@ export default function TeamDashboardPage() {
 
   const currentUserId = useSession((s) => s.currentUserId);
   const currentUser = db.users.find((u) => u.id === currentUserId);
+  const sessionUser = useSession((s) => s.user);
 
   // Persisted stores rehydrate after mount (see StoreHydration), so both `team` and
   // `currentUser` reflect defaults on the very first client render after a hard reload.
@@ -113,18 +118,19 @@ export default function TeamDashboardPage() {
   const isRealTeam = db.teams.some((t) => t.id === team.id);
 
   const { isGlobalAdmin, isLeader, isAssistantLeader } = getTeamAuthRoles(team, currentUser, isRealTeam ? {} : store.memberRoleOverrides);
-  const canAccessDashboard = isLeader || isAssistantLeader || isGlobalAdmin;
+  // What the site itself says this person may do in the team (not the browser's copy of the roster): a team's lead, publisher or uploader.
+  const myAccess = isRealTeam ? accessIn(sessionUser, team.id) : undefined;
+  const level: TeamLevel | null = isLeader || isAssistantLeader || isGlobalAdmin ? "lead" : myAccess?.level ?? null;
 
-  // Dashboard access is intentionally narrower than "team member": only the team
-  // leader, their assistant leader, and platform admins manage the team here —
-  // other roles (translators, QC, etc.) only get the public team page.
-  if (!currentUser || !canAccessDashboard) {
+  // Dashboard access is intentionally narrower than "team member": the team's leadership and platform admins manage the team here;
+  // a publisher or an uploader gets only the chapters (see below); other roles (translators, QC, etc.) only get the public team page.
+  if (!currentUser || level === null) {
     return (
       <div className="container flex flex-col items-center gap-4 py-24 text-center">
         <ShieldAlert className="h-14 w-14 text-red-400" />
         <h1 className="font-display text-2xl font-bold text-white">وصول مرفوض</h1>
         <p className="max-w-sm text-sm text-lunex-gray">
-          هذه اللوحة مخصصة لقائد فريق {team.name} ونائبه ومشرفي المنصة فقط.
+          هذه اللوحة مخصصة لقيادة فريق {team.name} والناشر والرافع ومشرفي المنصة فقط.
         </p>
         <Button asChild><Link href={`/teams/${team.slug}`}>عرض صفحة الفريق العامة</Link></Button>
       </div>
@@ -153,6 +159,42 @@ export default function TeamDashboardPage() {
       ((s.collaboratorTeamIds ?? []).includes(team.id) || (!isRealTeam && (store.seriesCollaboratorTeamIds[s.id] ?? []).includes(team.id)))
   );
   const teamSeries = [...ownSeries, ...collaboratorSeries];
+
+  const dashboardHeader = (
+    <div className="flex items-center gap-3">
+      <div
+        className="art-glow shine relative flex h-12 w-12 shrink-0 items-center justify-center overflow-hidden rounded-2xl font-display text-xl font-black text-white sm:h-14 sm:w-14"
+        style={team.logoUrl ? undefined : { background: `linear-gradient(135deg, ${team.color}, #C084FC)` }}
+      >
+        {team.logoUrl ? (
+          <Image src={team.logoUrl} alt={team.name} fill sizes="56px" className="object-cover" unoptimized />
+        ) : (
+          team.name[0]
+        )}
+      </div>
+      <div className="min-w-0 flex-1">
+        <h1 className="section-title font-display text-xl font-black leading-tight text-white sm:text-3xl">لوحة إدارة {team.name}</h1>
+        <p className="mt-1 line-clamp-1 text-xs text-lunex-gray sm:text-sm">
+          {level === "lead" ? "إدارة الأعضاء والمشاريع والصلاحيات الخاصة بالفريق." : "رفع فصول الفريق ونشرها."}
+        </p>
+      </div>
+      <Badge className="shrink-0" variant={team.status === "active" ? "success" : "warning"}>
+        {team.status === "active" ? "نشط" : team.status === "suspended" ? "معلّق" : "مؤرشف"}
+      </Badge>
+    </div>
+  );
+
+  const chapterTargets = ownSeries.map((s) => ({ id: s.id, titleAr: s.titleAr, teamId: s.teamId, type: s.type, latestChapterNumber: s.latestChapterNumber }));
+
+  // A publisher or an uploader sees the chapters and nothing else of the team's management.
+  if (level !== "lead") {
+    return (
+      <div className="container space-y-5 py-5 sm:space-y-6 sm:py-6">
+        {dashboardHeader}
+        <TeamChaptersPanel series={chapterTargets} level={level} />
+      </div>
+    );
+  }
 
   const currentTeamId = team.id;
   const membersForSeries = (s: Series) => {
@@ -266,31 +308,14 @@ export default function TeamDashboardPage() {
 
   return (
     <div className="container space-y-5 py-5 sm:space-y-6 sm:py-6">
-      <div className="flex items-center gap-3">
-        <div
-          className="art-glow shine relative flex h-12 w-12 shrink-0 items-center justify-center overflow-hidden rounded-2xl font-display text-xl font-black text-white sm:h-14 sm:w-14"
-          style={team.logoUrl ? undefined : { background: `linear-gradient(135deg, ${team.color}, #C084FC)` }}
-        >
-          {team.logoUrl ? (
-            <Image src={team.logoUrl} alt={team.name} fill sizes="56px" className="object-cover" unoptimized />
-          ) : (
-            team.name[0]
-          )}
-        </div>
-        <div className="min-w-0 flex-1">
-          <h1 className="section-title font-display text-xl font-black leading-tight text-white sm:text-3xl">لوحة إدارة {team.name}</h1>
-          <p className="mt-1 line-clamp-1 text-xs text-lunex-gray sm:text-sm">إدارة الأعضاء والمشاريع والصلاحيات الخاصة بالفريق.</p>
-        </div>
-        <Badge className="shrink-0" variant={team.status === "active" ? "success" : "warning"}>
-          {team.status === "active" ? "نشط" : team.status === "suspended" ? "معلّق" : "مؤرشف"}
-        </Badge>
-      </div>
+      {dashboardHeader}
 
       <Tabs defaultValue="overview">
         <TabsList>
           <TabsTrigger value="overview">نظرة عامة</TabsTrigger>
           <TabsTrigger value="members">الأعضاء</TabsTrigger>
           <TabsTrigger value="series">السلاسل</TabsTrigger>
+          {isRealTeam && <TabsTrigger value="chapters">الفصول</TabsTrigger>}
           <TabsTrigger value="roles">الأدوار والصلاحيات</TabsTrigger>
           <TabsTrigger value="recruitment">التوظيف</TabsTrigger>
           <TabsTrigger value="collaboration">التعاون</TabsTrigger>
@@ -463,17 +488,7 @@ export default function TeamDashboardPage() {
               />
             </div>
           )}
-          {isRealTeam && (
-            <p className="rounded-xl border border-white/10 bg-white/[0.03] p-3 text-xs leading-relaxed text-lunex-gray">
-              تُضاف الأعمال الجديدة من إدارة الموقع
-              {isGlobalAdmin && (
-                <>
-                  {" "}— <Link href="/admin/series" className="font-bold text-primary-300 hover:text-primary-200">افتح إدارة السلاسل</Link>
-                </>
-              )}
-              . أما تعيين المترجم والمحرر لكل عمل فقيد التطوير وسيتوفر قريبًا.
-            </p>
-          )}
+          {isRealTeam && <TeamSeriesPanel teamId={team.id} />}
           {teamSeries.map((s) => {
             const isCollaboration = s.teamId !== team.id;
             const assignableMembers = membersForSeries(s);
@@ -515,6 +530,12 @@ export default function TeamDashboardPage() {
           })}
           {teamSeries.length === 0 && <div className="panel p-10 text-center text-lunex-gray">لا توجد سلاسل لهذا الفريق بعد.</div>}
         </TabsContent>
+
+        {isRealTeam && (
+          <TabsContent value="chapters">
+            <TeamChaptersPanel series={chapterTargets} level={level} />
+          </TabsContent>
+        )}
 
         <TabsContent value="roles" className="space-y-4">
           <Card>

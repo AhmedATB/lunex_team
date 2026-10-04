@@ -3,6 +3,7 @@ import { ConfigService } from "@nestjs/config";
 import { JwtModule } from "@nestjs/jwt";
 import { MailModule } from "../mail/mail.module";
 import { NotificationsModule } from "../notifications/notifications.module";
+import { TeamAccessModule } from "../team-access/team-access.module";
 import { AuthController } from "./auth.controller";
 import { AuthRepository } from "./auth.repository";
 import { AuthService } from "./auth.service";
@@ -16,7 +17,7 @@ const JwtAsyncModule = JwtModule.registerAsync({
 });
 
 @Module({
-  imports: [JwtAsyncModule, NotificationsModule, MailModule],
+  imports: [JwtAsyncModule, NotificationsModule, MailModule, TeamAccessModule],
   controllers: [AuthController],
   providers: [AuthService, AuthRepository],
   // Re-exporting JwtModule (not just AuthService) is required here: the

@@ -25,7 +25,7 @@ import { Public } from "../../common/decorators/public.decorator";
 import type { AccessTokenPayload } from "../../common/guards/jwt-auth.guard";
 import { ChapterImportService } from "./chapter-import.service";
 import { ChapterThumbnailService } from "./chapter-thumbnail.service";
-import { ChaptersService } from "./chapters.service";
+import { ChaptersService, type ChapterActor } from "./chapters.service";
 import { ImportDriveDto } from "./dto/import-drive.dto";
 import { CreateChapterDto } from "./dto/create-chapter.dto";
 import { ThumbnailPageDto } from "./dto/thumbnail-page.dto";
@@ -34,6 +34,8 @@ import { UploadPageDto } from "./dto/upload-page.dto";
 import { UnlockChapterDto } from "../wallet/dto/unlock-chapter.dto";
 
 const MAX_PAGE_UPLOAD_BYTES = 15 * 1024 * 1024;
+
+const asActor = (user: AccessTokenPayload): ChapterActor => ({ id: user.sub, role: user.role });
 
 /**
  * Every route here requires a real auth token (global JwtAuthGuard) except
@@ -53,12 +55,12 @@ export class ChaptersController {
   @HttpCode(HttpStatus.CREATED)
   @Throttle({ default: { limit: 30, ttl: 60_000 } })
   create(@Body() dto: CreateChapterDto, @CurrentUser() actor: AccessTokenPayload) {
-    return this.chapters.create(actor.role, dto);
+    return this.chapters.create(asActor(actor), dto);
   }
 
   @Get("admin/recent")
   listRecentForAdmin(@CurrentUser() actor: AccessTokenPayload) {
-    return this.chapters.listRecentForAdmin(actor.role);
+    return this.chapters.listRecentForAdmin(asActor(actor));
   }
 
   @Public()
@@ -79,14 +81,14 @@ export class ChaptersController {
   @Patch(":id")
   @Throttle({ default: { limit: 30, ttl: 60_000 } })
   update(@Param("id") id: string, @Body() dto: UpdateChapterDto, @CurrentUser() actor: AccessTokenPayload) {
-    return this.chapters.update(actor.role, id, dto, actor.sub);
+    return this.chapters.update(asActor(actor), id, dto);
   }
 
   @Delete(":id")
   @HttpCode(HttpStatus.NO_CONTENT)
   @Throttle({ default: { limit: 20, ttl: 60_000 } })
   async remove(@Param("id") id: string, @CurrentUser() actor: AccessTokenPayload) {
-    await this.chapters.remove(actor.role, id);
+    await this.chapters.remove(asActor(actor), id);
   }
 
   @Post(":id/pages")
@@ -100,10 +102,10 @@ export class ChaptersController {
     @CurrentUser() actor: AccessTokenPayload
   ) {
     // A long picture becomes several pages from `pageNumber` on; the answer says how many, so the next upload starts after them.
-    return this.chapters.uploadPages(actor.role, chapterId, dto.pageNumber, file);
+    return this.chapters.uploadPages(asActor(actor), chapterId, dto.pageNumber, file);
   }
 
-  /** Replaces one page's picture (multipart `file`); for the people who publish. */
+  /** Replaces one page's picture (multipart `file`); for the people who work on the series' chapters. */
   @Put(":id/pages/:pageNumber")
   @HttpCode(HttpStatus.OK)
   @Throttle({ default: { limit: 60, ttl: 60_000 } })
@@ -116,7 +118,7 @@ export class ChaptersController {
   ) {
     const number = Number(pageNumber);
     if (!Number.isInteger(number) || number < 1) throw new BadRequestException({ code: "invalid_page_number", message: "The page number must be a whole number from 1." });
-    return this.chapters.replacePage(actor.role, chapterId, number, file);
+    return this.chapters.replacePage(asActor(actor), chapterId, number, file);
   }
 
   /**
@@ -145,7 +147,7 @@ export class ChaptersController {
   @Throttle({ default: { limit: 30, ttl: 60_000 } })
   thumbnailSuggestions(@Param("id") chapterId: string, @Query("round") round: string | undefined, @CurrentUser() actor: AccessTokenPayload) {
     const number = Number(round);
-    return this.thumbnails.suggestions(actor.role, chapterId, Number.isInteger(number) && number >= 0 && number < 1000 ? number : 0);
+    return this.thumbnails.suggestions(asActor(actor), chapterId, Number.isInteger(number) && number >= 0 && number < 1000 ? number : 0);
   }
 
   /** Makes the featured picture from one of the chapter's own pages. */
@@ -153,7 +155,7 @@ export class ChaptersController {
   @HttpCode(HttpStatus.OK)
   @Throttle({ default: { limit: 30, ttl: 60_000 } })
   thumbnailFromPage(@Param("id") chapterId: string, @Body() dto: ThumbnailPageDto, @CurrentUser() actor: AccessTokenPayload) {
-    return this.thumbnails.fromPage(actor.role, chapterId, dto.pageNumber);
+    return this.thumbnails.fromPage(asActor(actor), chapterId, dto.pageNumber);
   }
 
   /** Makes the featured picture from an uploaded picture (multipart `file`). */
@@ -162,19 +164,20 @@ export class ChaptersController {
   @Throttle({ default: { limit: 30, ttl: 60_000 } })
   @UseInterceptors(FileInterceptor("file", { storage: memoryStorage(), limits: { fileSize: MAX_PAGE_UPLOAD_BYTES } }))
   uploadThumbnail(@Param("id") chapterId: string, @UploadedFile() file: Express.Multer.File | undefined, @CurrentUser() actor: AccessTokenPayload) {
-    return this.thumbnails.upload(actor.role, chapterId, file);
+    return this.thumbnails.upload(asActor(actor), chapterId, file);
   }
 
   @Delete(":id/thumbnail")
   @HttpCode(HttpStatus.NO_CONTENT)
   @Throttle({ default: { limit: 30, ttl: 60_000 } })
   async removeThumbnail(@Param("id") chapterId: string, @CurrentUser() actor: AccessTokenPayload) {
-    await this.thumbnails.remove(actor.role, chapterId);
+    await this.thumbnails.remove(asActor(actor), chapterId);
   }
 
   /** Whether Drive import is set up, and the address a private folder must be shared with. */
   @Get("import/drive/info")
-  driveInfo() {
+  async driveInfo(@CurrentUser() actor: AccessTokenPayload) {
+    await this.chapters.requireAnyUploader(asActor(actor));
     return this.imports.driveInfo();
   }
 
@@ -186,13 +189,13 @@ export class ChaptersController {
   @HttpCode(HttpStatus.ACCEPTED)
   @Throttle({ default: { limit: 10, ttl: 60_000 } })
   importDrive(@Param("id") chapterId: string, @Body() dto: ImportDriveDto, @CurrentUser() actor: AccessTokenPayload) {
-    return this.imports.startDrive(actor.role, chapterId, dto.link);
+    return this.imports.startDrive(asActor(actor), chapterId, dto.link);
   }
 
   @Get(":id/import/status")
   @Throttle({ default: { limit: 120, ttl: 60_000 } })
-  importStatus(@Param("id") chapterId: string, @CurrentUser() actor: AccessTokenPayload) {
-    this.chapters.requirePublisher(actor.role);
+  async importStatus(@Param("id") chapterId: string, @CurrentUser() actor: AccessTokenPayload) {
+    await this.chapters.requireUploader(asActor(actor), chapterId);
     return this.imports.status(chapterId);
   }
 

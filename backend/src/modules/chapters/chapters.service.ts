@@ -8,25 +8,25 @@ import { WalletService } from "../wallet/wallet.service";
 import { NotificationsService } from "../notifications/notifications.service";
 import { AnnouncementsService } from "../announcements/announcements.service";
 import { TeamActivityService } from "../team-activity/team-activity.service";
+import { canPublishAt, TeamAccessService, type TeamLevel } from "../team-access/team-access.service";
 import type { UnlockMethod } from "../wallet/wallet.repository";
 import { ChaptersRepository } from "./chapters.repository";
 import { PageImageError, preparePage, type PageSlice } from "./page-image.util";
 
 /**
- * Mirrors the frontend's rbac.ts GLOBAL_ROLE_PERMISSIONS (publish_chapters/
- * upload_images granted to uploader/editor/super_administrator/owner) —
- * duplicated deliberately, not imported, same reasoning UsersService gives
- * for ROLE_MANAGER_ROLES: the two apps don't share a types package yet.
+ * The site's own staff: these global roles work on any series' chapters (mirrors the frontend's rbac.ts GLOBAL_ROLE_PERMISSIONS —
+ * duplicated deliberately, not imported, since the two apps don't share a types package).
  *
- * Deliberately does NOT check team membership — Team/TeamRole are still
- * frontend-mock-only (architecture doc §4/§19), so a real, server-enforced
- * per-team check isn't possible yet without migrating teams too. This is a
- * documented, bounded gap for this phase, not an oversight: any account
- * holding one of these global roles can publish to any series/team through
- * this API, even though the admin UI would only ever show the button for
- * teams the mock permission system says they belong to.
+ * Everyone else gets in through their place in the team that owns the series (see TeamAccessService): the team's leaders may do
+ * everything with its chapters, a publisher may upload and put them live, an uploader may only upload.
  */
 const CAN_PUBLISH_GLOBAL_ROLES = new Set(["uploader", "editor", "super_administrator", "owner"]);
+
+/** Who is asking. `id` is null for the Telegram/Discord bot, which acts with a site role and no account. */
+export interface ChapterActor {
+  id: string | null;
+  role: string;
+}
 
 /** What the image log and the token record for a reader without an account (the device and address are logged beside it). */
 const GUEST_READER = "guest";
@@ -41,19 +41,65 @@ export class ChaptersService {
     private readonly notifications: NotificationsService,
     private readonly catalog: CatalogService,
     private readonly activity: TeamActivityService,
-    private readonly announcements: AnnouncementsService
+    private readonly announcements: AnnouncementsService,
+    private readonly teamAccess: TeamAccessService
   ) {}
 
-  private assertCanPublish(role: string) {
-    if (!CAN_PUBLISH_GLOBAL_ROLES.has(role)) {
-      throw new ForbiddenException({ code: "insufficient_permissions", message: "You cannot publish chapters." });
-    }
+  private isStaff(actor: ChapterActor): boolean {
+    return CAN_PUBLISH_GLOBAL_ROLES.has(actor.role);
   }
 
-  /** `teamId` may be left out: a work that belongs to no team is published by the site's staff on its own. */
-  async create(role: string, dto: { seriesId: string; teamId?: string; number: number; title: string }) {
-    this.assertCanPublish(role);
-    return this.repo.create({ seriesId: dto.seriesId, teamId: dto.teamId?.trim() || null, number: dto.number, title: dto.title });
+  private forbidden(): never {
+    throw new ForbiddenException({ code: "insufficient_permissions", message: "You cannot publish chapters." });
+  }
+
+  /** The actor's place in the team that owns the series, or null: not in it, the team is not active, the series has no team, or the actor is the bot. */
+  private async standing(actor: ChapterActor, seriesId: string): Promise<{ teamId: string; level: TeamLevel } | null> {
+    if (!actor.id) return null;
+    const series = await this.repo.seriesAccess(seriesId);
+    if (!series?.teamId) return null;
+    const level = await this.teamAccess.levelFor(actor.id, series.teamId);
+    return level ? { teamId: series.teamId, level } : null;
+  }
+
+  /** Works on the chapters of this series: the site's staff, or the team that owns it (any level). */
+  private async assertCanUpload(actor: ChapterActor, seriesId: string) {
+    if (this.isStaff(actor)) return;
+    if (!(await this.standing(actor, seriesId))) this.forbidden();
+  }
+
+  /** Puts chapters of this series live or takes them down: staff, or a lead or a publisher of the team that owns it. */
+  private async assertCanPublish(actor: ChapterActor, seriesId: string) {
+    if (this.isStaff(actor)) return;
+    const standing = await this.standing(actor, seriesId);
+    if (!standing || !canPublishAt(standing.level)) this.forbidden();
+  }
+
+  /** The chapter, once the actor is allowed to work on its series. The Drive import and the featured picture check through this too. */
+  async requireUploader(actor: ChapterActor, chapterId: string) {
+    const chapter = await this.get(chapterId);
+    await this.assertCanUpload(actor, chapter.seriesId);
+    return chapter;
+  }
+
+  /** For the routes that are not about one series (the Drive import's set-up details): staff, or anyone who works on a team's chapters. */
+  async requireAnyUploader(actor: ChapterActor) {
+    if (this.isStaff(actor)) return;
+    if (!actor.id || (await this.teamAccess.accessFor(actor.id)).length === 0) this.forbidden();
+  }
+
+  /**
+   * `teamId` may be left out for the site's staff: a work that belongs to no team is published by them on its own. A team's people
+   * never choose the team — the chapter takes the one that owns the series, whatever the request says.
+   */
+  async create(actor: ChapterActor, dto: { seriesId: string; teamId?: string; number: number; title: string }) {
+    let teamId = dto.teamId?.trim() || null;
+    if (!this.isStaff(actor)) {
+      const standing = await this.standing(actor, dto.seriesId);
+      if (!standing) this.forbidden();
+      teamId = standing.teamId;
+    }
+    return this.repo.create({ seriesId: dto.seriesId, teamId, number: dto.number, title: dto.title });
   }
 
   async get(id: string) {
@@ -73,16 +119,25 @@ export class ChaptersService {
     return this.repo.findBySeriesAndNumber(seriesId, number);
   }
 
-  async listRecentForAdmin(role: string) {
-    this.assertCanPublish(role);
-    return this.repo.listRecent(50);
+  /** The staff see every chapter; a team's people see only the chapters of the series their team owns. */
+  async listRecentForAdmin(actor: ChapterActor) {
+    if (this.isStaff(actor)) return this.repo.listRecent(50);
+    const teams = actor.id ? await this.teamAccess.accessFor(actor.id) : [];
+    if (teams.length === 0) this.forbidden();
+    return this.repo.listRecent(50, teams.map((team) => team.teamId));
   }
 
-  async update(role: string, id: string, patch: { isPublished?: boolean; manualLock?: boolean | null }, actorId?: string) {
-    this.assertCanPublish(role);
+  async update(actor: ChapterActor, id: string, patch: { isPublished?: boolean; manualLock?: boolean | null }) {
     const before = await this.get(id);
+    if (patch.manualLock !== undefined && !this.isStaff(actor)) this.forbidden(); // the lock decides what costs coins — the site's call, not a team's
+    if (patch.isPublished !== undefined) await this.assertCanPublish(actor, before.seriesId);
+    else await this.assertCanUpload(actor, before.seriesId);
     const publishing = patch.isPublished === true && !before.isPublished;
     const unpublishing = patch.isPublished === false && before.isPublished;
+    // A work still waiting for the site's approval is not shown anywhere, so none of its chapters may go live yet.
+    if (publishing && (await this.repo.seriesAccess(before.seriesId))?.state !== "approved") {
+      throw new ConflictException({ code: "series_not_approved", message: "The series has not been approved yet, so its chapters cannot go live." });
+    }
     // The catalogue's "latest chapters" (and each work's and team's last update) go by the publication time, so going live
     // stamps it and taking a chapter down clears it — without it a chapter published here sorted after every imported one.
     const stamp = publishing ? { publishedAt: new Date() } : unpublishing ? { publishedAt: null } : {};
@@ -90,7 +145,7 @@ export class ChaptersService {
     this.catalog.invalidate(); // the home page and the work's page show the change at once, not after the cache runs out
     if ((publishing || unpublishing) && before.teamId) {
       const series = await this.repo.seriesTitle(before.seriesId);
-      await this.activity.record(before.teamId, publishing ? "chapter_published" : "chapter_unpublished", { actorId, detail: `${before.number} من ${series ?? "أحد الأعمال"}` });
+      await this.activity.record(before.teamId, publishing ? "chapter_published" : "chapter_unpublished", { actorId: actor.id ?? undefined, detail: `${before.number} من ${series ?? "أحد الأعمال"}` });
     }
     // Going live is what readers who follow the series want to hear about (never for a chapter already live).
     if (publishing) void this.notifications.chapterPublished(before.seriesId, before.number);
@@ -99,9 +154,10 @@ export class ChaptersService {
     return updated;
   }
 
-  async remove(role: string, id: string) {
-    this.assertCanPublish(role);
-    await this.get(id);
+  /** Deleting a chapter is for the site's staff and the team's leads — a publisher or an uploader can take it down, not remove it. */
+  async remove(actor: ChapterActor, id: string) {
+    const chapter = await this.get(id);
+    if (!this.isStaff(actor) && (await this.standing(actor, chapter.seriesId))?.level !== "lead") this.forbidden();
     const removed = await this.repo.delete(id);
     this.catalog.invalidate();
     return removed;
@@ -115,9 +171,8 @@ export class ChaptersService {
    * acceptable v1 limitation for how rarely a single page needs replacing.
    * One picture is one page here (the bot's route uses this one).
    */
-  async uploadPage(role: string, chapterId: string, pageNumber: number, file: Express.Multer.File | undefined) {
-    this.assertCanPublish(role);
-    await this.get(chapterId);
+  async uploadPage(actor: ChapterActor, chapterId: string, pageNumber: number, file: Express.Multer.File | undefined) {
+    await this.requireUploader(actor, chapterId);
 
     if (!file) {
       throw new BadRequestException({ code: "missing_file", message: "No image file was uploaded." });
@@ -130,9 +185,8 @@ export class ChaptersService {
    * chapter. Same chapter, same number; one picture is one page (a strip is not cut, or the numbers after it would shift). The
    * old picture stays in storage, but no reader is sent to it once this returns.
    */
-  async replacePage(role: string, chapterId: string, pageNumber: number, file: Express.Multer.File | undefined) {
-    this.assertCanPublish(role);
-    await this.get(chapterId);
+  async replacePage(actor: ChapterActor, chapterId: string, pageNumber: number, file: Express.Multer.File | undefined) {
+    await this.requireUploader(actor, chapterId);
     if (!file) {
       throw new BadRequestException({ code: "missing_file", message: "No image file was uploaded." });
     }
@@ -151,19 +205,13 @@ export class ChaptersService {
    * The admin upload: like {@link uploadPage}, but a long picture (a webtoon strip) is cut into several pages and a very
    * wide one is shrunk. Answers how many pages the picture became, so the caller numbers the next one after them.
    */
-  async uploadPages(role: string, chapterId: string, firstPage: number, file: Express.Multer.File | undefined) {
-    this.assertCanPublish(role);
-    await this.get(chapterId);
+  async uploadPages(actor: ChapterActor, chapterId: string, firstPage: number, file: Express.Multer.File | undefined) {
+    await this.requireUploader(actor, chapterId);
 
     if (!file) {
       throw new BadRequestException({ code: "missing_file", message: "No image file was uploaded." });
     }
     return this.storePages(chapterId, firstPage, file.buffer);
-  }
-
-  /** The permission check the callers of {@link storePage} that are not a request (the Drive import) make up front. */
-  requirePublisher(role: string) {
-    this.assertCanPublish(role);
   }
 
   /** Normalizes the picture and links it as the chapter's page `pageNumber` (the chapter and the caller's right to publish are checked by the caller). */
