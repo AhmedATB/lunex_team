@@ -25,6 +25,8 @@ import type {
 
 /** Global roles by what they may manage; mirrors the frontend's rbac.ts (manage_series, edit_team, create_announcements). */
 const SERIES_EDITORS: ReadonlySet<string> = new Set(["owner", "super_administrator", "editor"]);
+/** Who decides whether a team's new work is listed: the owner and the top administrator, not the site's editors. */
+const SERIES_APPROVERS: ReadonlySet<string> = new Set(["owner", "super_administrator"]);
 const TEAM_MANAGERS = TEAM_MANAGER_ROLES;
 const NEWS_EDITORS: ReadonlySet<string> = new Set(["owner", "super_administrator", "news_manager"]);
 
@@ -108,8 +110,8 @@ export class CatalogAdminService {
     const actor = await this.requireActor(actorId);
     if (teamId) {
       await this.requireTeamManagement(actor, teamId);
-    } else if (!SERIES_EDITORS.has(actor.role)) {
-      throw new ForbiddenException({ code: "global_editor_only", message: "Only an editor can see every work waiting for approval." });
+    } else if (!SERIES_APPROVERS.has(actor.role)) {
+      throw new ForbiddenException({ code: "approver_only", message: "Only the owner or the top administrator can see every work waiting for approval." });
     }
     const rows = await this.repo.listSeriesForReview(teamId);
     return rows.map((row) => ({ ...toSeriesDto(row as SeriesRow, EMPTY_STATS), state: row.state }));
@@ -126,8 +128,13 @@ export class CatalogAdminService {
     // A team's lead may only send a turned-down work back for review; approving, turning down or hiding is the site's call.
     const resubmitting = series.state === "rejected" && dto.state === "pending";
     const changesState = dto.state !== undefined && dto.state !== series.state;
-    if ((editorial || (changesState && !resubmitting)) && !isGlobal) {
+    const decidesState = changesState && !resubmitting;
+    if ((editorial || decidesState) && !isGlobal) {
       throw new ForbiddenException({ code: "global_editor_only", message: "Only an editor can change featuring, visibility or the team." });
+    }
+    // Listing, hiding or turning down a work is the owner's and the top administrator's call; an editor may still edit it.
+    if (decidesState && !SERIES_APPROVERS.has(actor.role)) {
+      throw new ForbiddenException({ code: "approver_only", message: "Only the owner or the top administrator can approve, turn down or hide a work." });
     }
 
     const tagIds = dto.tagSlugs ? await this.resolveTags(dto.tagSlugs) : undefined;

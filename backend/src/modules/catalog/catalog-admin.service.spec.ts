@@ -168,14 +168,25 @@ describe("approving a team's work", () => {
   it("lists it and announces it once when an editor approves it — never again for a later edit", async () => {
     const { service, repo, announcements, notifications } = build(roster);
     repo.findSeriesById.mockResolvedValue(seriesRow({ state: "pending" }));
-    await service.updateSeries("editor", "s1", { state: "approved" }, CTX);
+    await service.updateSeries("owner", "s1", { state: "approved" }, CTX);
     expect(repo.updateSeries).toHaveBeenCalledWith("s1", expect.objectContaining({ state: "approved" }), undefined);
     expect(announcements.seriesAdded).toHaveBeenCalledTimes(1);
     expect(notifications.seriesAdded).toHaveBeenCalledTimes(1);
     repo.findSeriesById.mockResolvedValue(seriesRow({ state: "approved" }));
-    await service.updateSeries("editor", "s1", { state: "approved", synopsis: "x" }, CTX);
-    await service.updateSeries("editor", "s1", { synopsis: "y" }, CTX);
+    await service.updateSeries("owner", "s1", { state: "approved", synopsis: "x" }, CTX);
+    await service.updateSeries("owner", "s1", { synopsis: "y" }, CTX);
     expect(announcements.seriesAdded).toHaveBeenCalledTimes(1);
+  });
+
+  it("is the owner's and the top administrator's call, not a site editor's: an editor may edit the work but not approve, turn down or hide it", async () => {
+    const { service, repo, announcements } = build(roster);
+    repo.findSeriesById.mockResolvedValue(seriesRow({ state: "pending" }));
+    for (const state of ["approved", "rejected", "draft"]) {
+      await expect(service.updateSeries("editor", "s1", { state }, CTX)).rejects.toMatchObject({ response: { code: "approver_only" } });
+    }
+    await expect(service.updateSeries("editor", "s1", { synopsis: "edited" }, CTX)).resolves.toBeDefined();
+    await expect(service.updateSeries("owner", "s1", { state: "rejected" }, CTX)).resolves.toBeDefined();
+    expect(announcements.seriesAdded).not.toHaveBeenCalled();
   });
 
   it("is the site's call: a team's leader can neither approve nor turn down, only send a turned-down work back for review", async () => {
@@ -193,8 +204,9 @@ describe("approving a team's work", () => {
 
   it("shows every waiting work to the editors, and one team's to that team's leader — nobody else", async () => {
     const { service, repo } = build(roster);
-    await expect(service.listSeriesForReview("editor")).resolves.toEqual([expect.objectContaining({ state: "pending" })]);
+    await expect(service.listSeriesForReview("owner")).resolves.toEqual([expect.objectContaining({ state: "pending" })]);
     expect(repo.listSeriesForReview).toHaveBeenCalledWith(undefined);
+    await expect(service.listSeriesForReview("editor")).rejects.toMatchObject({ response: { code: "approver_only" } });
     await expect(service.listSeriesForReview("leader")).rejects.toBeInstanceOf(ForbiddenException); // the whole list is the editors'
     await service.listSeriesForReview("leader", "t1");
     expect(repo.listSeriesForReview).toHaveBeenLastCalledWith("t1");

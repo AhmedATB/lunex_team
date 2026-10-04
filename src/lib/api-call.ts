@@ -20,6 +20,7 @@ const MESSAGES: Record<string, string> = {
   unsupported_image_type: "الصورة يجب أن تكون JPEG أو PNG أو WebP أو GIF.",
   invalid_image: "تعذرت قراءة هذا الملف كصورة.",
   chapter_exists: "يوجد فصل بهذا الرقم في هذا العمل.",
+  approver_only: "الموافقة على الأعمال أو رفضها للمالك والمسؤول الأعلى فقط.",
   series_not_approved: "هذا العمل ما زال بانتظار موافقة الإدارة، فلا يمكن نشر فصوله بعد.",
   page_number_taken: "هذه الصفحة موجودة مسبقًا في الفصل.",
   image_too_large: "أبعاد إحدى الصور أكبر من المسموح.",
