@@ -16,24 +16,24 @@ import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
 
-const TYPES = [
+export const TYPES = [
   { value: "manhwa", label: "مانهوا" },
   { value: "manga", label: "مانجا" },
   { value: "manhua", label: "مانها" },
   { value: "novel", label: "رواية" },
 ];
-const STATUSES = [
+export const STATUSES = [
   { value: "ongoing", label: "مستمر" },
   { value: "completed", label: "مكتمل" },
   { value: "hiatus", label: "متوقف مؤقتًا" },
   { value: "dropped", label: "متروك" },
 ];
-const COUNTRIES = [
+export const COUNTRIES = [
   { value: "kr", label: "كوريا" },
   { value: "jp", label: "اليابان" },
   { value: "cn", label: "الصين" },
 ];
-const RATINGS = [
+export const RATINGS = [
   { value: "safe", label: "للجميع" },
   { value: "suggestive", label: "إيحائي" },
   { value: "erotica", label: "للبالغين" },
@@ -73,8 +73,8 @@ function Form({ series, canEditorial, fixedTeamId, teams = [], onClose, onSaved 
   const genres = useCatalog().genres;
   const editing = series !== null && series !== undefined;
 
-  const [titleAr, setTitleAr] = useState(series?.titleAr ?? "");
-  const [titleEn, setTitleEn] = useState(series && series.title !== series.titleAr ? series.title : "");
+  // The site names works in English only: this one name is what is shown, searched and sent to search engines.
+  const [name, setName] = useState(series?.title ?? "");
   const [alternatives, setAlternatives] = useState((series?.alternativeTitles ?? []).join("\n"));
   const [synopsis, setSynopsis] = useState(series?.synopsis ?? "");
   const [type, setType] = useState<string>(series?.type ?? "manhwa");
@@ -92,7 +92,7 @@ function Form({ series, canEditorial, fixedTeamId, teams = [], onClose, onSaved 
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
 
-  useEffect(() => setError(""), [titleAr]);
+  useEffect(() => setError(""), [name]);
 
   function toggleGenre(id: string) {
     setPicked((current) => {
@@ -105,14 +105,17 @@ function Form({ series, canEditorial, fixedTeamId, teams = [], onClose, onSaved 
 
   async function save(e: React.FormEvent) {
     e.preventDefault();
-    if (!titleAr.trim() || busy) return;
+    if (!name.trim() || busy) return;
+    if (!/[A-Za-z]/.test(name)) {
+      setError("اكتب اسم العمل بالإنجليزية (بحروف لاتينية).");
+      return;
+    }
     setBusy(true);
     setError("");
 
     const parsedYear = Number.parseInt(year, 10);
     const input: SeriesInput = {
-      titleAr: titleAr.trim(),
-      titleEn: titleEn.trim(),
+      titleEn: name.trim(),
       alternativeTitles: alternatives.split("\n").map((t) => t.trim()).filter(Boolean).slice(0, 20),
       synopsis: synopsis.trim(),
       type,
@@ -148,9 +151,9 @@ function Form({ series, canEditorial, fixedTeamId, teams = [], onClose, onSaved 
       failures.length > 0
         ? { title: editing ? "حُفظت السلسلة، لكن تعذر رفع صورة" : "أُنشئت السلسلة، لكن تعذر رفع صورة", description: failures.join(" · ") }
         : editing
-          ? { title: "حُفظت التعديلات", description: titleAr.trim() }
+          ? { title: "حُفظت التعديلات", description: name.trim() }
           : canEditorial
-            ? { title: "أُنشئت السلسلة", description: titleAr.trim() }
+            ? { title: "أُنشئت السلسلة", description: name.trim() }
             : { title: "أُرسلت السلسلة للمراجعة", description: "تظهر للقراء بعد موافقة إدارة الموقع." }
     );
     router.refresh();
@@ -169,22 +172,16 @@ function Form({ series, canEditorial, fixedTeamId, teams = [], onClose, onSaved 
         <ImagePicker label="البانر (اختياري)" hint="صورة عريضة لأعلى صفحة العمل." current={series?.banner} file={banner} onChange={setBanner} aspect="aspect-[8/3]" className="min-w-[14rem] flex-1" />
       </div>
 
-      <div className="grid gap-3 sm:grid-cols-2">
-        <div className="space-y-1.5">
-          <Label htmlFor="f-title-ar">الاسم بالعربية *</Label>
-          <Input id="f-title-ar" value={titleAr} onChange={(e) => setTitleAr(e.target.value)} maxLength={200} required />
-        </div>
-        <div className="space-y-1.5">
-          <Label htmlFor="f-title-en">الاسم بالإنجليزية</Label>
-          <Input id="f-title-en" dir="ltr" value={titleEn} onChange={(e) => setTitleEn(e.target.value)} maxLength={200} />
-        </div>
+      <div className="space-y-1.5">
+        <Label htmlFor="f-title-en">اسم العمل (بالإنجليزية) *</Label>
+        <Input id="f-title-en" dir="ltr" value={name} onChange={(e) => setName(e.target.value)} maxLength={200} placeholder="Solo Leveling" required />
       </div>
 
       <div className="space-y-1.5">
         <Label htmlFor="f-alt">أسماء بديلة (اسم في كل سطر)</Label>
-        <Textarea id="f-alt" rows={3} value={alternatives} onChange={(e) => setAlternatives(e.target.value)} placeholder="الاسم الأصلي · الاسم الإنجليزي · كتابات عربية أخرى للاسم" />
+        <Textarea id="f-alt" rows={3} value={alternatives} onChange={(e) => setAlternatives(e.target.value)} placeholder="الاسم الأصلي بحروف لاتينية · أي اسم إنجليزي آخر للعمل" />
         <p className="text-xs text-lunex-gray">
-          يظهر العمل في بحث الموقع وفي جوجل بهذه الأسماء أيضًا. اكتب كل ما يبحث به الناس عنه: الاسم الأصلي، والاسم الإنجليزي، وطرق الكتابة العربية المختلفة (مثل: بحذف الألف واللام، أو بالهمزة وبدونها، أو بكتابة مختلفة للحروف الأجنبية).
+          يظهر العمل في بحث الموقع وفي جوجل بهذه الأسماء أيضًا. اكتب كل ما يبحث به الناس عنه بالإنجليزية: الاسم الأصلي (الكوري أو الياباني أو الصيني) بحروف لاتينية، وأي اسم إنجليزي آخر معروف للعمل.
         </p>
       </div>
 
@@ -250,7 +247,7 @@ function Form({ series, canEditorial, fixedTeamId, teams = [], onClose, onSaved 
       </div>
 
       {error && <p className="text-sm text-red-400" role="alert">{error}</p>}
-      <Button type="submit" className="w-full" disabled={busy || !titleAr.trim()}>
+      <Button type="submit" className="w-full" disabled={busy || !name.trim()}>
         {busy && <Loader2 className="h-4 w-4 animate-spin" />} {editing ? "حفظ التعديلات" : "إنشاء السلسلة"}
       </Button>
     </form>

@@ -237,6 +237,24 @@ describe("series permissions (continued)", () => {
     await expect(service.createSeries("editor", { titleAr: "س", teamId: "x" }, CTX)).rejects.toBeInstanceOf(NotFoundException);
   });
 
+  it("takes the English name alone as the work's name: it is stored as the displayed name too, and a work with no name at all is refused", async () => {
+    const { service, repo } = build(roster);
+    await service.createSeries("editor", { titleEn: "  Solo Leveling " }, CTX);
+    expect(repo.createSeries).toHaveBeenLastCalledWith(expect.objectContaining({ titleEn: "Solo Leveling", titleAr: "Solo Leveling" }));
+    await service.createSeries("editor", { titleAr: "اسم", titleEn: "Name" }, CTX); // a client that still sends both is unchanged
+    expect(repo.createSeries).toHaveBeenLastCalledWith(expect.objectContaining({ titleEn: "Name", titleAr: "اسم" }));
+    await expect(service.createSeries("editor", {}, CTX)).rejects.toMatchObject({ response: { code: "title_required" } });
+    await expect(service.createSeries("editor", { titleEn: "   " }, CTX)).rejects.toMatchObject({ response: { code: "title_required" } });
+  });
+
+  it("renames a work with the English name alone too, so the name the site shows follows it", async () => {
+    const { service, repo } = build(roster);
+    await service.updateSeries("editor", "s1", { titleEn: "New Name" }, CTX);
+    expect(repo.updateSeries).toHaveBeenLastCalledWith("s1", expect.objectContaining({ titleEn: "New Name", titleAr: "New Name" }), undefined);
+    await service.updateSeries("editor", "s1", { synopsis: "only the story" }, CTX);
+    expect(repo.updateSeries).toHaveBeenLastCalledWith("s1", expect.objectContaining({ titleAr: undefined, titleEn: undefined }), undefined);
+  });
+
   it("makes the slug from the English title, else the Arabic one, and keeps it unique", async () => {
     const { service, repo } = build(roster);
     repo.seriesSlugTaken.mockResolvedValueOnce(true).mockResolvedValue(false);

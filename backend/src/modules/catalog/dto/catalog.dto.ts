@@ -20,10 +20,12 @@ const HEX_COLOR = /^#[0-9a-fA-F]{6}$/;
 const URL_OPTIONS = { protocols: ["http", "https"], require_protocol: true };
 
 export class CreateSeriesDto {
+  /** Optional now: the site names works in English, so the English name alone is enough (it fills this one too). */
+  @IsOptional()
   @IsString()
   @MinLength(1)
   @MaxLength(200)
-  titleAr!: string;
+  titleAr?: string;
 
   @IsOptional()
   @IsString()

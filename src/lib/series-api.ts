@@ -49,6 +49,8 @@ export interface ReviewSeries {
   teamId: string;
   isRecommended: boolean;
   genreIds: string[];
+  /** The free-form tags (format, content notes), apart from the genres. */
+  tags: string[];
   state: "pending" | "rejected";
 }
 

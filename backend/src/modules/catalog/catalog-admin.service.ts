@@ -25,6 +25,14 @@ import type {
 
 /** Global roles by what they may manage; mirrors the frontend's rbac.ts (manage_series, edit_team, create_announcements). */
 const SERIES_EDITORS: ReadonlySet<string> = new Set(["owner", "super_administrator", "editor"]);
+/** A new work needs a name; the English one alone is enough, and then it is also the name the site displays (`titleAr`). */
+function seriesNames(dto: { titleAr?: string; titleEn?: string }): { titleAr: string; titleEn: string } {
+  const titleEn = dto.titleEn?.trim() ?? "";
+  const titleAr = dto.titleAr?.trim() || titleEn;
+  if (!titleAr) throw new BadRequestException({ code: "title_required", message: "A series needs a name." });
+  return { titleAr, titleEn };
+}
+
 /** Who decides whether a team's new work is listed: the owner and the top administrator, not the site's editors. */
 const SERIES_APPROVERS: ReadonlySet<string> = new Set(["owner", "super_administrator"]);
 const TEAM_MANAGERS = TEAM_MANAGER_ROLES;
@@ -68,11 +76,12 @@ export class CatalogAdminService {
     const state = isGlobal ? "approved" : "pending";
 
     const tagIds = await this.resolveTags(dto.tagSlugs ?? []);
-    const slug = await uniqueSlug(slugify(dto.titleEn || dto.titleAr, "series"), (s) => this.repo.seriesSlugTaken(s));
+    const names = seriesNames(dto);
+    const slug = await uniqueSlug(slugify(names.titleEn || names.titleAr, "series"), (s) => this.repo.seriesSlugTaken(s));
     const row = await this.repo.createSeries({
       slug,
-      titleAr: dto.titleAr.trim(),
-      titleEn: dto.titleEn?.trim() ?? "",
+      titleAr: names.titleAr,
+      titleEn: names.titleEn,
       alternativeTitles: dto.alternativeTitles ?? [],
       synopsis: dto.synopsis ?? "",
       type: dto.type ?? "manhwa",
@@ -143,7 +152,8 @@ export class CatalogAdminService {
     const row = await this.repo.updateSeries(
       id,
       {
-        titleAr: dto.titleAr?.trim(),
+        // The English name is the work's name: sent alone, it also becomes the one the site displays.
+        titleAr: dto.titleAr?.trim() || dto.titleEn?.trim() || undefined,
         titleEn: dto.titleEn?.trim(),
         alternativeTitles: dto.alternativeTitles,
         synopsis: dto.synopsis,

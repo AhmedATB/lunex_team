@@ -121,7 +121,9 @@ export default function SeriesDetailPage() {
               <h1 className="font-display text-2xl font-black text-white sm:text-4xl">
                 <SeriesTitleAr seriesId={series.id} initialTitleAr={series.titleAr} />
               </h1>
-              <p className="text-sm text-lunex-gray">{series.title}</p>
+              {series.title.trim().toLowerCase() !== series.titleAr.trim().toLowerCase() && (
+                <p className="text-sm text-lunex-gray">{series.title}</p>
+              )}
 
               <div className="flex flex-wrap items-center gap-4 text-sm text-lunex-gray">
                 <span className="flex items-center gap-1 font-semibold text-amber-300">
