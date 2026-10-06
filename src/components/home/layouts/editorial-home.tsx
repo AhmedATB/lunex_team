@@ -197,21 +197,6 @@ export function EditorialHome(data: HomeLayoutData) {
         </div>
       )}
 
-      <div className="panel flex flex-wrap items-center justify-between gap-4 px-6 py-4 sm:flex-nowrap">
-        {[
-          { label: "سلسلة", value: data.stats.totalSeries },
-          { label: "فصل منشور", value: data.stats.totalChapters },
-          { label: "قارئ مسجل", value: data.stats.totalUsers },
-          { label: "تعليق", value: data.stats.totalComments },
-          { label: "مشاهدة إجمالية", value: data.stats.totalViews },
-        ].map((stat, i) => (
-          <div key={stat.label} className={i === 0 ? "" : "border-s border-border ps-4"}>
-            <span className="font-display text-lg font-bold text-white">{formatNumber(stat.value)}</span>{" "}
-            <span className="text-sm text-lunex-gray">{stat.label}</span>
-          </div>
-        ))}
-      </div>
-
       <ContinueReading />
 
       <ResponsiveBanner />

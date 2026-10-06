@@ -25,11 +25,11 @@ export function Ticker() {
         <Link
           key={chapter.id}
           href={`/series/${series!.slug}/${chapter.number}`}
-          className="group flex shrink-0 items-center gap-2 border-l border-black/10 px-5 py-2 font-bold text-[#1a0b2e] transition-colors hover:bg-black/10"
+          className="group flex shrink-0 items-center gap-2 border-l border-white/10 px-5 py-1.5 text-white/70 transition-colors hover:bg-white/5 hover:text-white"
         >
-          <Zap className="h-4 w-4 shrink-0 fill-current" />
-          <span className="whitespace-nowrap text-sm">
-            جديد: {series!.titleAr} — الفصل {chapter.number}
+          <Zap className="h-3.5 w-3.5 shrink-0 fill-amber-400 text-amber-400" />
+          <span className="whitespace-nowrap text-xs font-medium">
+            <span className="font-bold text-amber-300">جديد:</span> {series!.titleAr} — الفصل {chapter.number}
             {chapter.moreCount > 0 && ` (+${chapter.moreCount})`}
           </span>
         </Link>
@@ -38,7 +38,7 @@ export function Ticker() {
   );
 
   return (
-    <div dir="ltr" className="overflow-hidden border-b-2 border-white/20 bg-amber-400">
+    <div dir="ltr" className="overflow-hidden border-b border-white/10 bg-black/30 backdrop-blur-sm">
       <div className="marquee-track">
         {row}
         {row}

@@ -139,8 +139,10 @@ export function SeriesAdminControls({
 
 /** The series' status as a badge. */
 export function SeriesStatusBadge({ initialStatus }: { seriesId?: string; initialStatus: SeriesStatus }) {
+  // "Ongoing" is the ordinary state and says nothing; only a work that finished, paused or was dropped is flagged.
+  if (initialStatus === "ongoing") return null;
   const label = STATUS_OPTIONS.find((o) => o.value === initialStatus)?.label ?? initialStatus;
-  return <Badge variant="success">{label}</Badge>;
+  return <Badge variant={initialStatus === "completed" ? "success" : initialStatus === "hiatus" ? "warning" : "destructive"}>{label}</Badge>;
 }
 
 /** Kept for the series page's markup; a deleted series is simply gone from the server now, so there is nothing to guard. */
