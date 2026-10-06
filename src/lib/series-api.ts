@@ -73,6 +73,9 @@ export const seriesApi = {
 
   remove: (id: string) => call<void>(`/api/catalog/series/${enc(id)}`, "DELETE"),
 
+  /** Sends the work's new-work announcement (Discord) again, now: for one that was lost. */
+  announce: (id: string) => call<{ ok: true }>(`/api/catalog/series/${enc(id)}/announce`, "POST"),
+
   /** Every work waiting for approval or turned down (the site's editors). */
   reviewList: () => call<ReviewSeries[]>("/api/catalog/admin/series-review", "GET"),
 

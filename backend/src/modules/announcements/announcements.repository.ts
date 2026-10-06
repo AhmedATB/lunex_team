@@ -12,6 +12,27 @@ export class AnnouncementsRepository {
     });
   }
 
+  /**
+   * An announcement that is waiting out its gathering time, kept so a restart does not lose it. Saving again (another chapter of the
+   * same work joined the batch) updates the numbers and keeps the original due time.
+   */
+  savePending(kind: "chapter" | "series", seriesId: string, numbers: number[], dueAt: Date) {
+    return this.prisma.pendingAnnouncement.upsert({
+      where: { kind_seriesId: { kind, seriesId } },
+      update: { numbers },
+      create: { kind, seriesId, numbers, dueAt },
+    });
+  }
+
+  async clearPending(kind: "chapter" | "series", seriesId: string): Promise<void> {
+    await this.prisma.pendingAnnouncement.deleteMany({ where: { kind, seriesId } });
+  }
+
+  /** Everything still waiting, soonest first — what the backend picks up again when it starts. */
+  pendingAnnouncements() {
+    return this.prisma.pendingAnnouncement.findMany({ orderBy: { dueAt: "asc" } });
+  }
+
   /** The genres and themes of a work, in Arabic, as the team listed them. */
   async genres(seriesId: string): Promise<string[]> {
     const rows = await this.prisma.seriesTag.findMany({ where: { seriesId }, select: { tag: { select: { nameAr: true, group: true } } } });

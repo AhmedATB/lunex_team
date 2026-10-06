@@ -10,6 +10,8 @@ const TELEGRAM = { TELEGRAM_BOT_TOKEN: "123:token", TELEGRAM_CHAT_ID: "@lunex" }
 
 const TEAM_HOOK = "https://discord.com/api/webhooks/789/team-server";
 
+type WaitingRow = { kind: string; seriesId: string; numbers: number[]; dueAt: Date };
+
 function build(
   settings: Record<string, string> = {},
   options: {
@@ -21,8 +23,11 @@ function build(
     teamChapterWebhook?: string | null;
     teamSeriesWebhook?: string | null;
     teamRoleId?: string | null;
+    /** What is saved as waiting; pass the same one to a second service to play a restart. */
+    store?: Map<string, WaitingRow>;
   } = {}
 ) {
+  const store = options.store ?? new Map<string, WaitingRow>();
   const repo = {
     findSeries: jest.fn(async () => ({
       id: "s1",
@@ -39,6 +44,13 @@ function build(
     genres: jest.fn(async () => options.genres ?? ["خيالي", "دراما"]),
     stillPublished: jest.fn(async (_id: string, numbers: number[]) => options.published ?? [...numbers].sort((a, b) => a - b)),
     latestThumbnail: jest.fn(async () => options.thumbnail ?? null),
+    savePending: jest.fn(async (kind: string, seriesId: string, numbers: number[], dueAt: Date) => {
+      store.set(`${kind}:${seriesId}`, { kind, seriesId, numbers: [...numbers], dueAt: store.get(`${kind}:${seriesId}`)?.dueAt ?? dueAt }); // the first due time is kept, like the real one
+    }),
+    clearPending: jest.fn(async (kind: string, seriesId: string) => {
+      store.delete(`${kind}:${seriesId}`);
+    }),
+    pendingAnnouncements: jest.fn(async () => [...store.values()]),
     // The two webhooks are independent — this mirrors the real repository picking the column for `kind`.
     teamDiscord: jest.fn(async (_teamId: string, kind: "chapter" | "series") => {
       const url = kind === "chapter" ? options.teamChapterWebhook : options.teamSeriesWebhook;
@@ -46,7 +58,7 @@ function build(
     }),
   };
   const config = { get: (key: string) => ({ FRONTEND_URL: "https://lunexteam.com/", ...settings })[key] } as unknown as ConfigService;
-  return { service: new AnnouncementsService(repo as unknown as AnnouncementsRepository, config), repo };
+  return { service: new AnnouncementsService(repo as unknown as AnnouncementsRepository, config), repo, store };
 }
 
 let fetchMock: jest.SpyInstance;
@@ -370,6 +382,108 @@ describe("announcing a new work", () => {
     fetchMock.mockRejectedValue(new Error("network"));
     const { service } = build({ DISCORD_NEW_SERIES_WEBHOOK_URL: SERIES_HOOK });
     await expect(addAndWait(service, "s1")).resolves.toBeUndefined();
+  });
+});
+
+describe("a restart while an announcement waits", () => {
+  const flushMicrotasks = () => jest.advanceTimersByTimeAsync(0);
+
+  it("saves what is waiting — a batch of chapters (kept in one row with the first due time) and a new work — and takes it off the list once sent", async () => {
+    const { service, store } = build({ DISCORD_WEBHOOK_URL: HOOK, DISCORD_NEW_SERIES_WEBHOOK_URL: SERIES_HOOK });
+    service.chapterPublished("s1", 10);
+    service.seriesAdded("s1");
+    await flushMicrotasks();
+    const first = store.get("chapter:s1")?.dueAt.getTime();
+    expect(store.get("chapter:s1")).toMatchObject({ numbers: [10] });
+    expect(store.has("series:s1")).toBe(true);
+
+    await jest.advanceTimersByTimeAsync(60_000);
+    service.chapterPublished("s1", 11);
+    await flushMicrotasks();
+    expect(store.get("chapter:s1")).toMatchObject({ numbers: [10, 11] });
+    expect(store.get("chapter:s1")?.dueAt.getTime()).toBe(first);
+
+    await jest.advanceTimersByTimeAsync(10 * 60_000 + 5_000);
+    expect(store.size).toBe(0);
+    expect(calls("discord.com")).toHaveLength(2);
+  });
+
+  it("does not lose a chapter announcement to a restart before its time: the new process sends it when its time comes, once", async () => {
+    const first = build({ DISCORD_WEBHOOK_URL: HOOK });
+    first.service.chapterPublished("s1", 10);
+    first.service.chapterPublished("s1", 11);
+    await flushMicrotasks();
+    await jest.advanceTimersByTimeAsync(4 * 60_000);
+    first.service.onModuleDestroy(); // the redeploy: its timers go
+
+    await jest.advanceTimersByTimeAsync(60_000);
+    expect(fetchMock).not.toHaveBeenCalled();
+
+    const second = build({ DISCORD_WEBHOOK_URL: HOOK }, { store: first.store });
+    await second.service.onModuleInit();
+    await jest.advanceTimersByTimeAsync(4 * 60_000); // 4 + 1 + 4 minutes in: still waiting (due at 10)
+    expect(fetchMock).not.toHaveBeenCalled();
+    await jest.advanceTimersByTimeAsync(2 * 60_000);
+    const posts = calls("discord.com");
+    expect(posts).toHaveLength(1);
+    expect(bodyOf(posts[0]).embeds[0]).toMatchObject({ title: "الفصول 10–11 — وردة القمر" });
+    expect(first.store.size).toBe(0);
+  });
+
+  it("sends at once what was already overdue when the process came back, and a new work only once", async () => {
+    const first = build({ DISCORD_WEBHOOK_URL: HOOK, DISCORD_NEW_SERIES_WEBHOOK_URL: SERIES_HOOK });
+    first.service.chapterPublished("s1", 7);
+    first.service.seriesAdded("s1");
+    await flushMicrotasks();
+    first.service.onModuleDestroy();
+    await jest.advanceTimersByTimeAsync(30 * 60_000); // the backend was down for half an hour
+
+    const second = build({ DISCORD_WEBHOOK_URL: HOOK, DISCORD_NEW_SERIES_WEBHOOK_URL: SERIES_HOOK }, { store: first.store });
+    await second.service.onModuleInit();
+    await jest.advanceTimersByTimeAsync(10_000);
+    expect(calls("discord.com")).toHaveLength(2); // the chapter and the new work, one each
+    await jest.advanceTimersByTimeAsync(20 * 60_000);
+    expect(calls("discord.com")).toHaveLength(2);
+    expect(first.store.size).toBe(0);
+  });
+
+  it("starts even when the saved list cannot be read, and never fails because it could not be saved", async () => {
+    const broken = build({ DISCORD_WEBHOOK_URL: HOOK });
+    broken.repo.pendingAnnouncements.mockRejectedValue(new Error("db down"));
+    await expect(broken.service.onModuleInit()).resolves.toBeUndefined();
+
+    const unsaved = build({ DISCORD_WEBHOOK_URL: HOOK });
+    unsaved.repo.savePending.mockRejectedValue(new Error("db down"));
+    unsaved.repo.clearPending.mockRejectedValue(new Error("db down"));
+    await publishAndWait(unsaved.service, "s1", 7); // the announcement itself still goes out
+    expect(calls("discord.com")).toHaveLength(1);
+  });
+});
+
+describe("announcing a new work right now", () => {
+  it("sends it at once and takes it off the waiting list, so it is never announced twice", async () => {
+    const { service, store } = build({ DISCORD_NEW_SERIES_WEBHOOK_URL: SERIES_HOOK });
+    service.seriesAdded("s1");
+    await jest.advanceTimersByTimeAsync(0);
+    expect(store.has("series:s1")).toBe(true);
+
+    const sending = service.announceSeriesNow("s1");
+    await jest.advanceTimersByTimeAsync(5_000);
+    await expect(sending).resolves.toBe("sent");
+    expect(calls("discord.com")).toHaveLength(1);
+    expect(store.size).toBe(0);
+
+    await jest.advanceTimersByTimeAsync(11 * 60_000);
+    expect(calls("discord.com")).toHaveLength(1);
+  });
+
+  it("refuses a work that is not listed yet, or does not exist, and posts nothing", async () => {
+    const hidden = build({ DISCORD_NEW_SERIES_WEBHOOK_URL: SERIES_HOOK }, { state: "pending" });
+    await expect(hidden.service.announceSeriesNow("s1")).resolves.toBe("not_listed");
+    const missing = build({ DISCORD_NEW_SERIES_WEBHOOK_URL: SERIES_HOOK });
+    missing.repo.findSeries.mockResolvedValueOnce(null as never);
+    await expect(missing.service.announceSeriesNow("nope")).resolves.toBe("not_found");
+    expect(fetchMock).not.toHaveBeenCalled();
   });
 });
 

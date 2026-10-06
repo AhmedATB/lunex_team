@@ -9,7 +9,7 @@ import { AnnouncementsService } from "../announcements/announcements.service";
 import { TeamActivityService } from "../team-activity/team-activity.service";
 import { CatalogRepository } from "./catalog.repository";
 import { CatalogService } from "./catalog.service";
-import { EMPTY_STATS, isDiscordSnowflake, isDiscordWebhookUrl, TEAM_LEAD_ROLES, TEAM_MANAGER_ROLES, slugify, teamRoleRank, toNewsDto, toSeriesDto, toTagDto, toTeamDto, uniqueSlug, type SeriesRow, type TeamRow } from "./catalog.util";
+import { EMPTY_STATS, isDiscordSnowflake, isDiscordWebhookUrl, SERIES_APPROVERS, TEAM_LEAD_ROLES, TEAM_MANAGER_ROLES, slugify, teamRoleRank, toNewsDto, toSeriesDto, toTagDto, toTeamDto, uniqueSlug, type SeriesRow, type TeamRow } from "./catalog.util";
 import type {
   AddMemberDto,
   CreateNewsDto,
@@ -33,8 +33,6 @@ function seriesNames(dto: { titleAr?: string; titleEn?: string }): { titleAr: st
   return { titleAr, titleEn };
 }
 
-/** Who decides whether a team's new work is listed: the owner and the top administrator, not the site's editors. */
-const SERIES_APPROVERS: ReadonlySet<string> = new Set(["owner", "super_administrator"]);
 const TEAM_MANAGERS = TEAM_MANAGER_ROLES;
 const NEWS_EDITORS: ReadonlySet<string> = new Set(["owner", "super_administrator", "news_manager"]);
 
@@ -109,6 +107,22 @@ export class CatalogAdminService {
   private announceSeries(id: string) {
     void this.notifications.seriesAdded(id);
     this.announcements.seriesAdded(id);
+  }
+
+  /**
+   * Sends a listed work's new-work announcement (Discord, and the team's own server) again, now: for one that was lost, say to a
+   * restart while it waited. The owner and the top administrator only.
+   */
+  async reannounceSeries(actorId: string, id: string, ctx: RequestContext): Promise<void> {
+    const actor = await this.requireActor(actorId);
+    if (!SERIES_APPROVERS.has(actor.role)) {
+      throw new ForbiddenException({ code: "approver_only", message: "Only the owner or the top administrator can send an announcement again." });
+    }
+    await this.requireSeries(id);
+    if ((await this.announcements.announceSeriesNow(id)) === "not_listed") {
+      throw new ConflictException({ code: "series_not_listed", message: "The work is not listed yet, so there is nothing to announce." });
+    }
+    await this.audit(actor, "catalog.series_reannounced", id, ctx);
   }
 
   /**

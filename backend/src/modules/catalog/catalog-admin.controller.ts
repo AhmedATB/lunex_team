@@ -72,6 +72,15 @@ export class CatalogAdminController {
     return this.admin.listSeriesForReview(actor.sub, id);
   }
 
+  /** Sends a listed work's new-work announcement again, now (the owner and the top administrator). */
+  @Post("series/:id/announce")
+  @HttpCode(HttpStatus.OK)
+  @Throttle({ default: { limit: 10, ttl: 60_000 } })
+  async reannounceSeries(@Param("id") id: string, @CurrentUser() actor: AccessTokenPayload, @Req() req: Request) {
+    await this.admin.reannounceSeries(actor.sub, id, req.context);
+    return { ok: true };
+  }
+
   @Post("series")
   @HttpCode(HttpStatus.CREATED)
   @Throttle({ default: { limit: 30, ttl: 60_000 } })

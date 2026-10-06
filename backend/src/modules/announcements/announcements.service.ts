@@ -1,4 +1,4 @@
-import { Injectable, Logger, OnModuleDestroy } from "@nestjs/common";
+import { Injectable, Logger, OnModuleDestroy, OnModuleInit } from "@nestjs/common";
 import { ConfigService } from "@nestjs/config";
 import { AnnouncementsRepository } from "./announcements.repository";
 
@@ -58,9 +58,9 @@ type TeamDiscord = { webhookUrl: string; roleId: string | null } | null;
  * must not undo that.
  */
 @Injectable()
-export class AnnouncementsService implements OnModuleDestroy {
+export class AnnouncementsService implements OnModuleInit, OnModuleDestroy {
   private readonly log = new Logger(AnnouncementsService.name);
-  private readonly pending = new Map<string, { numbers: Set<number>; timer: NodeJS.Timeout }>();
+  private readonly pending = new Map<string, { numbers: Set<number>; timer: NodeJS.Timeout; dueAt: Date }>();
   private readonly pendingSeries = new Map<string, NodeJS.Timeout>();
   private queue: Promise<void> = Promise.resolve();
 
@@ -89,31 +89,75 @@ export class AnnouncementsService implements OnModuleDestroy {
     this.indexNowKey = config.get<string>("INDEXNOW_KEY")?.trim() || DEFAULT_INDEXNOW_KEY;
   }
 
+  /** The waiting time lives in memory, but every waiting announcement is also saved: a restart (a redeploy) picks them up again. */
+  async onModuleInit() {
+    let waiting: { kind: string; seriesId: string; numbers: number[]; dueAt: Date }[];
+    try {
+      waiting = await this.repo.pendingAnnouncements();
+    } catch (error) {
+      this.log.warn(`could not read the waiting announcements: ${error instanceof Error ? error.message : String(error)}`);
+      return;
+    }
+    const now = Date.now();
+    for (const row of waiting) {
+      const delay = Math.max(0, row.dueAt.getTime() - now); // overdue (the backend was down at its time): out at once
+      if (row.kind === "chapter") this.scheduleChapter(row.seriesId, row.numbers, delay, false);
+      else if (row.kind === "series") this.scheduleSeries(row.seriesId, delay, false);
+    }
+    if (waiting.length > 0) this.log.log(`${waiting.length} waiting announcement(s) picked up again after the start`);
+  }
+
   onModuleDestroy() {
+    // Only the timers go; what is saved stays, for the next start to pick up.
     for (const { timer } of this.pending.values()) clearTimeout(timer);
     for (const timer of this.pendingSeries.values()) clearTimeout(timer);
     this.pending.clear();
     this.pendingSeries.clear();
   }
 
-  /** Call when a chapter goes live. Returns at once; the announcement follows about a minute later, with any others of the same work. */
+  /** Call when a chapter goes live. Returns at once; the announcement follows about ten minutes later, with any others of the same work. */
   chapterPublished(seriesId: string, number: number): void {
     const waiting = this.pending.get(seriesId);
     if (waiting) {
       waiting.numbers.add(number);
+      this.save("chapter", seriesId, [...waiting.numbers], waiting.dueAt);
       return;
     }
-    const timer = setTimeout(() => this.flush(seriesId), GATHER_MS);
-    timer.unref();
-    this.pending.set(seriesId, { numbers: new Set([number]), timer });
+    this.scheduleChapter(seriesId, [number], GATHER_MS, true);
   }
 
-  /** Call when a new work is listed. Returns at once; the announcement follows about a minute later (once, whatever happens to it meanwhile). */
+  /** Call when a new work is listed. Returns at once; the announcement follows about ten minutes later (once, whatever happens to it meanwhile). */
   seriesAdded(seriesId: string): void {
     if (this.pendingSeries.has(seriesId)) return;
-    const timer = setTimeout(() => this.flushSeries(seriesId), GATHER_MS);
+    this.scheduleSeries(seriesId, GATHER_MS, true);
+  }
+
+  private scheduleChapter(seriesId: string, numbers: number[], delay: number, persist: boolean) {
+    const timer = setTimeout(() => this.flush(seriesId), delay);
+    timer.unref();
+    const dueAt = new Date(Date.now() + delay);
+    this.pending.set(seriesId, { numbers: new Set(numbers), timer, dueAt });
+    if (persist) this.save("chapter", seriesId, numbers, dueAt);
+  }
+
+  private scheduleSeries(seriesId: string, delay: number, persist: boolean) {
+    const timer = setTimeout(() => this.flushSeries(seriesId), delay);
     timer.unref();
     this.pendingSeries.set(seriesId, timer);
+    if (persist) this.save("series", seriesId, [], new Date(Date.now() + delay));
+  }
+
+  /** Best effort: a failure to save only means a restart in the next minutes could lose this one, as it always could. */
+  private save(kind: "chapter" | "series", seriesId: string, numbers: number[], dueAt: Date) {
+    void Promise.resolve()
+      .then(() => this.repo.savePending(kind, seriesId, numbers, dueAt))
+      .catch((error) => this.log.warn(`could not save a waiting announcement: ${error instanceof Error ? error.message : String(error)}`));
+  }
+
+  private clearPending(kind: "chapter" | "series", seriesId: string): Promise<void> {
+    return Promise.resolve()
+      .then(() => this.repo.clearPending(kind, seriesId))
+      .catch((error) => this.log.warn(`could not clear a waiting announcement: ${error instanceof Error ? error.message : String(error)}`));
   }
 
   /** Sends what is waiting for one work now (the timer's job; public so a test can do it without waiting). */
@@ -122,7 +166,11 @@ export class AnnouncementsService implements OnModuleDestroy {
     if (!waiting) return this.queue;
     clearTimeout(waiting.timer);
     this.pending.delete(seriesId);
-    return this.enqueue(() => this.announce(seriesId, [...waiting.numbers]));
+    const cleared = this.clearPending("chapter", seriesId);
+    return this.enqueue(async () => {
+      await cleared;
+      await this.announce(seriesId, [...waiting.numbers]);
+    });
   }
 
   /** The new-work announcement for one work, now (public for the same reason). */
@@ -131,7 +179,29 @@ export class AnnouncementsService implements OnModuleDestroy {
     if (!timer) return this.queue;
     clearTimeout(timer);
     this.pendingSeries.delete(seriesId);
-    return this.enqueue(() => this.announceSeries(seriesId));
+    const cleared = this.clearPending("series", seriesId);
+    return this.enqueue(async () => {
+      await cleared;
+      await this.announceSeries(seriesId);
+    });
+  }
+
+  /**
+   * Sends the new-work announcement now and waits for it — for an announcement that was lost, or must not wait. Takes the work out
+   * of the waiting list first, so it is never announced twice.
+   */
+  async announceSeriesNow(seriesId: string): Promise<"sent" | "not_found" | "not_listed"> {
+    const series = await this.repo.findSeries(seriesId);
+    if (!series) return "not_found";
+    if (series.state !== "approved") return "not_listed";
+    const waiting = this.pendingSeries.get(seriesId);
+    if (waiting) {
+      clearTimeout(waiting);
+      this.pendingSeries.delete(seriesId);
+    }
+    await this.clearPending("series", seriesId);
+    await this.enqueue(() => this.announceSeries(seriesId));
+    return "sent";
   }
 
   private enqueue(job: () => Promise<void>): Promise<void> {

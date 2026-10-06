@@ -95,7 +95,7 @@ function build(roles: Record<string, string>) {
   const storage = { put: jest.fn(async () => ({ checksum: "abc" })), get: jest.fn() };
   const notifications = { seriesAdded: jest.fn().mockResolvedValue(undefined), newsPublished: jest.fn().mockResolvedValue(undefined), notify: jest.fn().mockResolvedValue(undefined) };
   const activity = { record: jest.fn().mockResolvedValue(undefined) };
-  const announcements = { seriesAdded: jest.fn() };
+  const announcements = { seriesAdded: jest.fn(), announceSeriesNow: jest.fn(async (): Promise<"sent" | "not_found" | "not_listed"> => "sent") };
   const service = new CatalogAdminService(
     repo as unknown as CatalogRepository,
     catalog as unknown as CatalogService,
@@ -525,3 +525,33 @@ describe("pinning works to the home page", () => {
     expect(repo.updateSeries).toHaveBeenLastCalledWith("s1", expect.objectContaining({ isFeatured: false, featuredOrder: null }), undefined);
   });
 });
+
+describe("sending a work's announcement again", () => {
+  const withBoss = { ...roster, boss: "super_administrator" };
+
+  it("is for the owner and the top administrator: it sends the announcement now and is written to the audit log", async () => {
+    const { service, announcements, repo } = build(withBoss);
+    await service.reannounceSeries("owner", "s1", CTX);
+    await service.reannounceSeries("boss", "s1", CTX);
+    expect(announcements.announceSeriesNow).toHaveBeenCalledTimes(2);
+    expect(announcements.announceSeriesNow).toHaveBeenCalledWith("s1");
+    expect(repo.writeAuditLog).toHaveBeenCalledTimes(2);
+  });
+
+  it("is not for a site editor, a team's leader or a reader", async () => {
+    const { service, announcements } = build(withBoss);
+    for (const who of ["editor", "leader", "reader", "manager"]) {
+      await expect(service.reannounceSeries(who, "s1", CTX)).rejects.toMatchObject({ response: { code: "approver_only" } });
+    }
+    expect(announcements.announceSeriesNow).not.toHaveBeenCalled();
+  });
+
+  it("says so when the work does not exist or is not listed yet", async () => {
+    const { service, repo, announcements } = build(withBoss);
+    repo.findSeriesById.mockResolvedValueOnce(null as never);
+    await expect(service.reannounceSeries("owner", "nope", CTX)).rejects.toMatchObject({ response: { code: "series_not_found" } });
+    announcements.announceSeriesNow.mockResolvedValueOnce("not_listed");
+    await expect(service.reannounceSeries("owner", "s1", CTX)).rejects.toMatchObject({ response: { code: "series_not_listed" } });
+  });
+});
+

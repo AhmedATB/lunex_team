@@ -1027,3 +1027,21 @@ model TeamActivity {
   @@index([teamId, at])
   @@map("team_activity")
 }
+
+/// A chapter or new-work announcement waiting out its gathering time. Kept here, and not only in the backend's memory, so a restart or
+/// a redeploy during the wait does not lose it: when the backend starts it picks these up again (an overdue one goes out at once).
+model PendingAnnouncement {
+  id        String   @id @default(uuid())
+  /// "chapter" (several of one work's chapters go out together) or "series" (a new work).
+  kind      String
+  seriesId  String
+  /// Chapters only: the numbers waiting to go out in the one announcement.
+  numbers   Float[]  @default([])
+  /// When it is due.
+  dueAt     DateTime
+  createdAt DateTime @default(now())
+
+  @@unique([kind, seriesId])
+  @@index([dueAt])
+  @@map("pending_announcements")
+}

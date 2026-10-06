@@ -10,6 +10,8 @@ export const TAG_GROUPS = ["genre", "theme", "format", "content"] as const;
 
 /** Global roles that run teams site-wide (mirrors the frontend's rbac.ts: create_team, edit_team, assign_members). */
 export const TEAM_MANAGER_ROLES: ReadonlySet<string> = new Set(["owner", "super_administrator", "global_team_manager"]);
+/** Who decides whether a team's new work is listed, and may send its announcement again: the owner and the top administrator, not the site's editors. */
+export const SERIES_APPROVERS: ReadonlySet<string> = new Set(["owner", "super_administrator"]);
 /** Roles inside a team that let someone manage it (its leader is always one). */
 export const TEAM_LEAD_ROLES: ReadonlySet<string> = new Set(["team_leader", "assistant_leader", "team_administrator"]);
 

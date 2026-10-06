@@ -4,7 +4,7 @@ import { useEffect, useMemo, useState } from "react";
 import Image from "next/image";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { ArrowRightLeft, Loader2, MoreVertical, Pencil, Pin, PinOff, Plus, Search, Trash2 } from "lucide-react";
+import { ArrowRightLeft, Loader2, Megaphone, MoreVertical, Pencil, Pin, PinOff, Plus, Search, Trash2 } from "lucide-react";
 import { useCatalog } from "@/components/catalog-provider";
 import { useSession } from "@/store/session";
 import { useToast } from "@/store/toast";
@@ -92,6 +92,14 @@ export default function AdminSeriesPage() {
     router.refresh();
   }
 
+  async function announce(series: Series) {
+    setBusy(series.id);
+    const result = await seriesApi.announce(series.id);
+    setBusy(null);
+    if (!result.ok) return say("تعذر إرسال الإعلان", result.message);
+    say("أُرسل الإعلان", `${series.titleAr} — يصل ديسكورد خلال ثوانٍ`);
+  }
+
   async function confirmDelete() {
     if (!deleting) return;
     setBusy(deleting.id);
@@ -127,6 +135,9 @@ export default function AdminSeriesPage() {
         </DropdownMenuItem>
         <DropdownMenuItem onSelect={() => togglePin(s)}>
           {s.isFeatured ? <PinOff className="h-4 w-4" /> : <Pin className="h-4 w-4" />} {s.isFeatured ? "إلغاء التثبيت في الرئيسية" : "تثبيت في الرئيسية"}
+        </DropdownMenuItem>
+        <DropdownMenuItem onSelect={() => announce(s)}>
+          <Megaphone className="h-4 w-4" /> إعادة إعلان العمل بديسكورد
         </DropdownMenuItem>
         <DropdownMenuItem className="text-red-400 focus:bg-red-500/10" onSelect={() => setDeleting(s)}>
           <Trash2 className="h-4 w-4" /> حذف
