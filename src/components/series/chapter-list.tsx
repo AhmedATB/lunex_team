@@ -41,6 +41,7 @@ export function ChapterList({ seriesSlug, chapters, teamId }: { seriesSlug: stri
   const db = useCatalog();
   const currentUser = db.users.find((u) => u.id === currentUserId);
   const rawTeam = [...db.teams, ...store.createdTeams].find((t) => t.id === teamId);
+  const teamNames = new Map(db.teams.map((t) => [t.id, t.name]));
   const team = rawTeam ? applyTeamOverride(rawTeam, store.teamInfoOverrides) : undefined;
 
   const [ready, setReady] = useState(false);
@@ -169,7 +170,11 @@ export function ChapterList({ seriesSlug, chapters, teamId }: { seriesSlug: stri
                     </span>
                   )}
                 </p>
-                <p className="text-xs text-lunex-gray">{timeAgo(c.releasedAt)}</p>
+                <p className="text-xs text-lunex-gray">
+                  {timeAgo(c.releasedAt)}
+                  {/* a chapter made by a collaborating team is credited to it */}
+                  {c.teamId && c.teamId !== teamId && teamNames.get(c.teamId) && <> · ترجمة {teamNames.get(c.teamId)}</>}
+                </p>
               </div>
               <span className="relative flex shrink-0 items-center gap-2 text-xs text-lunex-gray transition-colors group-hover:text-primary-300">
                 <span className="pointer-events-none flex items-center gap-1">

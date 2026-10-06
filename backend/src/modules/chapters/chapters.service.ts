@@ -18,7 +18,9 @@ import { PageImageError, preparePage, type PageSlice } from "./page-image.util";
  * duplicated deliberately, not imported, since the two apps don't share a types package).
  *
  * Everyone else gets in through their place in the team that owns the series (see TeamAccessService): the team's leaders may do
- * everything with its chapters, a publisher may upload and put them live, an uploader may only upload.
+ * everything with its chapters, a publisher may upload and put them live, an uploader may only upload. A team that collaborates on
+ * the series (its collaboration request was accepted) works the same way, but only on the chapters it uploaded itself: each chapter
+ * is credited to the team that made it.
  */
 const CAN_PUBLISH_GLOBAL_ROLES = new Set(["uploader", "editor", "super_administrator", "owner"]);
 
@@ -53,32 +55,43 @@ export class ChaptersService {
     throw new ForbiddenException({ code: "insufficient_permissions", message: "You cannot publish chapters." });
   }
 
-  /** The actor's place in the team that owns the series, or null: not in it, the team is not active, the series has no team, or the actor is the bot. */
-  private async standing(actor: ChapterActor, seriesId: string): Promise<{ teamId: string; level: TeamLevel } | null> {
+  /**
+   * The actor's place for this work, or null (not in a team working on it, the team is not active, the series has no team, or the
+   * actor is the bot). The team that owns the series comes first and covers every chapter. Otherwise a collaborating team: for a new
+   * chapter (`chapterTeamId` left out) any of them, for an existing one only the team the chapter is credited to.
+   */
+  private async standing(actor: ChapterActor, seriesId: string, chapterTeamId?: string | null): Promise<{ teamId: string; level: TeamLevel } | null> {
     if (!actor.id) return null;
     const series = await this.repo.seriesAccess(seriesId);
     if (!series?.teamId) return null;
     const level = await this.teamAccess.levelFor(actor.id, series.teamId);
-    return level ? { teamId: series.teamId, level } : null;
+    if (level) return { teamId: series.teamId, level };
+    if (chapterTeamId === null) return null;
+    const collaborators = chapterTeamId === undefined ? await this.repo.collaboratorTeamIds(seriesId) : (await this.repo.collaboratorTeamIds(seriesId)).filter((id) => id === chapterTeamId);
+    for (const teamId of collaborators) {
+      const collaboratorLevel = await this.teamAccess.levelFor(actor.id, teamId);
+      if (collaboratorLevel) return { teamId, level: collaboratorLevel };
+    }
+    return null;
   }
 
-  /** Works on the chapters of this series: the site's staff, or the team that owns it (any level). */
-  private async assertCanUpload(actor: ChapterActor, seriesId: string) {
+  /** Works on these chapters: the site's staff, the team that owns the series (any level), or the collaborating team the chapter is credited to. */
+  private async assertCanUpload(actor: ChapterActor, seriesId: string, chapterTeamId?: string | null) {
     if (this.isStaff(actor)) return;
-    if (!(await this.standing(actor, seriesId))) this.forbidden();
+    if (!(await this.standing(actor, seriesId, chapterTeamId))) this.forbidden();
   }
 
-  /** Puts chapters of this series live or takes them down: staff, or a lead or a publisher of the team that owns it. */
-  private async assertCanPublish(actor: ChapterActor, seriesId: string) {
+  /** Puts a chapter live or takes it down: staff, or a lead or a publisher of a team that may work on it (see {@link standing}). */
+  private async assertCanPublish(actor: ChapterActor, seriesId: string, chapterTeamId?: string | null) {
     if (this.isStaff(actor)) return;
-    const standing = await this.standing(actor, seriesId);
+    const standing = await this.standing(actor, seriesId, chapterTeamId);
     if (!standing || !canPublishAt(standing.level)) this.forbidden();
   }
 
-  /** The chapter, once the actor is allowed to work on its series. The Drive import and the featured picture check through this too. */
+  /** The chapter, once the actor is allowed to work on it. The Drive import and the featured picture check through this too. */
   async requireUploader(actor: ChapterActor, chapterId: string) {
     const chapter = await this.get(chapterId);
-    await this.assertCanUpload(actor, chapter.seriesId);
+    await this.assertCanUpload(actor, chapter.seriesId, chapter.teamId);
     return chapter;
   }
 
@@ -90,7 +103,8 @@ export class ChaptersService {
 
   /**
    * `teamId` may be left out for the site's staff: a work that belongs to no team is published by them on its own. A team's people
-   * never choose the team — the chapter takes the one that owns the series, whatever the request says.
+   * never choose the team — the chapter takes the one that owns the series (or, for a collaborating team, theirs), whatever the
+   * request says.
    */
   async create(actor: ChapterActor, dto: { seriesId: string; teamId?: string; number: number; title: string }) {
     let teamId = dto.teamId?.trim() || null;
@@ -124,14 +138,15 @@ export class ChaptersService {
     if (this.isStaff(actor)) return this.repo.listRecent(50);
     const teams = actor.id ? await this.teamAccess.accessFor(actor.id) : [];
     if (teams.length === 0) this.forbidden();
+    // the chapters of the works the teams own, and the ones they made for another team's work as collaborators
     return this.repo.listRecent(50, teams.map((team) => team.teamId));
   }
 
   async update(actor: ChapterActor, id: string, patch: { isPublished?: boolean; manualLock?: boolean | null; title?: string; number?: number }) {
     const before = await this.get(id);
     if (patch.manualLock !== undefined && !this.isStaff(actor)) this.forbidden(); // the lock decides what costs coins — the site's call, not a team's
-    if (patch.isPublished !== undefined) await this.assertCanPublish(actor, before.seriesId);
-    else await this.assertCanUpload(actor, before.seriesId);
+    if (patch.isPublished !== undefined) await this.assertCanPublish(actor, before.seriesId, before.teamId);
+    else await this.assertCanUpload(actor, before.seriesId, before.teamId);
     // The title and number are corrected by anyone who works on the chapters (checked just above); a number may not clash with another chapter of the work.
     if (patch.title !== undefined) patch = { ...patch, title: patch.title.trim() };
     if (patch.title === "") throw new BadRequestException({ code: "invalid_title", message: "The chapter needs a title." });
@@ -164,7 +179,7 @@ export class ChaptersService {
   /** Deleting a chapter is for the site's staff and the team's leads — a publisher or an uploader can take it down, not remove it. */
   async remove(actor: ChapterActor, id: string) {
     const chapter = await this.get(id);
-    if (!this.isStaff(actor) && (await this.standing(actor, chapter.seriesId))?.level !== "lead") this.forbidden();
+    if (!this.isStaff(actor) && (await this.standing(actor, chapter.seriesId, chapter.teamId))?.level !== "lead") this.forbidden();
     const removed = await this.repo.delete(id);
     this.catalog.invalidate();
     return removed;
@@ -305,11 +320,11 @@ export class ChaptersService {
     return { swapped: true };
   }
 
-  /** Works on this series' chapters: the site's staff, or anyone in the team that owns it. */
-  private async worksOn(actor: ChapterActor | null, seriesId: string): Promise<boolean> {
+  /** Works on this chapter: the site's staff, anyone in the team that owns the series, or in the collaborating team that made it. */
+  private async worksOn(actor: ChapterActor | null, chapter: { seriesId: string; teamId: string | null }): Promise<boolean> {
     if (!actor) return false;
     if (this.isStaff(actor)) return true;
-    return Boolean(await this.standing(actor, seriesId));
+    return Boolean(await this.standing(actor, chapter.seriesId, chapter.teamId));
   }
 
   /** May this member read the chapter now? Free, opened with a credit or coins, or staff — decided by the wallet (modules/wallet). */
@@ -330,7 +345,7 @@ export class ChaptersService {
     // team asked about: it checks its own chapter before readers do, without paying for it (and a reader pays no extra lookup).
     let refusal: unknown = null;
     const allowed = await this.canAccessChapter(userId, chapterId).catch((err: unknown) => ((refusal = err), false));
-    if (!allowed && !(await this.worksOn(actor, chapter.seriesId))) {
+    if (!allowed && !(await this.worksOn(actor, chapter))) {
       throw refusal ?? new ForbiddenException({ code: "chapter_locked", message: "This chapter is locked for your account." });
     }
     const page = chapter.pages.find((p) => p.pageNumber === pageNumber);

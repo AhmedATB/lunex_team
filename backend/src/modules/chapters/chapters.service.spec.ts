@@ -17,7 +17,7 @@ const BOT = { id: null, role: "uploader" };
 
 /** A reader account whose place in team `t1` (the one that owns series `s1`) is `level`; null = not in it. */
 function teamAccessFor(level: TeamLevel | null) {
-  return { levelFor: jest.fn(async () => level), accessFor: jest.fn(async () => (level ? [{ teamId: "t1", slug: "t", name: "T", level }] : [])) };
+  return { levelFor: jest.fn(async (_userId: string, _teamId: string): Promise<TeamLevel | null> => level), accessFor: jest.fn(async () => (level ? [{ teamId: "t1", slug: "t", name: "T", level }] : [])) };
 }
 
 function build(chapter: { isPublished: boolean; publishedAt: Date | null; teamId?: string | null; scheduledFor?: Date | null } = { isPublished: false, publishedAt: null, teamId: "t1" }, level: TeamLevel | null = null, seriesState = "approved") {
@@ -27,6 +27,7 @@ function build(chapter: { isPublished: boolean; publishedAt: Date | null; teamId
     seriesTitle: jest.fn(async () => "الوردة"),
     delete: jest.fn(async () => ({ id: "c1" })),
     seriesAccess: jest.fn(async (): Promise<{ teamId: string | null; state: string }> => ({ teamId: "t1", state: seriesState })),
+    collaboratorTeamIds: jest.fn(async (): Promise<string[]> => []),
     create: jest.fn(async (data: object) => ({ id: "new", ...data })),
     listRecent: jest.fn(async () => []),
   };
@@ -121,6 +122,7 @@ describe("replacing one page", () => {
     const repo = {
       findById: jest.fn(async () => ({ id: "c1", seriesId: "s1", number: 7, pages: [] })),
       seriesAccess: jest.fn(async () => ({ teamId: "t1", state: "approved" })),
+      collaboratorTeamIds: jest.fn(async () => []),
       findPage: jest.fn(async () => (pageExists ? { id: "p1", chapterId: "c1", pageNumber: 3, assetId: "old" } : null)),
       createAsset: jest.fn(async () => ({ id: "new-asset" })),
       updatePageAsset: jest.fn(async () => ({})),
@@ -282,8 +284,9 @@ describe("checking a chapter before it is published", () => {
 describe("page pictures for the team's own preview", () => {
   function setup(level: TeamLevel | null, canRead: boolean) {
     const repo = {
-      findById: jest.fn(async () => ({ id: "c1", seriesId: "s1", number: 7, pages: [{ pageNumber: 1, assetId: "a1" }] })),
+      findById: jest.fn(async () => ({ id: "c1", seriesId: "s1", number: 7, teamId: "t1", pages: [{ pageNumber: 1, assetId: "a1" }] })),
       seriesAccess: jest.fn(async () => ({ teamId: "t1", state: "approved" })),
+      collaboratorTeamIds: jest.fn(async () => []),
     };
     const images = { issueToken: jest.fn(async () => ({ token: "t" })) };
     // like the real wallet, a chapter readers cannot open (here: a draft) is "not found" to it
@@ -299,5 +302,41 @@ describe("page pictures for the team's own preview", () => {
     await expect(setup(null, false).service.issuePageToken({ id: "u-x", role: "reader" }, "c1", 1, ctx)).rejects.toBeInstanceOf(NotFoundException);
     await expect(setup(null, false).service.issuePageToken(null, "c1", 1, ctx)).rejects.toBeInstanceOf(NotFoundException);
     await expect(setup(null, true).service.issuePageToken(null, "c1", 1, ctx)).resolves.toEqual({ token: "t" });
+  });
+});
+
+describe("a collaborating team's chapters", () => {
+  const HELPER = { id: "u-helper", role: "reader" };
+
+  /** `helper` is a member of team t2, which collaborates on series s1 (owned by t1); the chapter is credited to `chapterTeam`. */
+  function setup(level: TeamLevel, chapterTeam: string | null = "t2", collaborates = true) {
+    const built = build({ isPublished: false, publishedAt: null, teamId: chapterTeam });
+    built.repo.collaboratorTeamIds.mockResolvedValue(collaborates ? ["t2"] : []);
+    built.teamAccess.levelFor.mockImplementation(async (_user: string, teamId: string) => (teamId === "t2" ? level : null));
+    return built;
+  }
+
+  it("adds a chapter to the work, credited to the collaborating team", async () => {
+    const { service, repo } = setup("uploader");
+    await service.create(HELPER, { seriesId: "s1", teamId: "t1", number: 4, title: "t" });
+    expect(repo.create).toHaveBeenCalledWith({ seriesId: "s1", teamId: "t2", number: 4, title: "t" });
+    await expect(setup("uploader", "t2", false).service.create(HELPER, { seriesId: "s1", number: 4, title: "t" })).rejects.toBeInstanceOf(ForbiddenException);
+  });
+
+  it("publishes and deletes its own chapters, never the owner's", async () => {
+    const own = setup("lead", "t2");
+    await own.service.update(HELPER, "c1", { isPublished: true });
+    await own.service.remove(HELPER, "c1");
+    expect(own.repo.delete).toHaveBeenCalled();
+    const owners = setup("lead", "t1");
+    await expect(owners.service.update(HELPER, "c1", { isPublished: true })).rejects.toBeInstanceOf(ForbiddenException);
+    await expect(owners.service.remove(HELPER, "c1")).rejects.toBeInstanceOf(ForbiddenException);
+    await expect(owners.service.requireUploader(HELPER, "c1")).rejects.toBeInstanceOf(ForbiddenException);
+  });
+
+  it("lets the owning team manage the collaborator's chapters too", async () => {
+    const { service, repo } = build({ isPublished: false, publishedAt: null, teamId: "t2" }, "lead");
+    await service.update({ id: "u-owner-lead", role: "reader" }, "c1", { isPublished: true });
+    expect(repo.update).toHaveBeenCalled();
   });
 });

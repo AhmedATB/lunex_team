@@ -18,7 +18,7 @@ import { RatingWidget } from "@/components/series/rating-widget";
 import { CatalogAutoRefresh } from "@/components/catalog-auto-refresh";
 import {
   SeriesAdminControls, SeriesStatusBadge, SeriesRemovedGuard,
-  SeriesTitleAr, SeriesSynopsis, SeriesCoverImage, SeriesBannerImage, SeriesCollaboratorTeams,
+  SeriesTitleAr, SeriesSynopsis, SeriesCoverImage, SeriesBannerImage, SeriesTeamsCredit,
 } from "@/components/series/series-admin-controls";
 import { ChapterList } from "@/components/series/chapter-list";
 import { CommentSection } from "@/components/series/comment-section";
@@ -163,12 +163,7 @@ export default function SeriesDetailPage() {
 
               {team && (
                 <div className="mt-2 flex flex-wrap items-center gap-2">
-                  <Link
-                    href={`/teams/${team.slug}`}
-                    className="panel inline-flex items-center gap-2 px-3 py-1.5 text-xs text-lunex-gray transition-colors hover:border-primary-400/40"
-                  >
-                    ترجمة فريق <span className="font-semibold text-primary-300">{team.name}</span>
-                  </Link>
+                  <SeriesTeamsCredit seriesId={series.id} ownerTeam={team} />
                   {team.recruiting && team.status === "active" && (
                     <Link
                       href={`/teams/${team.slug}`}
@@ -179,7 +174,6 @@ export default function SeriesDetailPage() {
                   )}
                 </div>
               )}
-              <SeriesCollaboratorTeams seriesId={series.id} />
 
               <SeriesAdminControls
                 seriesId={series.id}

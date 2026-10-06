@@ -183,20 +183,25 @@ export function SeriesBannerImage({
   return <Image src={initialBanner} alt={alt} fill priority sizes="100vw" className={className} style={style} />;
 }
 
-/** The teams that work on a series without owning it (their collaboration requests were accepted). Nothing shows when there are none. */
-export function SeriesCollaboratorTeams({ seriesId }: { seriesId: string }) {
+/**
+ * Who translates the work: the team that owns it and the teams that collaborate on it (their collaboration requests were accepted),
+ * side by side — "ترجمة فريق A × B". Each name opens that team's page.
+ */
+export function SeriesTeamsCredit({ seriesId, ownerTeam }: { seriesId: string; ownerTeam: { id: string; slug: string; name: string } }) {
   const db = useCatalog();
   const series = db.series.find((s) => s.id === seriesId);
-  const teams = (series?.collaboratorTeamIds ?? []).flatMap((id) => db.teams.filter((t) => t.id === id));
-  if (teams.length === 0) return null;
+  const collaborators = (series?.collaboratorTeamIds ?? []).flatMap((id) => db.teams.filter((t) => t.id === id && t.id !== ownerTeam.id));
   return (
-    <div className="flex flex-wrap items-center gap-2 text-sm">
-      <span className="text-lunex-gray">بالتعاون مع</span>
-      {teams.map((team) => (
-        <Link key={team.id} href={`/teams/${team.slug}`} className="rounded-full bg-white/5 px-2.5 py-0.5 font-medium text-primary-300 hover:bg-white/10">
-          {team.name}
-        </Link>
+    <span className="panel inline-flex flex-wrap items-center gap-x-1.5 gap-y-1 px-3 py-1.5 text-xs text-lunex-gray">
+      ترجمة فريق
+      {[ownerTeam, ...collaborators].map((team, i) => (
+        <span key={team.id} className="inline-flex items-center gap-1.5">
+          {i > 0 && <span aria-hidden className="text-primary-400/70">×</span>}
+          <Link href={`/teams/${team.slug}`} className="font-semibold text-primary-300 hover:underline">
+            {team.name}
+          </Link>
+        </span>
       ))}
-    </div>
+    </span>
   );
 }

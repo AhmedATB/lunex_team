@@ -42,11 +42,19 @@ export class ChaptersRepository {
     return this.prisma.series.findUnique({ where: { id }, select: { teamId: true, state: true } });
   }
 
-  /** Everything, newest first — the admin table's view, including drafts. `teamIds` narrows it to the series those teams own. */
+  /** The teams that collaborate on a series (their collaboration request was accepted). */
+  collaboratorTeamIds(seriesId: string) {
+    return this.prisma.seriesCollaborator.findMany({ where: { seriesId }, select: { teamId: true } }).then((rows) => rows.map((row) => row.teamId));
+  }
+
+  /**
+   * Everything, newest first — the admin table's view, including drafts. `teamIds` narrows it to the series those teams own and the
+   * chapters credited to them (a collaborating team's chapters of someone else's work).
+   */
   async listRecent(limit: number, teamIds?: string[]) {
     const seriesIds = teamIds ? (await this.prisma.series.findMany({ where: { teamId: { in: teamIds } }, select: { id: true } })).map((row) => row.id) : null;
     return this.prisma.chapter.findMany({
-      where: seriesIds ? { seriesId: { in: seriesIds } } : undefined,
+      where: teamIds && seriesIds ? { OR: [{ seriesId: { in: seriesIds } }, { teamId: { in: teamIds } }] } : undefined,
       orderBy: { createdAt: "desc" },
       take: limit,
       include: { pages: true },

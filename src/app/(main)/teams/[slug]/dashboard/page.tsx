@@ -184,7 +184,8 @@ export default function TeamDashboardPage() {
     </div>
   );
 
-  const chapterTargets = ownSeries.map((s) => ({ id: s.id, titleAr: s.titleAr, teamId: s.teamId, type: s.type, latestChapterNumber: s.latestChapterNumber }));
+  // A team uploads chapters to its own works and to the ones it collaborates on (those chapters are credited to it).
+  const chapterTargets = (isRealTeam ? [...ownSeries, ...collaboratorSeries] : ownSeries).map((s) => ({ id: s.id, titleAr: s.titleAr, teamId: s.teamId, type: s.type, latestChapterNumber: s.latestChapterNumber }));
 
   // A publisher or an uploader sees the chapters and nothing else of the team's management.
   if (level !== "lead") {
