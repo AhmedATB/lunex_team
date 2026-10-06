@@ -1,8 +1,9 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { Loader2, Plus, ShieldCheck, Trash2, UploadCloud } from "lucide-react";
+import { Eye, Loader2, Plus, ShieldCheck, Trash2, UploadCloud } from "lucide-react";
 import { ChapterUploadDialog } from "@/components/admin/chapter-upload-dialog";
+import { ChapterPreviewDialog } from "@/components/admin/chapter-preview";
 import { ReplacePageDialog, ThumbnailDialog } from "@/components/admin/chapter-tools";
 import { chapterThumbnailUrl } from "@/components/admin/thumbnail-picker";
 import { chapterApi } from "@/lib/chapter-api";
@@ -37,7 +38,7 @@ export interface TeamSeriesOption {
 const say = (title: string, description?: string) => useToast.getState().push({ title, description });
 
 /**
- * A team's chapters: upload one (pictures, a ZIP or a Google Drive folder), put it live or take it down, fix a page, choose its
+ * A team's chapters: upload one (pictures, a ZIP or a Google Drive folder), preview it as readers will see it and fix it there, put it live or take it down, fix a page, choose its
  * featured picture. What shows is what the server will honour for the person's level: a lead does everything, a publisher uploads
  * and publishes, an uploader only uploads (the chapter stays a draft). The server returns only this team's chapters.
  */
@@ -45,6 +46,7 @@ export function TeamChaptersPanel({ series, level }: { series: TeamSeriesOption[
   const [chapters, setChapters] = useState<TeamChapter[] | null>(null);
   const [uploadOpen, setUploadOpen] = useState(false);
   const [busyId, setBusyId] = useState<string | null>(null);
+  const [previewId, setPreviewId] = useState<string | null>(null);
   const titles = useMemo(() => new Map(series.map((s) => [s.id, s.titleAr])), [series]);
   const imageSeries = useMemo(() => series.filter((s) => s.type !== "novel"), [series]);
   const canPublish = canPublishAt(level);
@@ -96,6 +98,7 @@ export function TeamChaptersPanel({ series, level }: { series: TeamSeriesOption[
         </CardContent>
       </Card>
 
+      <ChapterPreviewDialog chapterId={previewId} canPublish={canPublish} onClose={() => setPreviewId(null)} onChanged={load} />
       <ChapterUploadDialog open={uploadOpen} onClose={() => setUploadOpen(false)} series={imageSeries} canPublish={canPublish} onDone={load} />
 
       {chapters === null && <Loader2 className="mx-auto h-5 w-5 animate-spin text-lunex-gray" aria-label="جارِ التحميل" />}
@@ -123,6 +126,11 @@ export function TeamChaptersPanel({ series, level }: { series: TeamSeriesOption[
                 <span>· {timeAgo(chapter.createdAt)}</span>
               </div>
               <div className="flex flex-wrap items-center gap-1">
+                {chapter.pages.length > 0 && (
+                  <Button size="sm" variant="secondary" onClick={() => setPreviewId(chapter.id)}>
+                    <Eye className="h-3.5 w-3.5" /> معاينة وتعديل
+                  </Button>
+                )}
                 {canPublish && (
                   <Button size="sm" variant="secondary" disabled={busyId === chapter.id} onClick={() => setPublished(chapter, !chapter.isPublished)}>
                     {busyId === chapter.id && <Loader2 className="h-3.5 w-3.5 animate-spin" />}

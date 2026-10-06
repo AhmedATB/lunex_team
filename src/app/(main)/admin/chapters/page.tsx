@@ -1,8 +1,9 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { UploadCloud, Trash2, Search, Plus, BookText, ShieldCheck, X, GripVertical } from "lucide-react";
+import { UploadCloud, Trash2, Search, Plus, BookText, ShieldCheck, X, GripVertical, Eye } from "lucide-react";
 import { ChapterUploadDialog } from "@/components/admin/chapter-upload-dialog";
+import { ChapterPreviewDialog } from "@/components/admin/chapter-preview";
 import { ReplacePageDialog, ThumbnailDialog } from "@/components/admin/chapter-tools";
 import { chapterThumbnailUrl } from "@/components/admin/thumbnail-picker";
 import { useCatalog } from "@/components/catalog-provider";
@@ -63,6 +64,7 @@ export default function AdminChaptersPage() {
   const [uploadOpen, setUploadOpen] = useState(false);
   const [selected, setSelected] = useState<Set<string>>(new Set());
   const [realChapters, setRealChapters] = useState<RealChapter[]>([]);
+  const [previewId, setPreviewId] = useState<string | null>(null);
   const db = useCatalog();
   const currentUserId = useSession((s) => s.currentUserId);
   const store = useTeamManagement();
@@ -195,6 +197,7 @@ export default function AdminChaptersPage() {
         </CardContent>
       </Card>
 
+      <ChapterPreviewDialog chapterId={previewId} canPublish onClose={() => setPreviewId(null)} onChanged={loadRealChapters} />
       <ChapterUploadDialog
         open={uploadOpen}
         onClose={() => setUploadOpen(false)}
@@ -243,6 +246,9 @@ export default function AdminChaptersPage() {
                     </div>
                     {r.isReal && r.pageCount > 0 && (
                       <div className="flex flex-wrap items-center gap-1">
+                        <Button type="button" size="sm" variant="ghost" className="gap-1.5 text-primary-300" onClick={() => setPreviewId(r.id)}>
+                          <Eye className="h-3.5 w-3.5" /> معاينة وتعديل
+                        </Button>
                         <ReplacePageDialog chapterId={r.id} label={chapterLabel(r)} pageCount={r.pageCount} onDone={loadRealChapters} />
                         <ThumbnailDialog chapterId={r.id} label={chapterLabel(r)} current={r.thumbnail} onDone={loadRealChapters} />
                       </div>
@@ -301,6 +307,9 @@ export default function AdminChaptersPage() {
                   <td className="p-3 text-end">
                     {r.isReal && r.pageCount > 0 && (
                       <div className="flex flex-wrap items-center justify-end gap-1">
+                        <Button type="button" size="sm" variant="ghost" className="gap-1.5 text-primary-300" onClick={() => setPreviewId(r.id)}>
+                          <Eye className="h-3.5 w-3.5" /> معاينة وتعديل
+                        </Button>
                         <ReplacePageDialog chapterId={r.id} label={chapterLabel(r)} pageCount={r.pageCount} onDone={loadRealChapters} />
                         <ThumbnailDialog chapterId={r.id} label={chapterLabel(r)} current={r.thumbnail} onDone={loadRealChapters} />
                       </div>

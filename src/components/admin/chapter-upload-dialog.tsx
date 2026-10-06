@@ -14,6 +14,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Switch } from "@/components/ui/switch";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { applyThumbnailChoice, ThumbnailPicker, type ThumbnailChoice } from "@/components/admin/thumbnail-picker";
+import { ChapterPreviewEditor } from "@/components/admin/chapter-preview";
 
 export interface UploadTarget {
   id: string;
@@ -32,7 +33,8 @@ const isImage = (file: File) => file.type.startsWith("image/");
 /**
  * Upload a chapter's pages: pictures chosen from the device, a ZIP of them (opened here, in the browser), or a Google Drive
  * folder (fetched by the server). Pages go up in reading order, one after the other, because a long picture is cut into
- * several pages by the server and the next one is numbered after them. When they are all there the person picks the chapter's
+ * several pages by the server and the next one is numbered after them. When they are all there the chapter is previewed as readers
+ * will see it (and fixed: number, title, page order, a page replaced or removed), then the person picks the chapter's
  * featured picture (four suggestions from its own pages, or their own), and only then is it published (or kept as a draft). If
  * the pages fail the half-made chapter is removed, so nothing is left behind. A work with no team can be published too: the
  * chapter then belongs to no team.
@@ -81,6 +83,8 @@ function Form({ series, initialFiles, canPublish, onClose, onDone }: { series: U
   /** Set once the pages are all there: the chapter exists (as a draft) and its featured picture is being chosen. */
   const [created, setCreated] = useState<{ id: string } | null>(null);
   const [choice, setChoice] = useState<ThumbnailChoice>(null);
+  /** Set once the person has looked the chapter over in the preview step. */
+  const [reviewed, setReviewed] = useState(false);
   const [finishing, setFinishing] = useState(false);
   const cancelled = useRef(false);
 
@@ -232,6 +236,30 @@ function Form({ series, initialFiles, canPublish, onClose, onDone }: { series: U
     setProgress(null);
     setError(message);
     if (keep) onDone();
+  }
+
+  // First the chapter is checked as readers will see it (and fixed if needed), then its featured picture is chosen.
+  if (created && !reviewed) {
+    return (
+      <div className="space-y-4">
+        <DialogHeader>
+          <DialogTitle>معاينة الفصل قبل النشر</DialogTitle>
+        </DialogHeader>
+        <p className="text-sm text-lunex-gray">
+          راجع الصفحات كما ستظهر للقرّاء. تقدر تعدّل الرقم والعنوان، وتقدّم أو تؤخّر أي صفحة، أو تستبدلها أو تحذفها قبل النشر.
+        </p>
+        <ChapterPreviewEditor
+          chapterId={created.id}
+          onChanged={(details) => {
+            setTitle(details.title);
+            setNumber(details.number);
+          }}
+        />
+        <Button onClick={() => setReviewed(true)} className="sticky bottom-0 w-full">
+          التالي: الصورة البارزة
+        </Button>
+      </div>
+    );
   }
 
   if (created) {

@@ -1,4 +1,4 @@
-import { ConflictException, ForbiddenException } from "@nestjs/common";
+import { ConflictException, ForbiddenException, NotFoundException } from "@nestjs/common";
 import type { CatalogService } from "../catalog/catalog.service";
 import type { ImagesService } from "../images/images.service";
 import sharp from "sharp";
@@ -234,5 +234,70 @@ describe("who may work on a team's chapters", () => {
     const staff = asLevel(null);
     await staff.service.listRecentForAdmin(OWNER);
     expect(staff.repo.listRecent).toHaveBeenCalledWith(50);
+  });
+});
+
+describe("checking a chapter before it is published", () => {
+  const MEMBER = { id: "u-member", role: "reader" };
+  const pages = [1, 2, 3].map((pageNumber) => ({ pageNumber, assetId: `a${pageNumber}` }));
+
+  function setup(level: TeamLevel | null = "uploader", chapterPages = pages) {
+    const built = build(undefined, level);
+    const repo = Object.assign(built.repo, {
+      findById: jest.fn(async () => ({ id: "c1", seriesId: "s1", number: 7, isPublished: false, publishedAt: null, teamId: "t1", pages: chapterPages })),
+      findBySeriesAndNumber: jest.fn(async (): Promise<{ id: string } | null> => null),
+      deletePageAndClose: jest.fn(async () => undefined),
+      swapPageNumbers: jest.fn(async () => undefined),
+    });
+    return { ...built, repo };
+  }
+
+  it("lets anyone who works on the chapters correct its title and number, but not reuse another chapter's number", async () => {
+    const { service, repo } = setup("uploader");
+    await service.update(MEMBER, "c1", { title: "  البداية  ", number: 8 });
+    expect(repo.update).toHaveBeenCalledWith("c1", { title: "البداية", number: 8 });
+    repo.findBySeriesAndNumber.mockResolvedValueOnce({ id: "other" });
+    await expect(service.update(MEMBER, "c1", { number: 9 })).rejects.toMatchObject({ response: { code: "chapter_number_taken" } });
+    await expect(service.update(MEMBER, "c1", { title: "   " })).rejects.toMatchObject({ response: { code: "invalid_title" } });
+    await expect(setup(null).service.update(MEMBER, "c1", { title: "x" })).rejects.toBeInstanceOf(ForbiddenException);
+  });
+
+  it("takes a page out and closes the gap, but never the last page", async () => {
+    const { service, repo } = setup();
+    expect(await service.removePage(MEMBER, "c1", 2)).toEqual({ pages: 2 });
+    expect(repo.deletePageAndClose).toHaveBeenCalledWith("c1", 2);
+    await expect(service.removePage(MEMBER, "c1", 9)).rejects.toMatchObject({ response: { code: "page_not_found" } });
+    await expect(setup("uploader", [pages[0]]).service.removePage(MEMBER, "c1", 1)).rejects.toMatchObject({ response: { code: "last_page" } });
+    await expect(setup(null).service.removePage(MEMBER, "c1", 2)).rejects.toBeInstanceOf(ForbiddenException);
+  });
+
+  it("moves a page by swapping the places of two pages", async () => {
+    const { service, repo } = setup();
+    expect(await service.swapPages(MEMBER, "c1", 1, 2)).toEqual({ swapped: true });
+    expect(repo.swapPageNumbers).toHaveBeenCalledWith("c1", 1, 2);
+    await expect(service.swapPages(MEMBER, "c1", 1, 5)).rejects.toMatchObject({ response: { code: "page_not_found" } });
+  });
+});
+
+describe("page pictures for the team's own preview", () => {
+  function setup(level: TeamLevel | null, canRead: boolean) {
+    const repo = {
+      findById: jest.fn(async () => ({ id: "c1", seriesId: "s1", number: 7, pages: [{ pageNumber: 1, assetId: "a1" }] })),
+      seriesAccess: jest.fn(async () => ({ teamId: "t1", state: "approved" })),
+    };
+    const images = { issueToken: jest.fn(async () => ({ token: "t" })) };
+    // like the real wallet, a chapter readers cannot open (here: a draft) is "not found" to it
+    const wallet = { access: jest.fn(async () => (canRead ? { locked: false, canRead } : Promise.reject(new NotFoundException()))) };
+    const service = new ChaptersService(repo as unknown as ChaptersRepository, {} as StorageService, images as unknown as ImagesService, wallet as unknown as WalletService, {} as NotificationsService, {} as CatalogService, {} as TeamActivityService, {} as AnnouncementsService, teamAccessFor(level) as unknown as TeamAccessService);
+    return { service, images };
+  }
+  const ctx = {} as never;
+
+  it("lets the team read its unpublished chapter, and still keeps it from everyone else", async () => {
+    const team = setup("uploader", false);
+    await expect(team.service.issuePageToken({ id: "u-member", role: "reader" }, "c1", 1, ctx)).resolves.toEqual({ token: "t" });
+    await expect(setup(null, false).service.issuePageToken({ id: "u-x", role: "reader" }, "c1", 1, ctx)).rejects.toBeInstanceOf(NotFoundException);
+    await expect(setup(null, false).service.issuePageToken(null, "c1", 1, ctx)).rejects.toBeInstanceOf(NotFoundException);
+    await expect(setup(null, true).service.issuePageToken(null, "c1", 1, ctx)).resolves.toEqual({ token: "t" });
   });
 });

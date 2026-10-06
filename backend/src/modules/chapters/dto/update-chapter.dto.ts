@@ -1,4 +1,4 @@
-import { IsBoolean, IsOptional } from "class-validator";
+import { IsBoolean, IsNumber, IsOptional, IsString, Max, MaxLength, Min, MinLength } from "class-validator";
 
 export class UpdateChapterDto {
   @IsOptional()
@@ -9,4 +9,17 @@ export class UpdateChapterDto {
   @IsOptional()
   @IsBoolean()
   manualLock?: boolean | null;
+
+  /** Corrected before (or after) publishing, by anyone who works on the series' chapters. */
+  @IsOptional()
+  @IsString()
+  @MinLength(1)
+  @MaxLength(200)
+  title?: string;
+
+  @IsOptional()
+  @IsNumber({ allowNaN: false, allowInfinity: false })
+  @Min(0)
+  @Max(100000)
+  number?: number;
 }

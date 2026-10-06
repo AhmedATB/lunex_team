@@ -127,11 +127,18 @@ export class ChaptersService {
     return this.repo.listRecent(50, teams.map((team) => team.teamId));
   }
 
-  async update(actor: ChapterActor, id: string, patch: { isPublished?: boolean; manualLock?: boolean | null }) {
+  async update(actor: ChapterActor, id: string, patch: { isPublished?: boolean; manualLock?: boolean | null; title?: string; number?: number }) {
     const before = await this.get(id);
     if (patch.manualLock !== undefined && !this.isStaff(actor)) this.forbidden(); // the lock decides what costs coins — the site's call, not a team's
     if (patch.isPublished !== undefined) await this.assertCanPublish(actor, before.seriesId);
     else await this.assertCanUpload(actor, before.seriesId);
+    // The title and number are corrected by anyone who works on the chapters (checked just above); a number may not clash with another chapter of the work.
+    if (patch.title !== undefined) patch = { ...patch, title: patch.title.trim() };
+    if (patch.title === "") throw new BadRequestException({ code: "invalid_title", message: "The chapter needs a title." });
+    if (patch.number !== undefined && patch.number !== before.number) {
+      const clash = await this.repo.findBySeriesAndNumber(before.seriesId, patch.number);
+      if (clash && clash.id !== id) throw new ConflictException({ code: "chapter_number_taken", message: `Chapter ${patch.number} already exists for this series.` });
+    }
     const publishing = patch.isPublished === true && !before.isPublished;
     const unpublishing = patch.isPublished === false && before.isPublished;
     // A work still waiting for the site's approval is not shown anywhere, so none of its chapters may go live yet.
@@ -270,6 +277,41 @@ export class ChaptersService {
     return pages;
   }
 
+  /**
+   * Takes page `pageNumber` out of the chapter and moves the pages after it up by one, so the reading order has no gap — for a page
+   * that should not be there (a duplicate, a credits page from another group). The last page cannot go: delete the chapter instead.
+   */
+  async removePage(actor: ChapterActor, chapterId: string, pageNumber: number) {
+    const chapter = await this.requireUploader(actor, chapterId);
+    if (!chapter.pages.some((page) => page.pageNumber === pageNumber)) {
+      throw new NotFoundException({ code: "page_not_found", message: "Page not found in this chapter." });
+    }
+    if (chapter.pages.length <= 1) {
+      throw new BadRequestException({ code: "last_page", message: "A chapter needs at least one page; delete the chapter instead." });
+    }
+    await this.repo.deletePageAndClose(chapterId, pageNumber);
+    this.catalog.invalidate();
+    return { pages: chapter.pages.length - 1 };
+  }
+
+  /** Swaps two pages — how a page is moved one place up or down while the chapter is checked before publishing. */
+  async swapPages(actor: ChapterActor, chapterId: string, a: number, b: number) {
+    const chapter = await this.requireUploader(actor, chapterId);
+    const first = chapter.pages.find((page) => page.pageNumber === a);
+    const second = chapter.pages.find((page) => page.pageNumber === b);
+    if (!first || !second) throw new NotFoundException({ code: "page_not_found", message: "Page not found in this chapter." });
+    if (a === b) return { swapped: false };
+    await this.repo.swapPageNumbers(chapterId, a, b);
+    return { swapped: true };
+  }
+
+  /** Works on this series' chapters: the site's staff, or anyone in the team that owns it. */
+  private async worksOn(actor: ChapterActor | null, seriesId: string): Promise<boolean> {
+    if (!actor) return false;
+    if (this.isStaff(actor)) return true;
+    return Boolean(await this.standing(actor, seriesId));
+  }
+
   /** May this member read the chapter now? Free, opened with a credit or coins, or staff — decided by the wallet (modules/wallet). */
   async canAccessChapter(userId: string | null, chapterId: string): Promise<boolean> {
     return (await this.wallet.access(userId, chapterId)).canRead;
@@ -277,16 +319,20 @@ export class ChaptersService {
 
   /** `userId` is null for a visitor without an account: pages of a chapter that is not locked are issued to them too, a locked one never is. */
   async issuePageToken(
-    userId: string | null,
+    actor: ChapterActor | null,
     chapterId: string,
     pageNumber: number,
     ctx: RequestContext
   ): Promise<IssuedImageToken> {
-    const allowed = await this.canAccessChapter(userId, chapterId);
-    if (!allowed) {
-      throw new ForbiddenException({ code: "chapter_locked", message: "This chapter is locked for your account." });
-    }
+    const userId = actor?.id ?? null;
     const chapter = await this.get(chapterId);
+    // Readers go by the wallet. Only when it refuses — a locked chapter, or a draft, which to the wallet does not exist at all — is the
+    // team asked about: it checks its own chapter before readers do, without paying for it (and a reader pays no extra lookup).
+    let refusal: unknown = null;
+    const allowed = await this.canAccessChapter(userId, chapterId).catch((err: unknown) => ((refusal = err), false));
+    if (!allowed && !(await this.worksOn(actor, chapter.seriesId))) {
+      throw refusal ?? new ForbiddenException({ code: "chapter_locked", message: "This chapter is locked for your account." });
+    }
     const page = chapter.pages.find((p) => p.pageNumber === pageNumber);
     if (!page) {
       throw new NotFoundException({ code: "page_not_found", message: "Page not found in this chapter." });

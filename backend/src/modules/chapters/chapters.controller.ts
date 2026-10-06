@@ -28,6 +28,7 @@ import { ChapterThumbnailService } from "./chapter-thumbnail.service";
 import { ChaptersService, type ChapterActor } from "./chapters.service";
 import { ImportDriveDto } from "./dto/import-drive.dto";
 import { CreateChapterDto } from "./dto/create-chapter.dto";
+import { SwapPagesDto } from "./dto/swap-pages.dto";
 import { ThumbnailPageDto } from "./dto/thumbnail-page.dto";
 import { UpdateChapterDto } from "./dto/update-chapter.dto";
 import { UploadPageDto } from "./dto/upload-page.dto";
@@ -121,6 +122,24 @@ export class ChaptersController {
     return this.chapters.replacePage(asActor(actor), chapterId, number, file);
   }
 
+  /** Takes one page out of the chapter; the pages after it move up by one. For the people who work on the series' chapters. */
+  @Delete(":id/pages/:pageNumber")
+  @HttpCode(HttpStatus.OK)
+  @Throttle({ default: { limit: 60, ttl: 60_000 } })
+  removePage(@Param("id") chapterId: string, @Param("pageNumber") pageNumber: string, @CurrentUser() actor: AccessTokenPayload) {
+    const number = Number(pageNumber);
+    if (!Number.isInteger(number) || number < 1) throw new BadRequestException({ code: "invalid_page_number", message: "The page number must be a whole number from 1." });
+    return this.chapters.removePage(asActor(actor), chapterId, number);
+  }
+
+  /** Swaps two pages (body `{ a, b }`): moving a page one place up or down. */
+  @Post(":id/pages/swap")
+  @HttpCode(HttpStatus.OK)
+  @Throttle({ default: { limit: 120, ttl: 60_000 } })
+  swapPages(@Param("id") chapterId: string, @Body() dto: SwapPagesDto, @CurrentUser() actor: AccessTokenPayload) {
+    return this.chapters.swapPages(asActor(actor), chapterId, dto.a, dto.b);
+  }
+
   /**
    * The real caller a reader uses — checks chapter authorization, THEN delegates to ImagesService for the actual token
    * mechanics. Open to visitors without an account: a chapter that is not locked is readable by anyone (the wallet says so),
@@ -136,7 +155,7 @@ export class ChaptersController {
     @CurrentUser() actor: AccessTokenPayload | undefined,
     @Req() req: Request
   ) {
-    return this.chapters.issuePageToken(actor?.sub ?? null, chapterId, Number(pageNumber), req.context);
+    return this.chapters.issuePageToken(actor ? asActor(actor) : null, chapterId, Number(pageNumber), req.context);
   }
 
   /**

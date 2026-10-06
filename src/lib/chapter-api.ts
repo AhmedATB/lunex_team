@@ -17,6 +17,15 @@ export interface ThumbnailSuggestions {
   pages: number;
 }
 
+export interface ChapterDetails {
+  id: string;
+  seriesId: string;
+  number: number;
+  title: string;
+  isPublished: boolean;
+  pages: { pageNumber: number }[];
+}
+
 export interface DriveInfo {
   configured: boolean;
   /** The address a private Drive folder has to be shared with. */
@@ -68,6 +77,18 @@ export const chapterApi = {
   thumbnailRemove: (chapterId: string) => call<void>(`/api/chapters/${encodeURIComponent(chapterId)}/thumbnail`, "DELETE"),
 
   setPublished: (chapterId: string, isPublished: boolean) => call<unknown>(`/api/chapters/${encodeURIComponent(chapterId)}`, "PATCH", { isPublished }),
+
+  /** Corrects the chapter's number and title (before or after it goes live). */
+  updateDetails: (chapterId: string, details: { number: number; title: string }) => call<unknown>(`/api/chapters/${encodeURIComponent(chapterId)}`, "PATCH", details),
+
+  /** The chapter with its pages in reading order (numbers only, never the pictures). */
+  details: (chapterId: string) => call<ChapterDetails>(`/api/chapters/${encodeURIComponent(chapterId)}`, "GET"),
+
+  /** Takes a page out; the pages after it move up by one. */
+  removePage: (chapterId: string, pageNumber: number) => call<{ pages: number }>(`/api/chapters/${encodeURIComponent(chapterId)}/pages/${pageNumber}`, "DELETE"),
+
+  /** Swaps two pages: moves a page one place up or down. */
+  swapPages: (chapterId: string, a: number, b: number) => call<{ swapped: boolean }>(`/api/chapters/${encodeURIComponent(chapterId)}/pages/swap`, "POST", { a, b }),
 
   remove: (chapterId: string) => call<void>(`/api/chapters/${encodeURIComponent(chapterId)}`, "DELETE"),
 

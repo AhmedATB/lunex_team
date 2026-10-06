@@ -53,7 +53,7 @@ export class ChaptersRepository {
     });
   }
 
-  update(id: string, data: { isPublished?: boolean; manualLock?: boolean | null; publishedAt?: Date | null; thumbnailAssetId?: string | null }) {
+  update(id: string, data: { isPublished?: boolean; manualLock?: boolean | null; publishedAt?: Date | null; thumbnailAssetId?: string | null; title?: string; number?: number }) {
     return this.prisma.chapter.update({ where: { id }, data });
   }
 
@@ -74,6 +74,30 @@ export class ChaptersRepository {
   /** Points page `pageNumber` at another picture (the old one is left where it is; no reader is sent to it any more). */
   updatePageAsset(chapterId: string, pageNumber: number, assetId: string) {
     return this.prisma.chapterPage.update({ where: { chapterId_pageNumber: { chapterId, pageNumber } }, data: { assetId } });
+  }
+
+  /** Deletes page `pageNumber` and moves every later page up by one, in one transaction (ascending, so no two pages ever share a number). */
+  deletePageAndClose(chapterId: string, pageNumber: number) {
+    return this.prisma.$transaction(async (tx) => {
+      await tx.chapterPage.delete({ where: { chapterId_pageNumber: { chapterId, pageNumber } } });
+      const later = await tx.chapterPage.findMany({ where: { chapterId, pageNumber: { gt: pageNumber } }, orderBy: { pageNumber: "asc" }, select: { pageNumber: true } });
+      for (const page of later) {
+        await tx.chapterPage.update({ where: { chapterId_pageNumber: { chapterId, pageNumber: page.pageNumber } }, data: { pageNumber: page.pageNumber - 1 } });
+      }
+    });
+  }
+
+  /**
+   * The two pages change places. A picture belongs to one page only (assetId is unique), so the pages trade their numbers instead,
+   * through a number no page uses (0) so the chapter never has two pages with the same number.
+   */
+  swapPageNumbers(chapterId: string, a: number, b: number) {
+    const at = (pageNumber: number) => ({ chapterId_pageNumber: { chapterId, pageNumber } });
+    return this.prisma.$transaction([
+      this.prisma.chapterPage.update({ where: at(a), data: { pageNumber: 0 } }),
+      this.prisma.chapterPage.update({ where: at(b), data: { pageNumber: a } }),
+      this.prisma.chapterPage.update({ where: at(0), data: { pageNumber: b } }),
+    ]);
   }
 
   findAsset(id: string) {
