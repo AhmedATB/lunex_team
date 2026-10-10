@@ -3,6 +3,7 @@
 import { useEffect } from "react";
 import { usePathname } from "next/navigation";
 import { ADS_ENABLED, isAdPage, POPUNDER_ENABLED, POPUNDER_SRC, SOCIAL_BAR_SRC } from "@/lib/ads";
+import { countPage, socialBarAllowed } from "@/lib/ad-limits";
 import { reportAd } from "@/lib/ads-status";
 import { installTitleGuard } from "@/lib/title-guard";
 import { AdsDebugPanel } from "@/components/ads/ads-debug";
@@ -45,10 +46,20 @@ export function AdScripts() {
       return;
     }
 
+    // One more browsing page of this visit: a phone's social bar waits for the first few (lib/ad-limits.ts).
+    countPage();
+
     const load = () => {
-      if (POPUNDER_ENABLED) add(document.head, POPUNDER_SRC, "popunder");
-      add(document.body, SOCIAL_BAR_SRC, "social-bar");
-      window.__lunexAdsLoaded = true;
+      let added = false;
+      if (POPUNDER_ENABLED) {
+        add(document.head, POPUNDER_SRC, "popunder");
+        added = true;
+      }
+      if (socialBarAllowed()) {
+        add(document.body, SOCIAL_BAR_SRC, "social-bar");
+        added = true;
+      }
+      if (added) window.__lunexAdsLoaded = true;
     };
     // Leaving the page before the browser was idle cancels the load, so nothing needs taking back out.
     if (typeof window.requestIdleCallback === "function") {

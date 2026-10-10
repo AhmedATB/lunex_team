@@ -3,6 +3,7 @@
 import { useEffect, useRef, useState } from "react";
 import { usePathname } from "next/navigation";
 import { ADS_ENABLED, AD_UNITS, AD_UNIT_SANDBOX, buildAdDocument, isAdPage, type AdUnitId } from "@/lib/ads";
+import { takeBanner } from "@/lib/ad-limits";
 import { adsDebugRequested, reportAd } from "@/lib/ads-status";
 import { cn } from "@/lib/utils";
 
@@ -34,10 +35,15 @@ export function AdUnit({ unit, className }: { unit: AdUnitId; className?: string
   const { width, height } = AD_UNITS[unit];
   const frame = useRef<HTMLIFrameElement>(null);
   const [mounted, setMounted] = useState(false);
+  /** null until decided; a phone has a small budget of banners per visit (lib/ad-limits.ts), bigger screens always show them. */
+  const [allowed, setAllowed] = useState<boolean | null>(null);
 
   useEffect(() => setMounted(true), []);
+  useEffect(() => {
+    if (mounted && ADS_ENABLED && isAdPage(pathname)) setAllowed(takeBanner());
+  }, [mounted, pathname]);
 
-  if (!mounted || !ADS_ENABLED || !isAdPage(pathname)) return null;
+  if (!mounted || !ADS_ENABLED || !isAdPage(pathname) || !allowed) return null;
 
   return (
     <aside aria-label="إعلان" className={cn("mx-auto w-full", className)} style={{ maxWidth: width }}>

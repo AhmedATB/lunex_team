@@ -16,6 +16,7 @@ const COOKIES: { name: string; purpose: string; duration: string; essential: boo
   { name: "lunex_oauth_state", purpose: "يحمي عملية الدخول عبر Discord أو Google من التزوير.", duration: "5 دقائق", essential: true },
   { name: "lunex-consent", purpose: "يتذكّر اختيارك بخصوص ملفات تعريف الارتباط حتى لا نسألك كل زيارة.", duration: "6 أشهر", essential: true },
   { name: "lunex-style", purpose: "يحفظ نمط ألوان الموقع الذي اخترته ليظهر بالشكل نفسه عند زيارتك التالية.", duration: "سنة", essential: false },
+  { name: "lunex-ads-visit (ذاكرة التبويب)", purpose: "يعدّ كم صفحة فتحتها وكم إعلانًا ظهر لك في هذه الزيارة، ليحدّ من كثرة الإعلانات على الهاتف. لا يغادر متصفحك.", duration: "حتى تغلق التبويب", essential: true },
 ];
 
 /** Must match DEFAULT_RETENTION_DAYS in backend/src/modules/retention/retention.service.ts — that job is what actually enforces these. */
