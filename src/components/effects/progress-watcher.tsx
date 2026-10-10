@@ -20,7 +20,11 @@ export function ProgressWatcher() {
     if (!currentUserId) {
       reset();
       useWallet.getState().reset();
-      return;
+      // A visitor has no wallet but still needs the lock rule, to draw locks as the server will enforce them.
+      void useWallet.getState().loadRule();
+      const onVisibleAsVisitor = () => document.visibilityState === "visible" && void useWallet.getState().loadRule();
+      document.addEventListener("visibilitychange", onVisibleAsVisitor);
+      return () => document.removeEventListener("visibilitychange", onVisibleAsVisitor);
     }
     void refresh();
     void useWallet.getState().refresh();

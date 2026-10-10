@@ -49,7 +49,7 @@ export function ChapterGate({
 }) {
   const signedIn = useSession((s) => Boolean(s.currentUserId));
   const role = useSession((s) => s.user?.role);
-  const { wallet, loaded, refresh, unlock } = useWallet();
+  const { wallet, rule, loaded, refresh, unlock } = useWallet();
 
   const [busy, setBusy] = useState<"credit" | "coins" | null>(null);
   const [error, setError] = useState("");
@@ -66,7 +66,7 @@ export function ChapterGate({
   }, [loaded, signedIn]);
 
   const staff = role ? READS_EVERYTHING.has(role) : false;
-  const byRule = isLockedByRule(chapterNumber, latestChapterNumber, lockRuleOf(wallet), manualLock);
+  const byRule = isLockedByRule(chapterNumber, latestChapterNumber, lockRuleOf(wallet, rule), manualLock);
   const opened = wallet?.unlockedChapterIds.includes(chapterId) ?? false;
 
   // A free chapter needs nothing, so it is never held back waiting for the wallet.

@@ -1,6 +1,6 @@
 import { Injectable, Logger, NotFoundException } from "@nestjs/common";
 import { metAchievements, type AchievementValues } from "./achievements.defs";
-import { walletConfig } from "../wallet/wallet.config";
+import { WalletSettingsService } from "../wallet/wallet-settings.service";
 import { ProgressRepository } from "./progress.repository";
 import {
   applyEvent,
@@ -85,7 +85,10 @@ function pickLevel(xp: number) {
 export class ProgressService {
   private readonly logger = new Logger(ProgressService.name);
 
-  constructor(private readonly repo: ProgressRepository) {}
+  constructor(
+    private readonly repo: ProgressRepository,
+    private readonly walletSettings: WalletSettingsService
+  ) {}
 
   async snapshot(userId: string, now: Date = new Date()): Promise<ProgressDto> {
     const state = await this.repo.getState(userId);
@@ -159,10 +162,11 @@ export class ProgressService {
     }
   }
 
-  private apply(userId: string, event: ProgressEvent, now: Date): Promise<AwardResult | null> {
+  private async apply(userId: string, event: ProgressEvent, now: Date): Promise<AwardResult | null> {
     const today = dayKey(now);
+    const { chaptersPerCredit } = await this.walletSettings.current();
     return this.repo.transact(userId, (state) => {
-      const result = applyEvent(state, event, today, walletConfig().chaptersPerCredit);
+      const result = applyEvent(state, event, today, chaptersPerCredit);
       return { next: result.next, result };
     });
   }

@@ -21,23 +21,47 @@ export type UnlockResult = { ok: true } | { ok: false; code: "insufficient_credi
 
 interface WalletState {
   wallet: Wallet | null;
+  /** The server's lock rule for everyone, visitors included (a member's wallet carries the same numbers). */
+  rule: LockRule | null;
   /** True once the server has answered at least once for this session — until then a lock screen must not be trusted. */
   loaded: boolean;
   refresh: () => Promise<void>;
+  loadRule: () => Promise<void>;
   unlock: (chapterId: string, method: UnlockMethod) => Promise<UnlockResult>;
   reset: () => void;
 }
 
-/** The rule to draw locks with: the server's once known, its launch defaults before. */
-export function lockRuleOf(wallet: Wallet | null): LockRule {
-  return wallet ? { lockedWindow: wallet.lockedWindow, freeFirstChapters: wallet.freeFirstChapters } : DEFAULT_LOCK_RULE;
+/** The rule to draw locks with: the member's wallet, else the rule the server told everyone, else its launch defaults. */
+export function lockRuleOf(wallet: Wallet | null, rule: LockRule | null = null): LockRule {
+  if (wallet) return { lockedWindow: wallet.lockedWindow, freeFirstChapters: wallet.freeFirstChapters };
+  return rule ?? DEFAULT_LOCK_RULE;
 }
+
+const RULE_REFRESH_MS = 60_000;
+let ruleAskedAt = 0;
 
 export const useWallet = create<WalletState>((set, get) => ({
   wallet: null,
+  rule: null,
   loaded: false,
 
+  loadRule: async () => {
+    if (Date.now() - ruleAskedAt < RULE_REFRESH_MS) return;
+    ruleAskedAt = Date.now();
+    try {
+      const res = await fetch("/api/wallet/rule", { cache: "no-store" });
+      if (!res.ok) return void (ruleAskedAt = 0);
+      const body = (await res.json()) as Partial<LockRule>;
+      if (typeof body.lockedWindow === "number" && typeof body.freeFirstChapters === "number") {
+        set({ rule: { lockedWindow: body.lockedWindow, freeFirstChapters: body.freeFirstChapters } });
+      }
+    } catch {
+      ruleAskedAt = 0; // offline or restarting: ask again next time
+    }
+  },
+
   refresh: async () => {
+    void get().loadRule();
     if (!useSession.getState().currentUserId) return get().reset();
     try {
       const res = await fetch("/api/me/wallet", { cache: "no-store" });

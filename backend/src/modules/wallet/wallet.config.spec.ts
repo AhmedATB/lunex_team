@@ -1,4 +1,4 @@
-import { isLockedByRule, walletConfig } from "./wallet.config";
+import { isLockedByRule, validOverrides, walletConfig } from "./wallet.config";
 
 const CONFIG = { lockedWindow: 3, freeFirstChapters: 3 };
 
@@ -34,14 +34,26 @@ describe("which chapters are locked", () => {
 });
 
 describe("the configuration", () => {
-  it("has the launch defaults", () => {
-    expect(walletConfig({})).toEqual({ lockedWindow: 3, freeFirstChapters: 3, chaptersPerCredit: 10, coinPrice: 50 });
+  it("has the launch defaults: nothing is locked, so the first month everything is open", () => {
+    expect(walletConfig({})).toEqual({ lockedWindow: 0, freeFirstChapters: 3, chaptersPerCredit: 10, coinPrice: 50 });
   });
 
   it("reads valid overrides and ignores nonsense", () => {
     expect(walletConfig({ LOCKED_CHAPTER_COUNT: "5", CHAPTERS_PER_CREDIT: "20", CHAPTER_COIN_PRICE: "100", FREE_FIRST_CHAPTERS: "0" })).toEqual({
       lockedWindow: 5, freeFirstChapters: 0, chaptersPerCredit: 20, coinPrice: 100,
     });
-    expect(walletConfig({ LOCKED_CHAPTER_COUNT: "abc", CHAPTERS_PER_CREDIT: "0", CHAPTER_COIN_PRICE: "-4" })).toEqual({ lockedWindow: 3, freeFirstChapters: 3, chaptersPerCredit: 10, coinPrice: 50 });
+    expect(walletConfig({ LOCKED_CHAPTER_COUNT: "abc", CHAPTERS_PER_CREDIT: "0", CHAPTER_COIN_PRICE: "-4" })).toEqual({ lockedWindow: 0, freeFirstChapters: 3, chaptersPerCredit: 10, coinPrice: 50 });
+  });
+
+  it("lets what the admin panel saved win over the environment, one setting at a time", () => {
+    expect(walletConfig({ LOCKED_CHAPTER_COUNT: "3", CHAPTER_COIN_PRICE: "80" }, { lockedWindow: 0, chaptersPerCredit: 5 })).toEqual({
+      lockedWindow: 0, freeFirstChapters: 3, chaptersPerCredit: 5, coinPrice: 80,
+    });
+  });
+
+  it("keeps only whole numbers inside their limits from what was stored", () => {
+    expect(validOverrides({ lockedWindow: 4, freeFirstChapters: -1, chaptersPerCredit: 2.5, coinPrice: "50", other: 1 })).toEqual({ lockedWindow: 4 });
+    expect(validOverrides(null)).toEqual({});
+    expect(validOverrides("x")).toEqual({});
   });
 });

@@ -10,8 +10,8 @@ export interface LockRule {
   freeFirstChapters: number;
 }
 
-/** What the server ships with; used only until the member's wallet has loaded, so the screen does not flash the wrong thing. */
-export const DEFAULT_LOCK_RULE: LockRule = { lockedWindow: 3, freeFirstChapters: 3 };
+/** What the server ships with (nothing locked); used only until the server's rule has loaded, so the screen does not flash the wrong thing. */
+export const DEFAULT_LOCK_RULE: LockRule = { lockedWindow: 0, freeFirstChapters: 3 };
 
 export function isLockedByRule(chapterNumber: number, latestChapterNumber: number, rule: LockRule, manualLock: boolean | null | undefined): boolean {
   if (manualLock === true) return true;

@@ -1,10 +1,11 @@
 import type { NotificationsService } from "../notifications/notifications.service";
 import { BadRequestException, ForbiddenException, HttpException, NotFoundException } from "@nestjs/common";
-import type { ConfigService } from "@nestjs/config";
+import type { WalletSettingsService } from "./wallet-settings.service";
 import type { SpendOutcome, WalletRepository } from "./wallet.repository";
 import { WalletService } from "./wallet.service";
 
-const CONFIG_VALUES: Record<string, string> = { CHAPTER_COIN_PRICE: "50" };
+/** The lock as it is switched on: the newest three chapters locked. (The launch default locks nothing; see wallet.config.spec.) */
+const LOCK_ON = { lockedWindow: 3, freeFirstChapters: 3, chaptersPerCredit: 10, coinPrice: 50 };
 
 interface Setup {
   role?: string;
@@ -28,9 +29,9 @@ function build(setup: Setup = {}) {
     grantCoins: jest.fn(async () => 120),
     recentTransactions: jest.fn(async () => []),
   };
-  const env = { get: (name: string) => CONFIG_VALUES[name] } as unknown as ConfigService;
+  const settings = { current: jest.fn(async () => LOCK_ON) } as unknown as WalletSettingsService;
   const notifications = { coinsGranted: jest.fn().mockResolvedValue(undefined) };
-  return { service: new WalletService(repo as unknown as WalletRepository, env, notifications as unknown as NotificationsService), repo, notifications };
+  return { service: new WalletService(repo as unknown as WalletRepository, settings, notifications as unknown as NotificationsService), repo, notifications };
 }
 
 describe("who may read a chapter", () => {

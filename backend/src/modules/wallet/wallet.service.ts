@@ -1,7 +1,7 @@
 import { NotificationsService } from "../notifications/notifications.service";
 import { BadRequestException, ForbiddenException, HttpException, HttpStatus, Injectable, NotFoundException } from "@nestjs/common";
-import { ConfigService } from "@nestjs/config";
-import { isLockedByRule, walletConfig, type WalletConfig } from "./wallet.config";
+import { isLockedByRule, type WalletConfig } from "./wallet.config";
+import { WalletSettingsService } from "./wallet-settings.service";
 import { WalletRepository, type UnlockMethod } from "./wallet.repository";
 
 /** Roles that read every chapter without unlocking it: the people who publish and run the site. */
@@ -33,24 +33,20 @@ export interface AccessDto {
 export class WalletService {
   constructor(
     private readonly repo: WalletRepository,
-    private readonly env: ConfigService,
+    private readonly settings: WalletSettingsService,
     private readonly notifications: NotificationsService
   ) {}
 
-  private config(): WalletConfig {
-    return walletConfig({
-      LOCKED_CHAPTER_COUNT: this.env.get<string>("LOCKED_CHAPTER_COUNT"),
-      FREE_FIRST_CHAPTERS: this.env.get<string>("FREE_FIRST_CHAPTERS"),
-      CHAPTERS_PER_CREDIT: this.env.get<string>("CHAPTERS_PER_CREDIT"),
-      CHAPTER_COIN_PRICE: this.env.get<string>("CHAPTER_COIN_PRICE"),
-    });
+  /** The lock settings in force now (saved from the admin panel, else the environment, else the defaults). */
+  private config(): Promise<WalletConfig> {
+    return this.settings.current();
   }
 
   async snapshot(userId: string): Promise<WalletDto> {
     const [account, unlockedChapterIds] = await Promise.all([this.repo.findAccount(userId), this.repo.listUnlockedChapterIds(userId)]);
     if (!account) throw new NotFoundException({ code: "user_not_found", message: "Account not found." });
     return {
-      ...this.config(),
+      ...(await this.config()),
       coins: account.coins,
       unlockCredits: account.unlockCredits,
       creditProgress: account.creditProgress,
@@ -67,7 +63,7 @@ export class WalletService {
     if (!chapter) throw new NotFoundException({ code: "chapter_not_found", message: "Chapter not found." });
 
     const latest = await this.repo.latestPublishedNumber(chapter.seriesId);
-    const locked = isLockedByRule(chapter.number, latest, this.config(), chapter.manualLock);
+    const locked = isLockedByRule(chapter.number, latest, await this.config(), chapter.manualLock);
     if (!locked) return { locked: false, canRead: true };
     if (userId === null) return { locked: true, canRead: false };
 
@@ -81,7 +77,7 @@ export class WalletService {
     const status = await this.access(userId, chapterId);
     if (!status.locked || status.canRead) return { ...(await this.snapshot(userId)), unlocked: true };
 
-    const outcome = await this.repo.spendToUnlock({ userId, chapterId, method, price: this.config().coinPrice });
+    const outcome = await this.repo.spendToUnlock({ userId, chapterId, method, price: (await this.config()).coinPrice });
     if (outcome === "no_account") throw new NotFoundException({ code: "user_not_found", message: "Account not found." });
     if (outcome === "no_credit") {
       throw new HttpException({ code: "insufficient_credits", message: "You have no reading credits to spend." }, HttpStatus.PAYMENT_REQUIRED);

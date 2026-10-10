@@ -33,7 +33,8 @@ export function ChapterList({ seriesSlug, chapters, teamId }: { seriesSlug: stri
   const [chapterProgress, setChapterProgress] = useState<Record<string, ChapterProgress>>({});
   // What is locked follows the server's rule and this member's opened chapters (the server refuses the pages itself).
   const wallet = useWallet((s) => s.wallet);
-  const lockRule = lockRuleOf(wallet);
+  const publicRule = useWallet((s) => s.rule);
+  const lockRule = lockRuleOf(wallet, publicRule);
   const openedChapters = new Set(wallet?.unlockedChapterIds ?? []);
 
   const store = useTeamManagement();

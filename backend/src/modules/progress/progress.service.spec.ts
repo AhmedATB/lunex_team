@@ -1,4 +1,5 @@
 import { NotFoundException } from "@nestjs/common";
+import type { WalletSettingsService } from "../wallet/wallet-settings.service";
 import type { ProgressRepository } from "./progress.repository";
 import { ProgressService } from "./progress.service";
 import type { ProgressState } from "./progress.util";
@@ -30,7 +31,7 @@ function build(opts: { view?: Date | null; forward?: boolean; state?: ProgressSt
     countCommentsSince: jest.fn(async () => opts.commentsToday ?? 1),
     countBookmarks: jest.fn(async () => 0),
   };
-  return { service: new ProgressService(repo as unknown as ProgressRepository), repo, current: () => state };
+  return { service: new ProgressService(repo as unknown as ProgressRepository, { current: async () => ({ lockedWindow: 0, freeFirstChapters: 3, chaptersPerCredit: 10, coinPrice: 50 }) } as unknown as WalletSettingsService), repo, current: () => state };
 }
 
 describe("finishing a chapter", () => {
