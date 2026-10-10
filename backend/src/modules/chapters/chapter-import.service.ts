@@ -152,7 +152,7 @@ export class ChapterImportService {
         });
         return { total: 0, kind: "zip" };
       }
-      throw new BadRequestException({ code: "drive_unsupported_file", message: "The link is a file that is neither a folder of images nor a ZIP." });
+      throw new BadRequestException({ code: "drive_unsupported_file", message: `The link is a file ("${file.name}", type ${file.mimeType || "unknown"}) that is neither a folder of images nor a ZIP.` });
     } catch (error) {
       if (error instanceof BadRequestException) throw error;
       throw this.asHttpError(error, client.serviceEmail);

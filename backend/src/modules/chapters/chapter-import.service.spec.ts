@@ -131,7 +131,7 @@ describe("Drive import of a folder", () => {
 
   it("refuses a link to something that is neither a folder nor a ZIP", async () => {
     const { service } = build({ file: { name: "cover.png", mimeType: "image/png", size: 100 } });
-    await expect(service.startDrive(OWNER, "ch1", FOLDER)).rejects.toMatchObject({ response: { code: "drive_unsupported_file" } });
+    await expect(service.startDrive(OWNER, "ch1", FOLDER)).rejects.toMatchObject({ response: { code: "drive_unsupported_file", message: expect.stringContaining("cover.png") } });
   });
 
   it("does not start a second import of the same chapter while one is running", async () => {

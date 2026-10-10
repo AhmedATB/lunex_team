@@ -33,7 +33,7 @@ const MESSAGES: Record<string, string> = {
   invalid_drive_link: "هذا ليس رابط مجلد أو ملف على Google Drive.",
   drive_folder_not_shared: "المجلد خاص أو غير موجود. اجعله عامًا (أي شخص لديه الرابط) أو شاركه مع حساب الخدمة المذكور.",
   drive_not_a_folder: "هذا الرابط لملف وليس لمجلد.",
-  drive_unsupported_file: "هذا الرابط ليس لمجلد صور ولا لملف ZIP.",
+  drive_unsupported_file: "هذا الرابط ليس لمجلد صور ولا لملف ZIP. إن كان ملف RAR أو 7z فاضغطه كـ ZIP، أو ضع الصور في مجلد وانسخ رابط المجلد.",
   drive_file_too_large: "ملف ZIP كبير جدًا (الحد 350 ميغابايت). قسّمه إلى أجزاء.",
   no_images: "لا توجد صور داخل المجلد.",
   too_many_images: "عدد الصور في المجلد أكبر من الحد المسموح للفصل (300).",
@@ -53,10 +53,13 @@ const MESSAGES: Record<string, string> = {
   invalid_request: "الاسم والوصف والأهداف لا يمكن أن تكون فارغة.",
 };
 
+/** Codes whose server message names what was found (a file name and type), worth showing beside the Arabic explanation. */
+const WITH_DETAIL = new Set(["drive_unsupported_file"]);
+
 export function messageFor(body: unknown): string {
   const code = (body as { code?: string } | null)?.code;
-  if (code && MESSAGES[code]) return MESSAGES[code];
   const message = (body as { message?: string | string[] } | null)?.message;
+  if (code && MESSAGES[code]) return WITH_DETAIL.has(code) && typeof message === "string" ? `${MESSAGES[code]} (${message})` : MESSAGES[code];
   if (Array.isArray(message) && message.length > 0) return `بيانات غير صالحة: ${message[0]}`;
   return "فشلت العملية.";
 }
