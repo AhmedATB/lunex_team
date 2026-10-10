@@ -3,6 +3,7 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { FileArchive, GripVertical, HardDrive, ImageIcon, Loader2, X } from "lucide-react";
 import { chapterApi, type DriveInfo } from "@/lib/chapter-api";
+import { chapterLabel } from "@/lib/chapter-label";
 import { imagesFromZip, naturalCompare, ZipError } from "@/lib/zip-reader";
 import { useToast } from "@/store/toast";
 import { Button } from "@/components/ui/button";
@@ -148,7 +149,29 @@ function Form({ series, initialFiles, canPublish, onClose, onDone }: { series: U
     });
   }
 
-  const ready = !!target && title.trim() && number >= 0 && (source === "drive" ? driveLink.trim().length >= 10 && drive?.configured : files.length > 0);
+  // The title is optional (many chapters have only a number): left empty, the chapter is simply "الفصل N".
+  const chapterTitle = title.trim() || `الفصل ${number}`;
+  /** What is still missing, in words: the upload button is only dark when this says something. */
+  const missing = !target
+    ? "اختر السلسلة."
+    : !(number >= 0)
+      ? "اكتب رقم الفصل."
+      : source === "drive"
+        ? drive === null
+          ? "لحظة، جارٍ التحقق من إعداد درايف..."
+          : !drive.configured
+            ? "الرفع من درايف غير مفعّل بعد على الموقع. ارفع صورًا أو ملف ZIP بدلًا منه."
+            : driveLink.trim().length < 10
+              ? "الصق رابط مجلد أو ملف ZIP من درايف."
+              : ""
+        : files.length === 0
+          ? zipBusy
+            ? ""
+            : source === "zip"
+              ? "اختر ملف ZIP فيه صور الفصل."
+              : "اختر صور الصفحات من جهازك."
+          : "";
+  const ready = missing === "";
 
   async function submit() {
     if (!target || !ready || busy) return;
@@ -156,7 +179,7 @@ function Form({ series, initialFiles, canPublish, onClose, onDone }: { series: U
     setError("");
     setProgress({ label: "إنشاء الفصل...", done: 0, total: 1 });
 
-    const created = await chapterApi.create({ seriesId: target.id, teamId: target.teamId || undefined, number, title: title.trim() });
+    const created = await chapterApi.create({ seriesId: target.id, teamId: target.teamId || undefined, number, title: chapterTitle });
     if (!created.ok) return fail(created.message);
     const chapterId = created.body.id;
     const undo = () => void chapterApi.remove(chapterId);
@@ -225,7 +248,7 @@ function Form({ series, initialFiles, canPublish, onClose, onDone }: { series: U
         return setError(`رُفعت الصفحات لكن تعذر النشر: ${published.message}. ستجد الفصل في القائمة كمسودة.`);
       }
     }
-    useToast.getState().push({ title: publish ? "نُشر الفصل" : "حُفظ الفصل كمسودة", description: `${target.titleAr} — ${title.trim()}` });
+    useToast.getState().push({ title: publish ? "نُشر الفصل" : "حُفظ الفصل كمسودة", description: `${target.titleAr} — ${chapterLabel({ number, title })}` });
     setFinishing(false);
     onDone();
     onClose();
@@ -269,7 +292,7 @@ function Form({ series, initialFiles, canPublish, onClose, onDone }: { series: U
           <DialogTitle>الفصل جاهز — اختر صورته البارزة</DialogTitle>
         </DialogHeader>
         <p className="text-sm text-lunex-gray">
-          {target?.titleAr} — {title.trim()}. {publish ? "سيُنشر الفصل بعد هذه الخطوة." : "سيُحفظ الفصل كمسودة."}
+          {target?.titleAr} — {chapterLabel({ number, title })}. {publish ? "سيُنشر الفصل بعد هذه الخطوة." : "سيُحفظ الفصل كمسودة."}
         </p>
         <ThumbnailPicker chapterId={created.id} value={choice} onChange={setChoice} autoChoose disabled={finishing} />
         {error && <p className="text-sm text-red-400" role="alert">{error}</p>}
@@ -303,8 +326,8 @@ function Form({ series, initialFiles, canPublish, onClose, onDone }: { series: U
           <Input id="ch-number" type="number" min={0} step="any" value={number} onChange={(e) => setNumber(Number(e.target.value))} disabled={busy} />
         </div>
         <div className="space-y-1.5">
-          <Label htmlFor="ch-title">عنوان الفصل</Label>
-          <Input id="ch-title" value={title} onChange={(e) => setTitle(e.target.value)} placeholder="مثال: الفصل الأول" disabled={busy} maxLength={200} />
+          <Label htmlFor="ch-title">عنوان الفصل (اختياري)</Label>
+          <Input id="ch-title" value={title} onChange={(e) => setTitle(e.target.value)} placeholder="اتركه فارغًا ليظهر «الفصل رقم كذا» فقط" disabled={busy} maxLength={200} />
         </div>
       </div>
 
@@ -393,6 +416,7 @@ function Form({ series, initialFiles, canPublish, onClose, onDone }: { series: U
       )}
       {error && <p className="text-sm text-red-400" role="alert">{error}</p>}
 
+      {!busy && missing && <p className="text-center text-xs text-amber-300" role="status">{missing}</p>}
       <Button onClick={submit} disabled={!ready || busy || zipBusy} className="w-full">
         {busy && <Loader2 className="h-4 w-4 animate-spin" />} {busy ? "جارِ العمل..." : "رفع الصفحات والمتابعة"}
       </Button>
