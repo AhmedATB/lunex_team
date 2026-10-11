@@ -1,14 +1,17 @@
 import { Image } from "expo-image";
 import { LinearGradient } from "expo-linear-gradient";
 import { router } from "expo-router";
-import { Search, Users, Zap } from "lucide-react-native";
+import { useQuery } from "@tanstack/react-query";
+import { Bell, Mail, Search, Users, Zap } from "lucide-react-native";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { Animated, Easing, Pressable, StyleSheet, View } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
+import { apiJson } from "../lib/api";
 import { latestPerSeries, seriesTitle, useBootstrap } from "../lib/catalog";
 import { SITE_URL } from "../lib/config";
 import { useSession } from "../lib/session";
 import { colors } from "../theme";
+import { openWeb } from "./series-card";
 import { Row, Txt } from "./ui";
 
 /** The strip of newest chapters under the header (the site's layout/ticker.tsx): it drifts left, one loop every 26 s. */
@@ -68,6 +71,18 @@ function Ticker() {
   );
 }
 
+/** The amber count the site puts on its bell and envelope (layout/notifications-bell.tsx, messages-link.tsx). */
+function CountBadge({ count }: { count: number }) {
+  if (count <= 0) return null;
+  return (
+    <View style={styles.count}>
+      <Txt size={10} weight="700" color="#000" align="center">
+        {count > 9 ? "9+" : count}
+      </Txt>
+    </View>
+  );
+}
+
 /**
  * The site's header on a phone (layout/header.tsx): the round logo on the right; search, teams and the account on the left.
  * `ticker` adds the newest-chapters strip the site shows under it.
@@ -75,6 +90,19 @@ function Ticker() {
 export function AppHeader({ ticker = false }: { ticker?: boolean }) {
   const insets = useSafeAreaInsets();
   const { status, user } = useSession();
+  const signedIn = status === "signedIn";
+  const { data: unread } = useQuery({
+    queryKey: ["unread-counts"],
+    enabled: signedIn,
+    refetchInterval: 60_000,
+    queryFn: async () => {
+      const [notifications, messages] = await Promise.all([
+        apiJson<{ unreadCount?: number }>("/api/notifications/unread-count").catch(() => ({ unreadCount: 0 })),
+        apiJson<{ unreadMessages?: number }>("/api/conversations/unread-count").catch(() => ({ unreadMessages: 0 })),
+      ]);
+      return { notifications: notifications.unreadCount ?? 0, messages: messages.unreadMessages ?? 0 };
+    },
+  });
 
   return (
     <View>
@@ -90,6 +118,18 @@ export function AppHeader({ ticker = false }: { ticker?: boolean }) {
           <Pressable onPress={() => router.push("/teams")} hitSlop={8} style={styles.iconBtn}>
             <Users size={20} color={colors.text} />
           </Pressable>
+          {signedIn && (
+            <>
+              <Pressable onPress={() => openWeb("/messages", "الرسائل")} hitSlop={8} style={styles.iconBtn}>
+                <Mail size={20} color={colors.text} />
+                <CountBadge count={unread?.messages ?? 0} />
+              </Pressable>
+              <Pressable onPress={() => openWeb("/notifications", "الإشعارات")} hitSlop={8} style={styles.iconBtn}>
+                <Bell size={20} color={colors.text} />
+                <CountBadge count={unread?.notifications ?? 0} />
+              </Pressable>
+            </>
+          )}
           {status === "signedIn" && user ? (
             <Pressable onPress={() => router.navigate("/account")} style={styles.avatarBtn}>
               {user.avatarVersion ? (
@@ -126,6 +166,19 @@ const styles = StyleSheet.create({
   iconBtn: { width: 40, height: 40, alignItems: "center", justifyContent: "center", borderRadius: 10 },
   avatarBtn: { borderRadius: 999, borderWidth: 1, borderColor: colors.white10, padding: 2 },
   avatar: { width: 32, height: 32, borderRadius: 16 },
+  count: {
+    position: "absolute",
+    top: 2,
+    left: 2,
+    minWidth: 18,
+    height: 16,
+    borderRadius: 8,
+    paddingHorizontal: 3,
+    backgroundColor: colors.amber400,
+    borderWidth: 1,
+    borderColor: "#000",
+    justifyContent: "center",
+  },
   ticker: { overflow: "hidden", borderBottomWidth: 1, borderBottomColor: colors.white10, backgroundColor: "rgba(0,0,0,0.3)" },
   tickerItem: {
     flexDirection: "row",

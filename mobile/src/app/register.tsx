@@ -7,7 +7,7 @@ import { TurnstileBox } from "../components/turnstile-box";
 import { Button, Row, Txt } from "../components/ui";
 import { apiJson, ApiError } from "../lib/api";
 import { SITE_URL } from "../lib/config";
-import { cleanDisplayName, displayNameProblem } from "../lib/display-name";
+import { cleanDisplayName, displayNameProblem } from "@/lib/display-name";
 import type { OAuthProvider } from "../lib/oauth";
 import { useSession } from "../lib/session";
 import * as WebBrowser from "expo-web-browser";

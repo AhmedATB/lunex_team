@@ -9,6 +9,7 @@ import { timeAgo } from "../lib/catalog";
 import { SITE_URL } from "../lib/config";
 import { useSession } from "../lib/session";
 import { colors, panel, radius } from "../theme";
+import { openWeb } from "./series-card";
 import { Row, Txt } from "./ui";
 
 /** GET /api/comments?seriesId= */
@@ -147,9 +148,11 @@ function CommentCard({ comment, replies, seriesId, depth = 0 }: { comment: Comme
           <Avatar user={comment.author} size={depth > 0 ? 36 : 44} />
           <View style={{ flex: 1, gap: 4 }}>
             <Row gap={8} style={{ flexWrap: "wrap" }}>
-              <Txt display size={15} weight="700">
-                {name}
-              </Txt>
+              <Pressable onPress={() => openWeb(`/profile/${encodeURIComponent(comment.author.username)}`, name)} hitSlop={4}>
+                <Txt display size={15} weight="700">
+                  {name}
+                </Txt>
+              </Pressable>
               <Txt size={12} color={colors.muted}>
                 {timeAgo(comment.createdAt)}
               </Txt>

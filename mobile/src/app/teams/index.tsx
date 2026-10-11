@@ -1,14 +1,13 @@
 import { router } from "expo-router";
-import * as WebBrowser from "expo-web-browser";
 import { ArrowRight, Crown, Plus, Sparkle, Trophy, Users } from "lucide-react-native";
 import { useMemo } from "react";
 import { Pressable, ScrollView, View } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { GUTTER } from "../../components/layout";
+import { openWeb } from "../../components/series-card";
 import { TeamLogo } from "../../components/team-logo";
 import { Badge, Button, Loading, Row, Txt } from "../../components/ui";
 import { useBootstrap } from "../../lib/catalog";
-import { SITE_URL } from "../../lib/config";
 import { colors, panel } from "../../theme";
 
 /** The site's /teams ("فرق الترجمة"). Creating a team stays on the site, where the request form and its review live. */
@@ -32,7 +31,7 @@ export default function TeamsScreen() {
             كل فريق يعمل باستقلالية على مشاريعه الخاصة ضمن منظومة LUNEX TEAM.
           </Txt>
         </View>
-        <Button size="lg" label="إنشاء فريق جديد" icon={<Plus size={16} color={colors.text} />} onPress={() => WebBrowser.openBrowserAsync(`${SITE_URL}/teams/create`)} />
+        <Button size="lg" label="إنشاء فريق جديد" icon={<Plus size={16} color={colors.text} />} onPress={() => openWeb("/teams/create", "إنشاء فريق")} />
         {teams.map(({ team, seriesCount }) => (
           <Pressable
             key={team.id}

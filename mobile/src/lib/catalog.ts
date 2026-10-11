@@ -1,7 +1,15 @@
 import { useQuery } from "@tanstack/react-query";
+import { isLockedByRule } from "@/lib/chapter-lock";
 import { apiJson } from "./api";
 import { useSession } from "./session";
 import type { Bootstrap, Chapter, LockRule, Series, SeriesDetail } from "./types";
+
+// The site's own logic, read straight from its src/lib (metro.config.js, tsconfig paths) so the app orders, names and searches
+// exactly as the site does.
+export { byFollowers, byPopularity, byThisWeek, byTopRated, byViews, popularityScore, ratingScore } from "@/lib/ranking";
+export { chapterLabel } from "@/lib/chapter-label";
+export { latestPerSeries } from "@/lib/latest-chapters";
+export { pickEssentialGenres } from "@/lib/essential-genres";
 
 /** The whole public catalogue in one call — the same one every page of the site starts from (cached ~15 s on the server). */
 export function useBootstrap() {
@@ -34,28 +42,16 @@ export function useLockRule(): LockRule {
   return data ?? NO_LOCKS;
 }
 
-/** Mirrors the server's rule (backend wallet.config.ts isLockedByRule) — it only decides what is shown. */
+/** The site's isLockedByRule (lib/chapter-lock.ts) for one chapter — it only decides what is shown. */
 export function isLocked(chapter: Chapter, latestChapterNumber: number, rule: LockRule): boolean {
-  if (chapter.manualLock === true) return true;
-  if (chapter.manualLock === false) return false;
-  if (rule.lockedWindow <= 0) return false;
-  if (chapter.number <= rule.freeFirstChapters) return false;
-  return chapter.number > latestChapterNumber - rule.lockedWindow;
-}
-
-/** Same rule as the site's chapter-label.ts: the number always shows, the title after it, never the number twice. */
-export function chapterLabel(chapter: { number: number; title?: string | null }): string {
-  const title = (chapter.title ?? "").trim();
-  if (!title) return `الفصل ${chapter.number}`;
-  const number = String(chapter.number).replace(/\./g, "\\.");
-  return new RegExp(`(^|[^0-9.])${number}([^0-9]|$)`).test(title) ? title : `الفصل ${chapter.number} — ${title}`;
+  return isLockedByRule(chapter.number, latestChapterNumber, rule, chapter.manualLock);
 }
 
 export function seriesTitle(series: Pick<Series, "title" | "titleAr">): string {
   return series.titleAr?.trim() || series.title;
 }
 
-/** The site's timeAgo (lib/utils.ts). */
+/** The site's timeAgo (lib/utils.ts, which itself pulls in browser-only helpers, so this one function is repeated here). */
 export function timeAgo(iso: string): string {
   const diff = Math.max(0, Date.now() - new Date(iso).getTime());
   const minutes = Math.floor(diff / 60_000);
@@ -68,22 +64,4 @@ export function timeAgo(iso: string): string {
   const months = Math.floor(days / 30);
   if (months < 12) return `منذ ${months} شهر`;
   return `منذ ${Math.floor(months / 12)} سنة`;
-}
-
-export { byFollowers, byPopularity, byThisWeek, byTopRated, byViews, popularityScore, ratingScore } from "./ranking";
-
-/** The site's lib/latest-chapters.ts: each work's newest chapter, and how many more came in the 3 days before it. */
-const BATCH_WINDOW_MS = 3 * 86_400_000;
-export function latestPerSeries<T extends { seriesId: string; releasedAt: string }>(chapters: readonly T[], limit: number): (T & { moreCount: number })[] {
-  const newestFirst = [...chapters].sort((a, b) => +new Date(b.releasedAt) - +new Date(a.releasedAt));
-  const bySeries = new Map<string, T[]>();
-  for (const chapter of newestFirst) {
-    const group = bySeries.get(chapter.seriesId);
-    if (group) group.push(chapter);
-    else bySeries.set(chapter.seriesId, [chapter]);
-  }
-  return [...bySeries.values()].slice(0, limit).map(([latest, ...older]) => {
-    const start = +new Date(latest.releasedAt) - BATCH_WINDOW_MS;
-    return { ...latest, moreCount: older.filter((c) => +new Date(c.releasedAt) >= start).length };
-  });
 }

@@ -7,12 +7,11 @@ import { Pressable, ScrollView, View, useWindowDimensions } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { Avatar } from "../../components/comments";
 import { GUTTER } from "../../components/layout";
-import { SeriesCard } from "../../components/series-card";
+import { openWeb, SeriesCard } from "../../components/series-card";
 import { TeamLogo } from "../../components/team-logo";
 import { Button, ErrorState, Loading, Panel, Row, SectionHeader, Txt } from "../../components/ui";
 import { apiJson } from "../../lib/api";
 import { useBootstrap } from "../../lib/catalog";
-import { SITE_URL } from "../../lib/config";
 import { useSession } from "../../lib/session";
 import type { Series, Tag, Team } from "../../lib/types";
 import { colors, panel } from "../../theme";
@@ -103,7 +102,7 @@ export default function TeamScreen() {
               <Button
                 label={status === "signedIn" ? "قدّم على الفريق" : "سجّل الدخول للتقديم"}
                 icon={<UserPlus size={16} color={colors.text} />}
-                onPress={() => (status === "signedIn" ? WebBrowser.openBrowserAsync(`${SITE_URL}/teams/${team.slug}`) : router.push("/login"))}
+                onPress={() => (status === "signedIn" ? openWeb(`/teams/${team.slug}`, team.name) : router.push("/login"))}
                 style={{ flex: 1 }}
               />
             )}

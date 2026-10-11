@@ -12,6 +12,9 @@ import { Badge, formatNumber, RatingPill, Row, Txt } from "./ui";
 
 export const openSeries = (slug: string) => router.push({ pathname: "/series/[slug]", params: { slug } });
 export const openChapter = (slug: string, chapterId: string) => router.push({ pathname: "/read/[chapterId]", params: { chapterId, slug } });
+/** One of the site's own pages inside the app (app/web.tsx). */
+export const openWeb = (path: string, title?: string) => router.push({ pathname: "/web", params: { path, ...(title ? { title } : {}) } });
+
 /** Opens a chapter known only by its number (reading progress keeps numbers, like the site's URLs). */
 export const openChapterNumber = (slug: string, number: number) =>
   router.push({ pathname: "/read/[chapterId]", params: { chapterId: "by-number", slug, number: String(number) } });

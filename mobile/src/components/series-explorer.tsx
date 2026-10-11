@@ -3,7 +3,7 @@ import { useEffect, useMemo, useState } from "react";
 import { FlatList, Modal, Pressable, ScrollView, StyleSheet, TextInput, View, useWindowDimensions } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { byFollowers, byPopularity, byThisWeek, byTopRated, byViews, useBootstrap } from "../lib/catalog";
-import { prepareSearchQuery, searchTier, seriesSearchFields } from "../lib/fuzzy-search";
+import { prepareSearchQuery, searchTier, seriesSearchFields } from "@/lib/fuzzy-search";
 import type { Series, Tag } from "../lib/types";
 import { colors, panel, radius } from "../theme";
 import { AppHeader } from "./app-header";

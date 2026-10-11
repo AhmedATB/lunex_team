@@ -2,13 +2,31 @@ import { useQuery } from "@tanstack/react-query";
 import { LinearGradient } from "expo-linear-gradient";
 import { router } from "expo-router";
 import * as WebBrowser from "expo-web-browser";
-import { Bell, Bookmark, BookOpen, ChevronLeft, Flame, Globe, Lock, LogOut, MessageSquare, Send, ShieldCheck, FileText, type LucideIcon } from "lucide-react-native";
+import {
+  Bell,
+  Bookmark,
+  BookOpen,
+  ChevronLeft,
+  FileText,
+  Flame,
+  Globe,
+  LayoutDashboard,
+  Lock,
+  LogOut,
+  Mail,
+  MessageSquare,
+  Newspaper,
+  Send,
+  Settings,
+  ShieldCheck,
+  type LucideIcon,
+} from "lucide-react-native";
 import { useMemo, useState } from "react";
 import { Pressable, ScrollView, StyleSheet, View, useWindowDimensions } from "react-native";
 import { AppHeader } from "../../components/app-header";
 import { Avatar } from "../../components/comments";
 import { GUTTER } from "../../components/layout";
-import { SeriesCard } from "../../components/series-card";
+import { openWeb, SeriesCard } from "../../components/series-card";
 import { SignInRequired } from "../../components/signin-required";
 import { Badge, Button, formatNumber, Loading, Panel, Row, Txt } from "../../components/ui";
 import { ACHIEVEMENTS, type AchievementMetric } from "../../lib/achievements";
@@ -37,6 +55,9 @@ const ROLE_LABELS: Record<string, string> = {
   super_administrator: "مسؤول أعلى",
   owner: "المالك",
 };
+
+/** Who sees "لوحة الإدارة" (the site's header shows it to `manage_users`, lib/rbac.ts). */
+const ADMIN_ROLES = new Set(["super_administrator", "owner"]);
 
 /** GET /api/me/progress — level, experience, streaks, counts and earned achievements (the server's numbers). */
 interface Progress {
@@ -145,13 +166,32 @@ export default function AccountScreen() {
     level: progress?.level ?? 1,
   };
 
+  // The rest of the site, as the site itself (app/web.tsx): settings, inbox, news, team and admin dashboards.
+  const accountLinks = signedIn && user && (
+    <Panel style={{ overflow: "hidden" }}>
+      <LinkRow icon={Settings} label="الإعدادات" onPress={() => openWeb("/profile/settings", "الإعدادات")} />
+      <LinkRow icon={Bell} label="الإشعارات" onPress={() => openWeb("/notifications", "الإشعارات")} />
+      <LinkRow icon={Mail} label="الرسائل" onPress={() => openWeb("/messages", "الرسائل")} />
+      {(user.teamAccess ?? []).map((access) => (
+        <LinkRow
+          key={access.teamId}
+          icon={LayoutDashboard}
+          label={`${access.level === "lead" ? "إدارة" : "فصول"} ${access.name}`}
+          onPress={() => openWeb(`/teams/${access.slug}/dashboard`, access.name)}
+        />
+      ))}
+      {ADMIN_ROLES.has(user.role) && <LinkRow icon={ShieldCheck} label="لوحة الإدارة" onPress={() => openWeb("/admin", "لوحة الإدارة")} />}
+    </Panel>
+  );
+
   const links = (
     <Panel style={{ overflow: "hidden" }}>
+      <LinkRow icon={Newspaper} label="الأخبار" onPress={() => openWeb("/news", "الأخبار")} />
       <LinkRow icon={MessageSquare} label="سيرفر Discord" onPress={() => WebBrowser.openBrowserAsync(DISCORD_URL)} />
       <LinkRow icon={Send} label="قناة Telegram" onPress={() => WebBrowser.openBrowserAsync(TELEGRAM_URL)} />
       <LinkRow icon={Globe} label="الموقع" onPress={() => WebBrowser.openBrowserAsync(SITE_URL)} />
-      <LinkRow icon={ShieldCheck} label="سياسة الخصوصية" onPress={() => WebBrowser.openBrowserAsync(`${SITE_URL}/privacy`)} />
-      <LinkRow icon={FileText} label="شروط الاستخدام" onPress={() => WebBrowser.openBrowserAsync(`${SITE_URL}/terms`)} />
+      <LinkRow icon={ShieldCheck} label="سياسة الخصوصية" onPress={() => openWeb("/privacy", "سياسة الخصوصية")} />
+      <LinkRow icon={FileText} label="شروط الاستخدام" onPress={() => openWeb("/terms", "شروط الاستخدام")} />
       {signedIn && <LinkRow icon={LogOut} label="تسجيل الخروج" onPress={logout} danger />}
     </Panel>
   );
@@ -235,7 +275,7 @@ export default function AccountScreen() {
             <Stat icon={MessageSquare} label="تعليق" value={progress?.comments ?? 0} />
             <Stat icon={Bookmark} label="مفضلة" value={saved.length} />
           </Row>
-          <Button label="إعدادات الحساب" variant="secondary" onPress={() => WebBrowser.openBrowserAsync(`${SITE_URL}/profile/settings`)} style={{ alignSelf: "stretch" }} />
+          <Button label="إعدادات الحساب" variant="secondary" onPress={() => openWeb("/profile/settings", "الإعدادات")} style={{ alignSelf: "stretch" }} />
         </Panel>
 
         <ScrollView horizontal showsHorizontalScrollIndicator={false} style={{ transform: [{ scaleX: -1 }] }} contentContainerStyle={styles.tabs}>
@@ -339,6 +379,7 @@ export default function AccountScreen() {
             </Panel>
           ))}
 
+        {accountLinks}
         {links}
       </ScrollView>
     </View>

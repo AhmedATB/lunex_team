@@ -50,6 +50,7 @@ export default function RootLayout() {
             <Stack.Screen name="login" options={{ presentation: "modal", animation: "slide_from_bottom" }} />
             <Stack.Screen name="register" options={{ presentation: "modal", animation: "slide_from_bottom" }} />
             <Stack.Screen name="forgot-password" options={{ presentation: "modal", animation: "slide_from_bottom" }} />
+            <Stack.Screen name="web" />
             <Stack.Screen name="auth" options={{ animation: "none" }} />
           </Stack>
         </SessionProvider>

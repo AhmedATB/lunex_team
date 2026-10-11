@@ -6,35 +6,13 @@ import { useMemo } from "react";
 import { Pressable, RefreshControl, ScrollView, StyleSheet, View } from "react-native";
 import { AppHeader } from "../../components/app-header";
 import { Carousel, Grid, GUTTER, unmirror } from "../../components/layout";
-import { CoverPanel, CoverTile, openChapterNumber, openSeries } from "../../components/series-card";
+import { CoverPanel, CoverTile, openChapterNumber, openSeries, openWeb } from "../../components/series-card";
 import { Badge, Button, ErrorState, formatNumber, formatRating, Loading, Panel, RatingPill, Row, SectionHeader, Txt } from "../../components/ui";
-import { byPopularity, byThisWeek, latestPerSeries, seriesTitle, timeAgo, useBootstrap } from "../../lib/catalog";
+import { byPopularity, byThisWeek, latestPerSeries, pickEssentialGenres, seriesTitle, timeAgo, useBootstrap } from "../../lib/catalog";
 import { absolute } from "../../lib/config";
 import { useLibrary } from "../../lib/library";
 import type { Series } from "../../lib/types";
 import { colors, lunexGradient, panel, radius } from "../../theme";
-
-/** The site's lib/essential-genres.ts: the genres worth a tile on the home page, in this order, when some work uses them. */
-const ESSENTIAL_GENRE_SLUGS = [
-  "action",
-  "adventure",
-  "fantasy",
-  "romance",
-  "comedy",
-  "drama",
-  "horror",
-  "mystery",
-  "thriller",
-  "sci-fi",
-  "supernatural",
-  "martial-arts",
-  "survival",
-  "school-life",
-  "psychological",
-  "isekai",
-  "sports",
-  "historical",
-];
 
 const NEWS_ICON = { announcement: Megaphone, event: Calendar, news: Newspaper } as const;
 const NEWS_LABEL: Record<string, string> = { announcement: "إعلان", event: "فعالية", news: "خبر" };
@@ -114,12 +92,10 @@ export default function HomeScreen() {
       data.recentChapters.filter((c) => seriesMap.has(c.seriesId)),
       12,
     ).map((c) => ({ ...c, series: seriesMap.get(c.seriesId)! }));
-    const usedGenres = new Set(series.flatMap((s) => s.genreIds));
-    const bySlug = new Map(data.tags.filter((t) => t.group === "genre" || t.group === "theme").map((t) => [t.slug, t]));
-    const genres = ESSENTIAL_GENRE_SLUGS.flatMap((slug) => {
-      const tag = bySlug.get(slug);
-      return tag && usedGenres.has(tag.id) ? [tag] : [];
-    });
+    const genres = pickEssentialGenres(
+      data.tags.filter((t) => t.group === "genre" || t.group === "theme"),
+      series,
+    );
     return {
       lead: featured[0] ?? trending[0],
       secondary: featured.length > 1 ? featured.slice(1, 4) : trending.slice(1, 4),
@@ -370,7 +346,7 @@ export default function HomeScreen() {
               {view.news.map((n) => {
                 const Icon = NEWS_ICON[n.category as keyof typeof NEWS_ICON] ?? Newspaper;
                 return (
-                  <Panel key={n.id} style={{ overflow: "hidden" }}>
+                  <Pressable key={n.id} onPress={() => openWeb("/news", "الأخبار")} style={[panel, { overflow: "hidden" }]}>
                     <View style={{ aspectRatio: 16 / 9 }}>
                       <Image source={absolute(n.cover)} style={StyleSheet.absoluteFill} contentFit="cover" />
                       <View style={{ position: "absolute", left: 12, bottom: 12 }}>
@@ -386,7 +362,7 @@ export default function HomeScreen() {
                         {timeAgo(n.createdAt)}
                       </Txt>
                     </View>
-                  </Panel>
+                  </Pressable>
                 );
               })}
             </View>

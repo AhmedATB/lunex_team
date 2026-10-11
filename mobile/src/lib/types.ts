@@ -1,85 +1,18 @@
-/** The shapes the site's `/api/catalog` answers with — a subset of the web app's lib/types.ts, only what the app reads. */
+import type { Chapter as SiteChapter, NewsItem, Series, Team } from "@/lib/types";
 
-export type SeriesType = "manhwa" | "manga" | "manhua" | "novel" | string;
-export type SeriesStatus = "ongoing" | "completed" | "hiatus" | "cancelled" | string;
+/** The catalogue's shapes are the site's own (src/lib/types.ts); only what the app adds or the API sends on top lives here. */
+export type { NewsItem, Series, Team };
 
-export interface Series {
-  id: string;
-  slug: string;
-  title: string;
-  titleAr: string;
-  alternativeTitles: string[];
-  cover: string;
-  banner: string;
-  synopsis: string;
-  type: SeriesType;
-  status: SeriesStatus;
-  country: "kr" | "jp" | "cn" | string;
-  author: string;
-  artist: string;
-  year: number;
-  rating: number;
-  ratingCount: number;
-  views: number;
-  viewsWeek?: number;
-  bookmarks: number;
-  likes: number;
-  collaboratorTeamIds?: string[];
-  contentRating?: string;
-  genreIds: string[];
-  tags: string[];
-  teamId: string;
-  chapterCount: number;
-  latestChapterNumber: number;
-  updatedAt: string;
-  isFeatured: boolean;
-  featuredOrder?: number | null;
-  isRecommended: boolean;
-}
+/** A chapter as /api/catalog sends it: the site's Chapter, plus whether it is a text (novel) chapter. */
+export type Chapter = SiteChapter & { hasContent?: boolean };
 
-export interface Chapter {
-  id: string;
-  seriesId: string;
-  number: number;
-  title: string;
-  pages: number;
-  hasContent?: boolean;
-  releasedAt: string;
-  views: number;
-  manualLock?: boolean | null;
-  teamId: string;
-  thumbnail?: string;
-}
-
-export interface Team {
-  id: string;
-  slug: string;
-  name: string;
-  color: string;
-  logoUrl?: string;
-  description?: string;
-  recruiting?: boolean;
-  status?: string;
-  memberIds?: string[];
-  rank?: number;
-  discordUrl?: string;
-  category?: string;
-}
-
+/** A tag as /api/catalog/bootstrap sends it (genres, themes, formats, content warnings). */
 export interface Tag {
   id: string;
   slug: string;
   name: string;
   nameAr: string;
   group: string;
-}
-
-export interface NewsItem {
-  id: string;
-  title: string;
-  cover: string;
-  category: "announcement" | "event" | "news" | string;
-  createdAt: string;
 }
 
 /** GET /api/catalog/bootstrap */
@@ -108,10 +41,8 @@ export interface SessionUser {
   avatarVersion: string | null;
   bio?: string | null;
   hasPassword?: boolean;
+  /** The teams this person works on chapters in (only from /api/auth/me). */
+  teamAccess?: { teamId: string; slug: string; name: string; level: "lead" | "publisher" | "uploader" }[];
 }
 
-/** GET /api/wallet/rule — which chapters show as locked (the server is what actually refuses them). */
-export interface LockRule {
-  lockedWindow: number;
-  freeFirstChapters: number;
-}
+export type { LockRule } from "@/lib/chapter-lock";

@@ -13,7 +13,7 @@ import { Panel, Row, Txt } from "../components/ui";
 import { apiJson } from "../lib/api";
 import { seriesTitle, useBootstrap } from "../lib/catalog";
 import { absolute } from "../lib/config";
-import { prepareSearchQuery, searchTier, seriesSearchFields } from "../lib/fuzzy-search";
+import { prepareSearchQuery, searchTier, seriesSearchFields } from "@/lib/fuzzy-search";
 import { useSession } from "../lib/session";
 import { colors, panel, radius, TYPE_LABEL } from "../theme";
 
