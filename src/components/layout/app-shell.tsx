@@ -25,7 +25,9 @@ export function AppShell({ children, initialStyle }: { children: ReactNode; init
       <ScrollPerformanceGuard />
       <ToastHost />
       <ProgressWatcher />
-      <PushPrompt />
+      <div className="app-hide">
+        <PushPrompt />
+      </div>
       {/*
         Everything decorative below is `absolute` inside the page's own `relative` root: it belongs to the page and
         scrolls with it, never following the reader down the screen; the glows and sparkles pulse in place, nothing drifts. The glows sit at the page
@@ -57,28 +59,33 @@ export function AppShell({ children, initialStyle }: { children: ReactNode; init
         />
       </div>
       {/* The chat is an app of its own: on a phone it fills the screen (no header), and it never carries the news strip, footer or bottom bar. */}
-      <HideOnRoutes prefixes={CHAT_ROUTES} below="lg">
-        <Header />
-      </HideOnRoutes>
-      <HideOnRoutes prefixes={CHAT_ROUTES}>
-        <Ticker />
-      </HideOnRoutes>
+      {/* .app-hide: the phone app draws its own frame around these pages (lib/in-app.ts). */}
+      <div className="app-hide">
+        <HideOnRoutes prefixes={CHAT_ROUTES} below="lg">
+          <Header />
+        </HideOnRoutes>
+        <HideOnRoutes prefixes={CHAT_ROUTES}>
+          <Ticker />
+        </HideOnRoutes>
+      </div>
       <div className="flex flex-1">
         <Suspense fallback={null}>
           <Sidebar />
         </Suspense>
-        <main className="min-w-0 flex-1 pb-20 lg:pb-0">
+        <main className="app-main min-w-0 flex-1 pb-20 lg:pb-0">
           <PendingMain>{children}</PendingMain>
         </main>
       </div>
-      <HideOnRoutes prefixes={CHAT_ROUTES}>
-        <Footer />
-      </HideOnRoutes>
-      <HideOnRoutes prefixes={CHAT_ROUTES}>
-        <Suspense fallback={null}>
-          <BottomNav />
-        </Suspense>
-      </HideOnRoutes>
+      <div className="app-hide">
+        <HideOnRoutes prefixes={CHAT_ROUTES}>
+          <Footer />
+        </HideOnRoutes>
+        <HideOnRoutes prefixes={CHAT_ROUTES}>
+          <Suspense fallback={null}>
+            <BottomNav />
+          </Suspense>
+        </HideOnRoutes>
+      </div>
     </div>
   );
 }

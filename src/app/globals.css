@@ -592,3 +592,16 @@
     animation: none;
   }
 }
+
+/* The phone app's web view (lib/in-app.ts): the app draws the frame, and shows no web ads. `display: contents` keeps the
+   header's `sticky` working on the site itself, where the wrapper must not exist as a box. */
+.app-hide {
+  display: contents;
+}
+[data-app] .app-hide,
+[data-app] .ad-slot {
+  display: none !important;
+}
+[data-app] .app-main {
+  padding-bottom: 0;
+}

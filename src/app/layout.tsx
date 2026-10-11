@@ -16,6 +16,7 @@ import { getInitialStyle } from "@/lib/theme-cookie";
 import { getInitialConsent } from "@/lib/consent-cookie";
 import { AdScripts } from "@/components/ads/ad-scripts";
 import { SITE_URL } from "@/lib/site";
+import { isInApp } from "@/lib/in-app";
 
 const cairo = Cairo({
   subsets: ["arabic", "latin"],
@@ -65,11 +66,12 @@ export const metadata: Metadata = {
 };
 
 export default async function RootLayout({ children }: { children: React.ReactNode }) {
-  const [initialUser, initialStyle, initialConsent, catalogSeed] = await Promise.all([
+  const [initialUser, initialStyle, initialConsent, catalogSeed, inApp] = await Promise.all([
     getServerSession(),
     getInitialStyle(),
     getInitialConsent(),
     loadCatalogSeed(),
+    isInApp(),
   ]);
 
   return (
@@ -77,6 +79,7 @@ export default async function RootLayout({ children }: { children: React.ReactNo
       lang="ar"
       dir="rtl"
       data-style={initialStyle}
+      data-app={inApp ? "" : undefined}
       className={`${cairo.variable} ${tajawal.variable} ${baloo.variable}`}
       suppressHydrationWarning
     >
@@ -92,8 +95,9 @@ export default async function RootLayout({ children }: { children: React.ReactNo
             <TooltipProvider delayDuration={200}>{children}</TooltipProvider>
           </CatalogProvider>
         </SessionHint>
-        <CookieConsent initialChoice={initialConsent} />
-        <AdScripts />
+        {/* Inside the phone app (lib/in-app.ts): no cookie banner and no web ads. */}
+        {!inApp && <CookieConsent initialChoice={initialConsent} />}
+        {!inApp && <AdScripts />}
       </body>
     </html>
   );

@@ -46,7 +46,7 @@ export function AdUnit({ unit, className }: { unit: AdUnitId; className?: string
   if (!mounted || !ADS_ENABLED || !isAdPage(pathname) || !allowed) return null;
 
   return (
-    <aside aria-label="إعلان" className={cn("mx-auto w-full", className)} style={{ maxWidth: width }}>
+    <aside aria-label="إعلان" className={cn("ad-slot mx-auto w-full", className)} style={{ maxWidth: width }}>
       <p className="mb-1 text-center text-[10px] text-lunex-gray/70">إعلان</p>
       <iframe
         ref={frame}
