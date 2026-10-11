@@ -69,7 +69,7 @@ export function SeriesReviewPanel() {
       </CardHeader>
       <CardContent className="space-y-2">
         {items.map((item) => (
-          <div key={item.id} className="flex items-center gap-3 rounded-xl border border-white/10 p-2.5">
+          <div key={item.id} className="flex flex-col gap-3 rounded-xl border border-white/10 p-2.5 sm:flex-row sm:items-center">
             <button type="button" onClick={() => setViewing(item)} className="flex min-w-0 flex-1 items-center gap-3 text-start" aria-label={`عرض تفاصيل ${item.title}`}>
               {/* eslint-disable-next-line @next/next/no-img-element */}
               <img src={item.cover} alt="" className="h-14 w-10 shrink-0 rounded-md object-cover" />
@@ -80,7 +80,7 @@ export function SeriesReviewPanel() {
                 </span>
               </span>
             </button>
-            <div className="flex shrink-0 flex-wrap justify-end gap-1.5">
+            <div className="flex flex-wrap gap-1.5 [&>button]:flex-1 sm:shrink-0 sm:justify-end sm:[&>button]:flex-none">
               <Button size="sm" variant="secondary" onClick={() => setViewing(item)}>
                 <Eye className="h-3.5 w-3.5" /> التفاصيل
               </Button>
