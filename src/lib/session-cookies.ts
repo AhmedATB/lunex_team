@@ -52,4 +52,29 @@ export function setOAuthStateCookie(response: NextResponse, state: string) {
 
 export function clearOAuthStateCookie(response: NextResponse) {
   response.cookies.set(OAUTH_STATE_COOKIE, "", { ...baseCookieOptions, maxAge: 0 });
+  response.cookies.set(OAUTH_APP_COOKIE, "", { ...baseCookieOptions, maxAge: 0 });
+}
+
+/** Set when the phone app started the sign-in (lib/app-handoff): where to send the browser back to, and the app's challenge. */
+export const OAUTH_APP_COOKIE = "lunex_oauth_app";
+
+export interface OAuthAppReturn {
+  returnUrl: string;
+  challenge: string;
+}
+
+export function setOAuthAppCookie(response: NextResponse, value: OAuthAppReturn) {
+  response.cookies.set(OAUTH_APP_COOKIE, JSON.stringify(value), { ...baseCookieOptions, maxAge: OAUTH_STATE_MAX_AGE });
+}
+
+export function readOAuthAppCookie(raw: string | undefined): OAuthAppReturn | null {
+  if (!raw) return null;
+  try {
+    const value = JSON.parse(raw) as Partial<OAuthAppReturn>;
+    return typeof value.returnUrl === "string" && typeof value.challenge === "string"
+      ? { returnUrl: value.returnUrl, challenge: value.challenge }
+      : null;
+  } catch {
+    return null;
+  }
 }
