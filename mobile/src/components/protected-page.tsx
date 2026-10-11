@@ -102,7 +102,7 @@ export const ProtectedPage = memo(function ProtectedPage({
         {failed ? (
           <Pressable onPress={() => setRetryNonce((n) => n + 1)} style={styles.retry}>
             <Txt color={colors.muted}>تعذر تحميل الصفحة {pageNumber}</Txt>
-            <Txt weight="700" color={colors.lilac}>
+            <Txt weight="700" color={colors.primary300}>
               إعادة المحاولة
             </Txt>
           </Pressable>

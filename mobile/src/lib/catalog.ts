@@ -55,7 +55,7 @@ export function seriesTitle(series: Pick<Series, "title" | "titleAr">): string {
   return series.titleAr?.trim() || series.title;
 }
 
-/** Arabic-friendly relative time: "منذ 3 ساعات". */
+/** The site's timeAgo (lib/utils.ts). */
 export function timeAgo(iso: string): string {
   const diff = Math.max(0, Date.now() - new Date(iso).getTime());
   const minutes = Math.floor(diff / 60_000);
@@ -65,5 +65,25 @@ export function timeAgo(iso: string): string {
   if (hours < 24) return `منذ ${hours} س`;
   const days = Math.floor(hours / 24);
   if (days < 30) return `منذ ${days} يوم`;
-  return new Date(iso).toLocaleDateString("ar");
+  const months = Math.floor(days / 30);
+  if (months < 12) return `منذ ${months} شهر`;
+  return `منذ ${Math.floor(months / 12)} سنة`;
+}
+
+export { byFollowers, byPopularity, byThisWeek, byTopRated, byViews, popularityScore, ratingScore } from "./ranking";
+
+/** The site's lib/latest-chapters.ts: each work's newest chapter, and how many more came in the 3 days before it. */
+const BATCH_WINDOW_MS = 3 * 86_400_000;
+export function latestPerSeries<T extends { seriesId: string; releasedAt: string }>(chapters: readonly T[], limit: number): (T & { moreCount: number })[] {
+  const newestFirst = [...chapters].sort((a, b) => +new Date(b.releasedAt) - +new Date(a.releasedAt));
+  const bySeries = new Map<string, T[]>();
+  for (const chapter of newestFirst) {
+    const group = bySeries.get(chapter.seriesId);
+    if (group) group.push(chapter);
+    else bySeries.set(chapter.seriesId, [chapter]);
+  }
+  return [...bySeries.values()].slice(0, limit).map(([latest, ...older]) => {
+    const start = +new Date(latest.releasedAt) - BATCH_WINDOW_MS;
+    return { ...latest, moreCount: older.filter((c) => +new Date(c.releasedAt) >= start).length };
+  });
 }

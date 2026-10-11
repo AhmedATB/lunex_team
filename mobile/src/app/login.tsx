@@ -1,35 +1,29 @@
-import Ionicons from "@expo/vector-icons/Ionicons";
 import { router } from "expo-router";
-import * as WebBrowser from "expo-web-browser";
+import { Lock, Mail } from "lucide-react-native";
 import { useState } from "react";
-import { ActivityIndicator, KeyboardAvoidingView, Platform, Pressable, ScrollView, StyleSheet, TextInput, View } from "react-native";
+import { Pressable, StyleSheet } from "react-native";
+import { AuthShell, Field, OrDivider } from "../components/auth-shell";
 import { TurnstileBox } from "../components/turnstile-box";
 import { Button, Row, Txt } from "../components/ui";
 import type { OAuthProvider } from "../lib/oauth";
-import { SITE_URL } from "../lib/config";
 import { useSession } from "../lib/session";
 import { colors, radius } from "../theme";
 
+/** The site's /login: email and password, the "not a robot" box, then Google / Discord. */
 export default function LoginScreen() {
   const { login, loginWithProvider } = useSession();
-  const [providerBusy, setProviderBusy] = useState<OAuthProvider | null>(null);
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [boxToken, setBoxToken] = useState<string | null>(null);
   const [boxReset, setBoxReset] = useState(0);
   const [loading, setLoading] = useState(false);
+  const [providerBusy, setProviderBusy] = useState<OAuthProvider | null>(null);
   const [error, setError] = useState("");
 
   async function submit() {
     setError("");
-    if (!email.trim() || !password) {
-      setError("أدخل البريد الإلكتروني وكلمة المرور.");
-      return;
-    }
-    if (!boxToken) {
-      setError("انتظر حتى يكتمل التحقق ثم حاول مرة أخرى.");
-      return;
-    }
+    if (!email.trim() || !password) return setError("أدخل البريد الإلكتروني وكلمة المرور.");
+    if (!boxToken) return setError("أكّد أنك لست روبوتًا بالضغط على المربع أعلاه.");
     setLoading(true);
     try {
       await login(email, password, boxToken);
@@ -55,120 +49,83 @@ export default function LoginScreen() {
   }
 
   return (
-    <KeyboardAvoidingView style={{ flex: 1, backgroundColor: colors.bg }} behavior={Platform.OS === "ios" ? "padding" : undefined}>
-      <ScrollView contentContainerStyle={styles.container} keyboardShouldPersistTaps="handled">
-        <Txt size={24} weight="800">
-          مرحبًا بعودتك
+    <AuthShell title="تسجيل الدخول" subtitle="أهلًا بعودتك إلى LUNEX TEAM">
+      <Field
+        label="البريد الإلكتروني"
+        icon={<Mail size={18} color={colors.muted} />}
+        value={email}
+        onChangeText={setEmail}
+        placeholder="you@example.com"
+        keyboardType="email-address"
+        autoCapitalize="none"
+        autoComplete="email"
+        textContentType="emailAddress"
+        ltr
+      />
+      <Field
+        label="كلمة المرور"
+        icon={<Lock size={18} color={colors.muted} />}
+        aside={
+          <Pressable onPress={() => router.push("/forgot-password")} hitSlop={6}>
+            <Txt size={12} color={colors.primary300}>
+              نسيت كلمة المرور؟
+            </Txt>
+          </Pressable>
+        }
+        value={password}
+        onChangeText={setPassword}
+        placeholder="••••••••"
+        secureTextEntry
+        autoComplete="current-password"
+        textContentType="password"
+        onSubmitEditing={submit}
+        ltr
+      />
+      <TurnstileBox action="login" onToken={setBoxToken} resetKey={boxReset} />
+      {error ? (
+        <Txt size={13} color="#f87171">
+          {error}
         </Txt>
-        <Txt color={colors.muted}>سجّل الدخول بحسابك في LUNEX.</Txt>
-
-        <Row gap={10}>
-          {(
-            [
-              { id: "google", label: "Google", icon: "logo-google" },
-              { id: "discord", label: "Discord", icon: "logo-discord" },
-            ] as const
-          ).map((p) => (
-            <Pressable
-              key={p.id}
-              onPress={() => withProvider(p.id)}
-              disabled={providerBusy !== null || loading}
-              style={({ pressed }) => [styles.provider, pressed && { backgroundColor: colors.surfaceRaised }]}
-            >
-              {providerBusy === p.id ? (
-                <ActivityIndicator color={colors.text} />
-              ) : (
-                <Row gap={8}>
-                  <Ionicons name={p.icon} size={18} color={colors.text} />
-                  <Txt weight="700">{p.label}</Txt>
-                </Row>
-              )}
-            </Pressable>
-          ))}
-        </Row>
-
-        <Row gap={10}>
-          <View style={styles.divider} />
-          <Txt size={12} color={colors.faint}>
-            أو بالبريد الإلكتروني
+      ) : null}
+      <Button size="lg" label="تسجيل الدخول" onPress={submit} loading={loading} disabled={providerBusy !== null} />
+      <OrDivider />
+      <Row gap={12}>
+        {(["discord", "google"] as const).map((p) => (
+          <Pressable
+            key={p}
+            onPress={() => withProvider(p)}
+            disabled={providerBusy !== null || loading}
+            style={({ pressed }) => [styles.provider, pressed && { backgroundColor: "rgba(255,255,255,0.08)" }, providerBusy === p && { opacity: 0.6 }]}
+          >
+            <Txt weight="700" size={15}>
+              {providerBusy === p ? "…" : p === "google" ? "Google" : "Discord"}
+            </Txt>
+          </Pressable>
+        ))}
+      </Row>
+      <Row gap={4} style={{ justifyContent: "center" }}>
+        <Txt size={14} color={colors.muted}>
+          ليس لديك حساب؟
+        </Txt>
+        <Pressable onPress={() => router.replace("/register")} hitSlop={6}>
+          <Txt size={14} weight="800" color={colors.primary300}>
+            أنشئ حسابًا
           </Txt>
-          <View style={styles.divider} />
-        </Row>
-
-        <View style={{ gap: 6 }}>
-          <Txt size={13} color={colors.muted}>
-            البريد الإلكتروني
-          </Txt>
-          <TextInput
-            value={email}
-            onChangeText={setEmail}
-            style={[styles.input, { textAlign: "left" }]}
-            keyboardType="email-address"
-            autoCapitalize="none"
-            autoComplete="email"
-            textContentType="emailAddress"
-            placeholder="you@example.com"
-            placeholderTextColor={colors.faint}
-          />
-        </View>
-
-        <View style={{ gap: 6 }}>
-          <Txt size={13} color={colors.muted}>
-            كلمة المرور
-          </Txt>
-          <TextInput
-            value={password}
-            onChangeText={setPassword}
-            style={[styles.input, { textAlign: "left" }]}
-            secureTextEntry
-            autoComplete="current-password"
-            textContentType="password"
-            onSubmitEditing={submit}
-          />
-        </View>
-
-        <TurnstileBox action="login" onToken={setBoxToken} resetKey={boxReset} />
-
-        {error ? (
-          <Txt size={13} color={colors.danger}>
-            {error}
-          </Txt>
-        ) : null}
-
-        <Button label="تسجيل الدخول" onPress={submit} loading={loading} />
-
-        <View style={{ gap: 4, marginTop: 8 }}>
-          <Button label="نسيت كلمة المرور؟" variant="ghost" onPress={() => WebBrowser.openBrowserAsync(`${SITE_URL}/forgot-password`)} />
-          <Txt size={12} color={colors.faint} style={{ textAlign: "center", marginTop: 8 }}>
-            ليس لديك حساب؟ أنشئه من الموقع ثم سجّل الدخول هنا.
-          </Txt>
-          <Button label="إنشاء حساب" variant="ghost" onPress={() => WebBrowser.openBrowserAsync(`${SITE_URL}/register`)} />
-        </View>
-      </ScrollView>
-    </KeyboardAvoidingView>
+        </Pressable>
+      </Row>
+    </AuthShell>
   );
 }
 
 const styles = StyleSheet.create({
-  container: { padding: 20, gap: 16 },
   provider: {
     flex: 1,
     height: 48,
-    borderRadius: radius.md,
+    borderRadius: radius.lg,
     borderWidth: 1,
     borderColor: "rgba(255,255,255,0.15)",
+    backgroundColor: "rgba(255,255,255,0.05)",
     alignItems: "center",
     justifyContent: "center",
-  },
-  divider: { flex: 1, height: 1, backgroundColor: colors.border },
-  input: {
-    height: 50,
-    borderRadius: radius.md,
-    backgroundColor: colors.surface,
-    borderWidth: 1,
-    borderColor: colors.border,
-    color: colors.text,
-    paddingHorizontal: 14,
-    fontSize: 15,
   },
 });

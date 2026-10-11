@@ -3,6 +3,8 @@
   "version": "1.0.0",
   "main": "expo-router/entry",
   "dependencies": {
+    "@expo-google-fonts/baloo-bhaijaan-2": "^0.4.2",
+    "@expo-google-fonts/tajawal": "^0.4.1",
     "@expo/vector-icons": "^15.0.2",
     "@noble/ciphers": "^2.4.0",
     "@noble/hashes": "^2.4.0",
@@ -23,11 +25,13 @@
     "expo-status-bar": "~57.0.1",
     "expo-system-ui": "~57.0.4",
     "expo-web-browser": "~57.0.3",
+    "lucide-react-native": "^1.55.0",
     "react": "19.2.3",
     "react-dom": "19.2.3",
     "react-native": "0.86.3",
     "react-native-safe-area-context": "~5.7.0",
     "react-native-screens": "~4.26.0",
+    "react-native-svg": "15.15.4",
     "react-native-webview": "13.16.1"
   },
   "devDependencies": {

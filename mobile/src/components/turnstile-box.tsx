@@ -68,7 +68,7 @@ export function TurnstileBox({
         />
       </View>
       {problem && (
-        <Txt size={12} color={colors.warning}>
+        <Txt size={12} color={colors.amber400}>
           تعذر تحميل مربع التحقق. تأكد من الإنترنت ثم أعد فتح الصفحة.
         </Txt>
       )}

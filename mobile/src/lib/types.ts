@@ -14,12 +14,18 @@ export interface Series {
   synopsis: string;
   type: SeriesType;
   status: SeriesStatus;
+  country: "kr" | "jp" | "cn" | string;
+  author: string;
+  artist: string;
   year: number;
   rating: number;
   ratingCount: number;
   views: number;
   viewsWeek?: number;
   bookmarks: number;
+  likes: number;
+  collaboratorTeamIds?: string[];
+  contentRating?: string;
   genreIds: string[];
   tags: string[];
   teamId: string;
@@ -51,6 +57,13 @@ export interface Team {
   name: string;
   color: string;
   logoUrl?: string;
+  description?: string;
+  recruiting?: boolean;
+  status?: string;
+  memberIds?: string[];
+  rank?: number;
+  discordUrl?: string;
+  category?: string;
 }
 
 export interface Tag {
@@ -65,6 +78,7 @@ export interface NewsItem {
   id: string;
   title: string;
   cover: string;
+  category: "announcement" | "event" | "news" | string;
   createdAt: string;
 }
 
@@ -92,6 +106,8 @@ export interface SessionUser {
   displayName: string | null;
   role: string;
   avatarVersion: string | null;
+  bio?: string | null;
+  hasPassword?: boolean;
 }
 
 /** GET /api/wallet/rule — which chapters show as locked (the server is what actually refuses them). */
